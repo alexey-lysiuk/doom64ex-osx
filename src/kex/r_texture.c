@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: r_texture.c 1090 2012-03-17 21:11:19Z svkaiser $
+// $Id: r_texture.c 1100 2012-04-08 19:17:31Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,14 +15,14 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 1090 $
-// $Date: 2012-03-17 23:11:19 +0200 (сб, 17 бер 2012) $
+// $Revision: 1100 $
+// $Date: 2012-04-08 22:17:31 +0300 (нд, 08 кві 2012) $
 //
 // DESCRIPTION: Texture handling
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
-static const char rcsid[] = "$Id: r_texture.c 1090 2012-03-17 21:11:19Z svkaiser $";
+static const char rcsid[] = "$Id: r_texture.c 1100 2012-04-08 19:17:31Z svkaiser $";
 #endif
 
 #include "doomstat.h"
@@ -34,6 +34,7 @@ static const char rcsid[] = "$Id: r_texture.c 1090 2012-03-17 21:11:19Z svkaiser
 #include "r_texture.h"
 #include "r_gl.h"
 #include "p_spec.h"
+#include "p_local.h"
 
 int         curtexture;
 int         cursprite;
@@ -832,6 +833,16 @@ void R_DumpTextures(void)
 }
 
 //
+// R_ResetTextures
+// Resets the current texture index
+//
+
+void R_ResetTextures(void)
+{
+    curtexture = cursprite = curgfx = -1;
+}
+
+//
 // R_PrecacheLevel
 // Loads and binds all world textures before level startup
 //
@@ -839,12 +850,16 @@ void R_DumpTextures(void)
 void R_PrecacheLevel(void)
 {
     char *texturepresent;
-    int	i;	
+    char *spritepresent;
+    int	i;
+    int j;
+    int	p;
+    mobj_t* mo;
     
     R_DumpTextures();
     
-    texturepresent = Z_Alloca(numtextures);
-    dmemset(texturepresent,0, numtextures);
+    texturepresent = (char*)Z_Alloca(numtextures);
+    spritepresent = (char*)Z_Alloca(NUMSPRITES);
     
     for(i = 0; i < numsides; i++)
     {
@@ -857,6 +872,9 @@ void R_PrecacheLevel(void)
     {
         texturepresent[sectors[i].ceilingpic] = 1;
         texturepresent[sectors[i].floorpic] = 1;
+
+        if(sectors[i].flags & MS_LIQUIDFLOOR)
+            texturepresent[sectors[i].floorpic + 1] = 1;
     }
     
     for(i = 0; i < numtextures; i++)
@@ -864,6 +882,55 @@ void R_PrecacheLevel(void)
         if(texturepresent[i])
         {
             R_BindWorldTexture(i, 0, 0);
+
+            for(p = 0; p < numanimdef; p++)
+            {
+                int lump = W_GetNumForName(animdefs[p].name) - t_start;
+            
+                if(lump != i)
+                    continue;
+
+                //
+                // TODO - add support for precaching palettes
+                //
+                if(!animdefs[p].palette)
+                {
+                    for(j = 1; j < animdefs[p].frames; j++)
+                        R_BindWorldTexture(i + j, 0, 0);
+                }
+            }
+        }
+    }
+
+    for(mo = mobjhead.next; mo != &mobjhead; mo = mo->next)
+        spritepresent[mo->sprite] = 1;
+
+    //
+    // TODO - add support for precaching palettes
+    //
+    for(i = 0; i < NUMSPRITES; i++)
+    {
+        if(spritepresent[i])
+        {
+            spritedef_t	*sprdef;
+            int k;
+
+            sprdef = &spriteinfo[i];
+
+            for(k = 0; k < sprdef->numframes; k++)
+            {
+                spriteframe_t *sprframe;
+                int p;
+
+                sprframe = &sprdef->spriteframes[k];
+                if(sprframe->rotate)
+                {
+                    for(p = 0; p < 8; p++)
+                        R_BindSpriteTexture(sprframe->lump[p], 0);
+                }
+                else
+                    R_BindSpriteTexture(sprframe->lump[0], 0);
+            }
         }
     }
 

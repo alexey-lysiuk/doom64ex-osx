@@ -185,6 +185,10 @@ SOURCE=.\..\i_system.c
 # End Source File
 # Begin Source File
 
+SOURCE=..\i_video.c
+# End Source File
+# Begin Source File
+
 SOURCE=.\..\i_xinput.c
 # End Source File
 # End Group
@@ -394,14 +398,6 @@ SOURCE=.\..\z_zone.c
 # Begin Source File
 
 SOURCE=.\..\wi_stuff.c
-# End Source File
-# End Group
-# Begin Group "V"
-
-# PROP Default_Filter ""
-# Begin Source File
-
-SOURCE=.\..\v_sdl.c
 # End Source File
 # End Group
 # Begin Group "ST"
@@ -629,6 +625,10 @@ SOURCE=.\..\i_system.h
 # End Source File
 # Begin Source File
 
+SOURCE=..\i_video.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\..\i_xinput.h
 # End Source File
 # End Group
@@ -798,14 +798,6 @@ SOURCE=.\..\z_zone.h
 # Begin Source File
 
 SOURCE=.\..\wi_stuff.h
-# End Source File
-# End Group
-# Begin Group "V_H"
-
-# PROP Default_Filter ""
-# Begin Source File
-
-SOURCE=.\..\v_sdl.h
 # End Source File
 # End Group
 # Begin Group "T_H"

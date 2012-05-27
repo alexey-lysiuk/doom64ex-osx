@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: m_menu.c 1089 2012-03-17 05:37:23Z svkaiser $
+// $Id: m_menu.c 1101 2012-04-08 19:48:22Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 1089 $
-// $Date: 2012-03-17 07:37:23 +0200 (сб, 17 бер 2012) $
+// $Revision: 1101 $
+// $Date: 2012-04-08 22:48:22 +0300 (нд, 08 кві 2012) $
 //
 //
 // DESCRIPTION:
@@ -26,7 +26,7 @@
 //-----------------------------------------------------------------------------
 #ifdef RCSID
 static const char
-rcsid[] = "$Id: m_menu.c 1089 2012-03-17 05:37:23Z svkaiser $";
+rcsid[] = "$Id: m_menu.c 1101 2012-04-08 19:48:22Z svkaiser $";
 #endif
 
 #ifdef _WIN32
@@ -41,7 +41,7 @@ rcsid[] = "$Id: m_menu.c 1089 2012-03-17 05:37:23Z svkaiser $";
 
 #include <fcntl.h>
 #include "doomdef.h"
-#include "v_sdl.h"
+#include "i_video.h"
 #include "d_englsh.h"
 #include "m_cheat.h"
 #include "m_misc.h"
@@ -106,6 +106,7 @@ dboolean	        menuactive = false;
 dboolean	        mainmenuactive = false;
 dboolean            allowclearmenu = true;              // can user hit escape to clear menu?
 
+static dboolean     newmenu = false;    // 20120323 villsa
 static char         *messageBindCommand;
 static int          quickSaveSlot;                      // -1 = no quicksave slot picked!
 static int          saveSlot;                           // which slot to save in
@@ -143,7 +144,6 @@ static int      m_aspectRatio = 0;
 static int      m_ScreenSize = 1;
 static int      m_mousex = 0;
 static int      m_mousey = 0;
-static int      thumbnail_active = -1;
 
 //------------------------------------------------------------------------
 //
@@ -214,7 +214,6 @@ static menu_t* nextmenu;
 //------------------------------------------------------------------------
 
 void M_SetupNextMenu(menu_t *menudef);
-void M_StartControlPanel(void);
 void M_ClearMenus (void);
 
 void M_QuickSave(void);
@@ -609,7 +608,7 @@ void M_NewGame(int choice)
 {
     if(netgame && !demoplayback)
     {
-        M_StartControlPanel();
+        M_StartControlPanel(true);
         M_SetupNextMenu(&StartNewNotifyDef);
         return;
     }
@@ -1726,7 +1725,7 @@ void M_ChangeMouseAccel(int choice)
         else CON_CvarSetValue(v_macceleration.name, 20);
         break;
     }
-    V_MouseAccelChange();
+    I_MouseAccelChange();
 }
 
 void M_ChangeMouseLook(int choice)
@@ -2306,9 +2305,11 @@ void M_ChangeGammaLevel(int choice)
             CON_CvarSetValue(i_gamma.name, 20);
         break;
     case 2:
-        (int)i_gamma.value++;
-        if (i_gamma.value > 20)
-            i_gamma.value = 0;
+        if(i_gamma.value >= 20)
+            CON_CvarSetValue(i_gamma.name, 0);
+        else
+            CON_CvarSetValue(i_gamma.name, i_gamma.value + 1);
+
         players[consoleplayer].message = gammamsg[(int)i_gamma.value];
         break;
     }
@@ -3611,8 +3612,6 @@ void M_DoSave(int slot)
 {
     G_SaveGame(slot,savegamestrings[slot]);
     M_ClearMenus();
-
-    thumbnail_active = -1;
     
     // PICK QUICKSAVE SLOT YET?
     if (quickSaveSlot == -2)
@@ -3636,7 +3635,7 @@ void M_SaveGame(int choice)
 {
     if(!usergame)
     {
-        M_StartControlPanel();
+        M_StartControlPanel(true);
         M_SetupNextMenu(&SaveDeadDef);
         return;
     }
@@ -3740,7 +3739,7 @@ void M_LoadGame(int choice)
 {
     if(netgame)
     {
-        M_StartControlPanel();
+        M_StartControlPanel(true);
         M_SetupNextMenu(&NetLoadNotifyDef);
         return;
     }
@@ -4058,14 +4057,14 @@ void M_QuickSave(void)
     
     if(quickSaveSlot < 0)
     {
-        M_StartControlPanel();
+        M_StartControlPanel(true);
         M_ReadSaveStrings();
         M_SetupNextMenu(&SaveDef);
         quickSaveSlot = -2;     // means to pick a slot now
         return;
     }
 
-    M_StartControlPanel();
+    M_StartControlPanel(true);
     M_SetupNextMenu(&QuickSavePromptDef);
 }
 
@@ -4074,19 +4073,19 @@ void M_QuickLoad(void)
 {
     if (netgame)
     {
-        M_StartControlPanel();
+        M_StartControlPanel(true);
         M_SetupNextMenu(&NetLoadNotifyDef);
         return;
     }
     
     if (quickSaveSlot < 0)
     {
-        M_StartControlPanel();
+        M_StartControlPanel(true);
         M_SetupNextMenu(&QuickSaveConfirmDef);
         return;
     }
 
-    M_StartControlPanel();
+    M_StartControlPanel(true);
     M_SetupNextMenu(&QuickLoadPromptDef);
 }
 
@@ -4115,29 +4114,6 @@ static int thumbnail_map = -1;
 static dboolean M_SetThumbnail(int which)
 {
     byte* data;
-    //char name[256];
-
-    //
-    // still selected on current thumbnail?
-    //
-    if(thumbnail_active == which)
-    {
-        dglBindTexture(GL_TEXTURE_2D, thumbnail);
-        return 1;
-    }
-
-    thumbnail_active = which;
-
-    //
-    // delete old thumbnail texture
-    //
-    if(thumbnail)
-    {
-        dglDeleteTextures(1, &thumbnail);
-        thumbnail = 0;
-    }
-
-    // sprintf(name, SAVEGAMENAME"%d.dsg", which);
 
     data = Z_Malloc(SAVEGAMETBSIZE, PU_STATIC, 0);
 
@@ -4149,29 +4125,49 @@ static dboolean M_SetThumbnail(int which)
         &thumbnail_skill, &thumbnail_map))
     {
         Z_Free(data);
-        thumbnail_active = -1;
         return 0;
     }
 
     //
     // make a new thumbnail texture
     //
-    dglGenTextures(1, &thumbnail);
-    dglBindTexture(GL_TEXTURE_2D, thumbnail);
+    if(thumbnail == 0)
+    {
+        dglGenTextures(1, &thumbnail);
+        dglBindTexture(GL_TEXTURE_2D, thumbnail);
 
-    R_GLSetFilter();
+        R_GLSetFilter();
 
-    dglTexImage2D(
-        GL_TEXTURE_2D,
-        0,
-        GL_RGB8,
-        128,
-        128,
-        0,
-        GL_RGB,
-        GL_UNSIGNED_BYTE,
-        data
-        );
+        dglTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            GL_RGB8,
+            128,
+            128,
+            0,
+            GL_RGB,
+            GL_UNSIGNED_BYTE,
+            data
+            );
+    }
+    else
+    {
+        dglBindTexture(GL_TEXTURE_2D, thumbnail);
+
+        R_GLSetFilter();
+
+        dglTexSubImage2D(
+            GL_TEXTURE_2D,
+            0,
+            0,
+            0,
+            128,
+            128,
+            GL_RGB,
+            GL_UNSIGNED_BYTE,
+            data
+            );
+    }
 
     Z_Free(data);
 
@@ -4257,11 +4253,19 @@ static void M_DrawSaveGameFrontend(menu_t* def)
     dglEnable(GL_TEXTURE_2D);
 
     //
+    // 20120404 villsa - reset active textures just to make sure
+    // we don't end up seeing that thumbnail texture on a wall or something
+    //
+    R_ResetTextures();
+
+    //
     // draw thumbnail texture and stats
     //
     if(M_SetThumbnail(itemOn))
     {
         char string[128];
+
+        dglBindTexture(GL_TEXTURE_2D, thumbnail);
 
         dglBegin(GL_POLYGON);
         dglColor4ub(0xff, 0xff, 0xff, menualphacolor);
@@ -4656,12 +4660,12 @@ dboolean M_Responder(event_t* ev)
         switch(ch)
         {
           case KEY_F2:            // Save
-              M_StartControlPanel();
+              M_StartControlPanel(true);
               M_SaveGame(0);
               return true;
               
           case KEY_F3:            // Load
-              M_StartControlPanel();
+              M_StartControlPanel(true);
               M_LoadGame(0);
               return true;
               
@@ -4684,11 +4688,11 @@ dboolean M_Responder(event_t* ev)
         
         
         // Pop-up menu?
-        if (!menuactive)
+        if(!menuactive)
         {
             if (ch == KEY_ESCAPE && !st_chatOn)
             {
-                M_StartControlPanel ();
+                M_StartControlPanel(false);
                 return true;
             }
             return false;
@@ -4893,7 +4897,7 @@ dboolean M_Responder(event_t* ev)
 // M_StartControlPanel
 //
 
-void M_StartControlPanel(void)
+void M_StartControlPanel(dboolean forcenext)
 {
     if(!allowmenu)
         return;
@@ -4905,9 +4909,10 @@ void M_StartControlPanel(void)
     if(menuactive)
         return;
     
-    menuactive = 1;
+    menuactive = true;
     menufadefunc = NULL;
     nextmenu = NULL;
+    newmenu = forcenext;
     currentMenu = !usergame ? &MainDef : &PauseDef;
     itemOn = currentMenu->lastOn;
 
@@ -5351,6 +5356,20 @@ void M_ClearMenus (void)
     S_ResumeSound();
 }
 
+//
+// M_NextMenu
+//
+
+static void M_NextMenu(void)
+{
+    currentMenu = nextmenu;
+    itemOn = currentMenu->lastOn;
+    menualphacolor = 0xff;
+    alphaprevmenu = false;
+    menufadefunc = NULL;
+    nextmenu = NULL;
+}
+
 
 //
 // M_SetupNextMenu
@@ -5358,9 +5377,14 @@ void M_ClearMenus (void)
 
 void M_SetupNextMenu(menu_t *menudef)
 {
-    menufadefunc = M_MenuFadeOut;
+    if(newmenu)
+        menufadefunc = M_NextMenu;
+    else
+        menufadefunc = M_MenuFadeOut;
+
     alphaprevmenu = false;
     nextmenu = menudef;
+    newmenu = false;
 }
 
 
@@ -5530,6 +5554,7 @@ void M_Init(void)
     quickSaveSlot = -1;
     menufadefunc = NULL;
     nextmenu = NULL;
+    newmenu = false;
     
     for(i = 0; i < NUM_CONTROL_ITEMS; i++)
     {

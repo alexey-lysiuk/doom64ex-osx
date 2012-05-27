@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: am_map.c 1047 2012-02-09 05:08:17Z svkaiser $
+// $Id: am_map.c 1101 2012-04-08 19:48:22Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,20 +15,20 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 1047 $
-// $Date: 2012-02-09 07:08:17 +0200 (чт, 09 лют 2012) $
+// $Revision: 1101 $
+// $Date: 2012-04-08 22:48:22 +0300 (нд, 08 кві 2012) $
 //
 // DESCRIPTION:  the automap code (new and improved)
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
 static const char
-rcsid[] = "$Id: am_map.c 1047 2012-02-09 05:08:17Z svkaiser $";
+rcsid[] = "$Id: am_map.c 1101 2012-04-08 19:48:22Z svkaiser $";
 #endif
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "v_sdl.h"
+#include "i_video.h"
 #include "z_zone.h"
 #include "doomdef.h"
 #include "st_stuff.h"
@@ -544,8 +544,8 @@ void AM_Ticker(void)
             int panscalex = (int)(v_msensitivityx.value / (1500.0f / scale));
             int panscaley = (int)(v_msensitivityy.value / (1500.0f / scale));
 
-            automappanx += ((V_MouseAccel(mpanx)*panscalex)/128) << 16;
-            automappany += ((V_MouseAccel(mpany)*panscaley)/128) << 16;
+            automappanx += ((I_MouseAccel(mpanx)*panscalex)/128) << 16;
+            automappany += ((I_MouseAccel(mpany)*panscaley)/128) << 16;
             mpanx = mpany = 0;
         }
         else

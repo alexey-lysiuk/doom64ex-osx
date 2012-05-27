@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: d_net.c 1048 2012-02-13 04:08:26Z svkaiser $
+// $Id: d_net.c 1101 2012-04-08 19:48:22Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 1048 $
-// $Date: 2012-02-13 06:08:26 +0200 (пн, 13 лют 2012) $
+// $Revision: 1101 $
+// $Date: 2012-04-08 22:48:22 +0300 (нд, 08 кві 2012) $
 //
 // DESCRIPTION:
 //	DOOM Network game communication and protocol,
@@ -25,7 +25,7 @@
 //-----------------------------------------------------------------------------
 #ifdef RCSID
 
-static const char rcsid[] = "$Id: d_net.c 1048 2012-02-13 04:08:26Z svkaiser $";
+static const char rcsid[] = "$Id: d_net.c 1101 2012-04-08 19:48:22Z svkaiser $";
 #endif
 
 #include "m_menu.h"
@@ -37,7 +37,7 @@ static const char rcsid[] = "$Id: d_net.c 1048 2012-02-13 04:08:26Z svkaiser $";
 #include "m_misc.h"
 #include "con_console.h"
 #include "SDL.h"
-#include "v_sdl.h"
+#include "i_video.h"
 
 #define FEATURE_MULTIPLAYER 1
 
@@ -259,7 +259,7 @@ static void D_NetWait(void)
 	I_Printf("---------------------------------------------\n\n");
 
 #ifndef USESYSCONSOLE
-    V_NetWaitScreen();
+    I_NetWaitScreen();
 #endif
 
 	while(net_waiting_for_start)

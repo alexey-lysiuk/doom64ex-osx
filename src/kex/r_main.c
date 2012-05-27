@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: r_main.c 1092 2012-03-20 06:20:48Z svkaiser $
+// $Id: r_main.c 1103 2012-04-20 05:04:25Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,21 +15,21 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 1092 $
-// $Date: 2012-03-20 08:20:48 +0200 (вт, 20 бер 2012) $
+// $Revision: 1103 $
+// $Date: 2012-04-20 08:04:25 +0300 (пт, 20 кві 2012) $
 //
 // DESCRIPTION: Main rendering code.
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
-static const char rcsid[] = "$Id: r_main.c 1092 2012-03-20 06:20:48Z svkaiser $";
+static const char rcsid[] = "$Id: r_main.c 1103 2012-04-20 05:04:25Z svkaiser $";
 #endif
 
 #include <math.h>
 
 #include "doomdef.h"
 #include "doomstat.h"
-#include "v_sdl.h"
+#include "i_video.h"
 #include "d_devstat.h"
 #include "r_local.h"
 #include "r_sky.h"
@@ -293,10 +293,7 @@ void R_Init(void)
     }
 
     R_InitTextures();
-
-    curtexture      = -1;
-    curgfx          = -1;
-    cursprite       = -1;
+    R_ResetTextures();
 }
 
 //
@@ -381,7 +378,7 @@ void R_SetupFrame(player_t *player)
     //
     // reset active textures
     //
-    curtexture = cursprite = curgfx = -1;
+    R_ResetTextures();
 
     //
     // setup view rotation/position
@@ -906,6 +903,7 @@ static void R_DrawContextWall(line_t* line)
 
     dglDepthRange(0.0f, 0.0f);
     dglDisable(GL_TEXTURE_2D);
+    dglDisable(GL_CULL_FACE);
     dglColor4ub(128, 128, 128, 64);
     dglBegin(GL_POLYGON);
     dglVertex3f(vtx[0].x, vtx[0].y, vtx[0].z);
@@ -923,6 +921,7 @@ static void R_DrawContextWall(line_t* line)
     dglEnd();
     dglPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     dglEnable(GL_TEXTURE_2D);
+    dglEnable(GL_CULL_FACE);
     dglDepthRange(0.0f, 1.0f);
 
     R_GLToggleBlend(0);

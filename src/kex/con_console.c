@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: con_console.c 1055 2012-02-19 21:21:21Z svkaiser $
+// $Id: con_console.c 1097 2012-04-01 22:24:04Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,14 +15,14 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 1055 $
-// $Date: 2012-02-19 23:21:21 +0200 (нд, 19 лют 2012) $
+// $Revision: 1097 $
+// $Date: 2012-04-02 01:24:04 +0300 (пн, 02 кві 2012) $
 //
 // DESCRIPTION: Main console functions
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
-static const char rcsid[] = "$Id: con_console.c 1055 2012-02-19 21:21:21Z svkaiser $";
+static const char rcsid[] = "$Id: con_console.c 1097 2012-04-01 22:24:04Z svkaiser $";
 #endif
 
 #include "version.h"
@@ -807,6 +807,11 @@ void CON_Draw(void)
     float   y = 0;
     float   x = 0;
     float   inputlen;
+
+    if(oldiwad && !ConsoleOn)
+    {
+        CON_DrawConsoleText(8, 16, RED, CONFONT_SCALE, "IWAD is out of date. Please use Wadgen to generate a new one");
+    }
     
     if(!ConsoleLineBuffer)
         return;

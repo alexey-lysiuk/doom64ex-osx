@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: p_lights.c 1043 2012-02-03 20:26:29Z svkaiser $
+// $Id: p_lights.c 1102 2012-04-09 04:01:40Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 1043 $
-// $Date: 2012-02-03 22:26:29 +0200 (пт, 03 лют 2012) $
+// $Revision: 1102 $
+// $Date: 2012-04-09 07:01:40 +0300 (пн, 09 кві 2012) $
 //
 //
 // DESCRIPTION:
@@ -25,7 +25,7 @@
 //-----------------------------------------------------------------------------
 #ifdef RCSID
 static const char
-rcsid[] = "$Id: p_lights.c 1043 2012-02-03 20:26:29Z svkaiser $";
+rcsid[] = "$Id: p_lights.c 1102 2012-04-09 04:01:40Z svkaiser $";
 #endif
 
 
@@ -477,7 +477,8 @@ void T_Combine(combine_t *combine)
     
     sector = combine->sector;
     
-    if(combine->special != sector->special)
+    if(combine->special != sector->special ||
+        combine->func != combine->combiner->function.acp1)
     {
         sector->lightlevel = 0;
         P_RemoveThinker(&combine->thinker);

@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: d_main.c 1085 2012-03-11 04:47:16Z svkaiser $
+// $Id: d_main.c 1101 2012-04-08 19:48:22Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 1085 $
-// $Date: 2012-03-11 06:47:16 +0200 (нд, 11 бер 2012) $
+// $Revision: 1101 $
+// $Date: 2012-04-08 22:48:22 +0300 (нд, 08 кві 2012) $
 //
 //
 // DESCRIPTION:
@@ -28,7 +28,7 @@
 //-----------------------------------------------------------------------------
 #ifdef RCSID
 
-static const char rcsid[] = "$Id: d_main.c 1085 2012-03-11 04:47:16Z svkaiser $";
+static const char rcsid[] = "$Id: d_main.c 1101 2012-04-08 19:48:22Z svkaiser $";
 #endif
 
 #ifdef _WIN32
@@ -39,7 +39,7 @@ static const char rcsid[] = "$Id: d_main.c 1085 2012-03-11 04:47:16Z svkaiser $"
 
 #include "doomdef.h"
 #include "doomstat.h"
-#include "v_sdl.h"
+#include "i_video.h"
 #include "d_englsh.h"
 #include "sounds.h"
 #include "m_shift.h"
@@ -99,6 +99,7 @@ dboolean        nolights        = false;
 skill_t         startskill;
 int             startmap;
 dboolean        autostart       = false;
+dboolean        oldiwad         = false;
 FILE*           debugfile       = NULL;
 //char			wadfile[1024];              // primary wad file
 char            mapdir[1024];               // directory of development maps
@@ -159,8 +160,12 @@ void D_ProcessEvents(void)
     {
         ev = &events[eventtail];
 
-        if(CON_Responder(ev))
-            continue;               // console ate the event
+        // 20120404 villsa - don't do console inputs for demo playbacks
+        if(!demoplayback)
+        {
+            if(CON_Responder(ev))
+                continue;               // console ate the event
+        }
 
         if(devparm && !netgame && usergame)
         {
@@ -499,7 +504,7 @@ static void Title_Start(void)
     allowclearmenu = false;
 
     S_StartMusic(mus_title);
-    M_StartControlPanel();
+    M_StartControlPanel(false);
 }
 
 //
@@ -1159,7 +1164,7 @@ static int D_CheckDemo(void)
 //
 
 void D_DoomMain(void)
-{   
+{
     I_Printf("Z_Init: Init Zone Memory Allocator\n");
     Z_Init();
 
@@ -1169,6 +1174,9 @@ void D_DoomMain(void)
     // load before initing other systems
     I_Printf("M_LoadDefaults: Loading Game Configuration\n");
     M_LoadDefaults();
+
+    I_Printf("I_Init: Setting up machine state.\n");
+    I_Init();
     
     // init subsystems
 
@@ -1180,9 +1188,6 @@ void D_DoomMain(void)
     
     I_Printf("M_Init: Init miscellaneous info.\n");
     M_Init();
-    
-    I_Printf("I_Init: Setting up machine state.\n");
-    I_Init();
     
     I_Printf("R_Init: Init DOOM refresh daemon.\n");
     R_Init();
@@ -1205,8 +1210,8 @@ void D_DoomMain(void)
     I_Printf("ST_Init: Init status bar.\n");
     ST_Init();
     
-    I_Printf("V_InitGL: Starting OpenGL\n");
-    V_InitGL();
+    I_Printf("I_InitGL: Starting OpenGL\n");
+    I_InitGL();
 
     // garbage collection
     Z_FreeAlloca();

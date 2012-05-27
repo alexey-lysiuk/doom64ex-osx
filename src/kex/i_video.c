@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: v_sdl.c 1077 2012-03-05 18:26:15Z svkaiser $
+// $Id: i_video.c 1101 2012-04-08 19:48:22Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 1077 $
-// $Date: 2012-03-05 20:26:15 +0200 (пн, 05 бер 2012) $
+// $Revision: 1101 $
+// $Date: 2012-04-08 22:48:22 +0300 (нд, 08 кві 2012) $
 //
 //
 // DESCRIPTION:
@@ -24,7 +24,7 @@
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
-static const char rcsid[] = "$Id: v_sdl.c 1077 2012-03-05 18:26:15Z svkaiser $";
+static const char rcsid[] = "$Id: i_video.c 1101 2012-04-08 19:48:22Z svkaiser $";
 #endif
 
 #include <stdlib.h>
@@ -38,7 +38,7 @@ static const char rcsid[] = "$Id: v_sdl.c 1077 2012-03-05 18:26:15Z svkaiser $";
 #include "doomdef.h"
 #include "doomstat.h"
 #include "i_system.h"
-#include "v_sdl.h"
+#include "i_video.h"
 #include "d_main.h"
 #include "r_gl.h"
 
@@ -58,9 +58,10 @@ CVAR(v_vsync, 1);
 CVAR(v_depthsize, 24);
 CVAR(v_buffersize, 32);
 
-static void V_GetEvent(SDL_Event *Event);
-static void V_ReadMouse(void);
-void V_UpdateGrab(void);
+static void I_GetEvent(SDL_Event *Event);
+static void I_ReadMouse(void);
+static void I_InitInputs(void);
+void I_UpdateGrab(void);
 
 //================================================================================
 // Video
@@ -72,10 +73,10 @@ int	video_height;
 dboolean window_focused;
 
 //
-// V_InitScreen
+// I_InitScreen
 //
 
-void V_InitScreen(void)
+void I_InitScreen(void)
 {
     int		newwidth;
     int		newheight;
@@ -110,10 +111,10 @@ void V_InitScreen(void)
 }
 
 //
-// V_ShutdownWait
+// I_ShutdownWait
 //
 
-int V_ShutdownWait(void)
+int I_ShutdownWait(void)
 {
     static SDL_Event event;
         
@@ -122,7 +123,7 @@ int V_ShutdownWait(void)
         if(event.type == SDL_QUIT || 
             (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE))
         {
-            V_Shutdown();
+            I_ShutdownVideo();
 #ifndef USESYSCONSOLE
             exit(0);
 #else
@@ -135,29 +136,29 @@ int V_ShutdownWait(void)
 }
 
 //
-// V_Shutdown
+// I_ShutdownVideo
 //
 
-void V_Shutdown(void)
+void I_ShutdownVideo(void)
 {
     SDL_Quit();
 }
 
 //
-// V_NetWaitScreen
+// I_NetWaitScreen
 // Blank screen display while waiting for players to join
 //
 
-void V_NetWaitScreen(void)
+void I_NetWaitScreen(void)
 {
     uint32	flags = 0;
     
-    V_InitScreen();
+    I_InitScreen();
     flags |= SDL_SWSURFACE;
     
     if (!(screen = SDL_SetVideoMode(320, 240, 0, flags)))
     {
-        V_Shutdown();
+        I_ShutdownVideo();
         exit(1);
     }
     
@@ -165,14 +166,14 @@ void V_NetWaitScreen(void)
 }
 
 //
-// V_InitGL
+// I_InitGL
 //
 
-void V_InitGL(void)
+void I_InitGL(void)
 {
     uint32	flags = 0;
     
-    V_InitScreen();
+    I_InitScreen();
     
     if(v_depthsize.value != 8 &&
         v_depthsize.value != 16 &&
@@ -209,7 +210,7 @@ void V_InitGL(void)
         flags |= SDL_FULLSCREEN;
     
     if (SDL_SetVideoMode(video_width, video_height, SDL_BPP, flags) == NULL)
-        I_Error("V_Init: Failed to set opengl");
+        I_Error("I_Init: Failed to set opengl");
     
     R_GLInitialize();
     
@@ -221,10 +222,10 @@ void V_InitGL(void)
 }
 
 //
-// V_Init
+// I_InitVideo
 //
 
-void V_Init(void)
+void I_InitVideo(void)
 {
     char title[256];
     
@@ -245,35 +246,37 @@ void V_Init(void)
     sprintf(title, "Doom64 - Version Date: %s", version_date);
     SDL_WM_SetCaption(title, "Doom64");
     
-    V_InitInputs();
+    I_InitInputs();
 }
 
 //
-// V_StartTic
+// I_StartTic
 //
 
-void V_StartTic (void)
+void I_StartTic (void)
 {
     SDL_Event Event;
     
     while(SDL_PollEvent(&Event))
-        V_GetEvent(&Event);
+        I_GetEvent(&Event);
     
 #ifdef _USE_XINPUT
     I_XInputPollEvent();
 #endif
     
-    V_ReadMouse();
+    I_ReadMouse();
 }
 
 //
-// V_FinishUpdate
+// I_FinishUpdate
 //
 
-void V_FinishUpdate(void)
+void I_FinishUpdate(void)
 {
-    V_UpdateGrab();
+    I_UpdateGrab();
     R_GLFinish();
+
+    BusyDisk = false;
 }
 
 //================================================================================
@@ -291,10 +294,10 @@ int			DualMouse;
 dboolean	MouseMode;//false=microsoft, true=mouse systems
 
 //
-// V_TranslateKey
+// I_TranslateKey
 //
 
-static int V_TranslateKey(SDL_keysym* key)
+static int I_TranslateKey(SDL_keysym* key)
 {
     int rc = 0;
     
@@ -362,10 +365,10 @@ static int V_TranslateKey(SDL_keysym* key)
 }
 
 //
-// V_SDLtoDoomMouseState
+// I_SDLtoDoomMouseState
 //
 
-static int V_SDLtoDoomMouseState(Uint8 buttonstate)
+static int I_SDLtoDoomMouseState(Uint8 buttonstate)
 {
     return 0
         | (buttonstate & SDL_BUTTON(SDL_BUTTON_LEFT)      ? 1 : 0)
@@ -374,10 +377,10 @@ static int V_SDLtoDoomMouseState(Uint8 buttonstate)
 }
 
 //
-// V_UpdateFocus
+// I_UpdateFocus
 //
 
-static void V_UpdateFocus(void)
+static void I_UpdateFocus(void)
 {
     Uint8 state;
     state = SDL_GetAppState();
@@ -387,11 +390,11 @@ static void V_UpdateFocus(void)
     window_focused = (state & SDL_APPINPUTFOCUS) && (state & SDL_APPACTIVE);
 }
 
-// V_CenterMouse
+// I_CenterMouse
 // Warp the mouse back to the middle of the screen
 //
 
-static void V_CenterMouse(void)
+static void I_CenterMouse(void)
 {
     // Warp the the screen center
     SDL_WarpMouse((unsigned short)(video_width/2), (unsigned short)(video_height/2));
@@ -402,10 +405,10 @@ static void V_CenterMouse(void)
 }
 
 //
-// V_MouseShouldBeGrabbed
+// I_MouseShouldBeGrabbed
 //
 
-static dboolean V_MouseShouldBeGrabbed()
+static dboolean I_MouseShouldBeGrabbed()
 {
 #ifndef _WIN32
     // 20120105 bkw: Always grab the mouse in fullscreen mode
@@ -431,10 +434,10 @@ static dboolean V_MouseShouldBeGrabbed()
 }
 
 //
-// V_ReadMouse
+// I_ReadMouse
 //
 
-static void V_ReadMouse(void)
+static void I_ReadMouse(void)
 {
     int x, y;
     event_t ev;
@@ -447,45 +450,45 @@ static void V_ReadMouse(void)
     // if(x != 0 || y != 0) 
     // {
     ev.type = ev_mouse;
-    ev.data1 = V_SDLtoDoomMouseState(SDL_GetMouseState(NULL, NULL));
+    ev.data1 = I_SDLtoDoomMouseState(SDL_GetMouseState(NULL, NULL));
     ev.data2 = x << 5;
     ev.data3 = (-y) << 5;
     D_PostEvent(&ev);
     // }
     
-    if(V_MouseShouldBeGrabbed())
-        V_CenterMouse();
+    if(I_MouseShouldBeGrabbed())
+        I_CenterMouse();
 }
 
 //
-// V_MouseAccelChange
+// I_MouseAccelChange
 //
 
-void V_MouseAccelChange(void)
+void I_MouseAccelChange(void)
 {
     mouse_accelfactor = v_macceleration.value / 200.0f + 1.0f;
 }
 
 //
-// V_MouseAccel
+// I_MouseAccel
 //
 
-int V_MouseAccel(int val)
+int I_MouseAccel(int val)
 {
     if(!v_macceleration.value)
         return val;
     
     if(val < 0)
-        return -V_MouseAccel(-val);
+        return -I_MouseAccel(-val);
     
     return (int)(pow((double)val, (double)mouse_accelfactor));
 }
 
 //
-// V_ActivateMouse
+// I_ActivateMouse
 //
 
-static void V_ActivateMouse(void)
+static void I_ActivateMouse(void)
 {
     SDL_SetCursor(cursors[1]);
     SDL_WM_GrabInput(SDL_GRAB_ON);
@@ -493,10 +496,10 @@ static void V_ActivateMouse(void)
 }
 
 //
-// V_DeactivateMouse
+// I_DeactivateMouse
 //
 
-static void V_DeactivateMouse(void)
+static void I_DeactivateMouse(void)
 {
     SDL_SetCursor(cursors[0]);
     SDL_WM_GrabInput(SDL_GRAB_OFF);
@@ -504,33 +507,33 @@ static void V_DeactivateMouse(void)
 }
 
 //
-// V_UpdateGrab
+// I_UpdateGrab
 //
 
-void V_UpdateGrab(void)
+void I_UpdateGrab(void)
 {
     static dboolean currently_grabbed = false;
     dboolean grab;
     
-    grab = V_MouseShouldBeGrabbed();
+    grab = I_MouseShouldBeGrabbed();
     if (grab && !currently_grabbed)
     {
-        V_ActivateMouse();
+        I_ActivateMouse();
     }
     
     if (!grab && currently_grabbed)
     {
-        V_DeactivateMouse();
+        I_DeactivateMouse();
     }
     
     currently_grabbed = grab;
 }
 
 //
-// V_GetEvent
+// I_GetEvent
 //
 
-static void V_GetEvent(SDL_Event *Event)
+static void I_GetEvent(SDL_Event *Event)
 {
     event_t event;
     uint32 mwheeluptic = 0, mwheeldowntic = 0;
@@ -540,13 +543,13 @@ static void V_GetEvent(SDL_Event *Event)
     {
     case SDL_KEYDOWN:
         event.type = ev_keydown;
-        event.data1 = V_TranslateKey(&Event->key.keysym);
+        event.data1 = I_TranslateKey(&Event->key.keysym);
         D_PostEvent(&event);
         break;
         
     case SDL_KEYUP:
         event.type = ev_keyup;
-        event.data1 = V_TranslateKey(&Event->key.keysym);
+        event.data1 = I_TranslateKey(&Event->key.keysym);
         D_PostEvent(&event);
         break;
         
@@ -570,7 +573,7 @@ static void V_GetEvent(SDL_Event *Event)
         else
         {
             event.type = ev_mouse;
-            event.data1 = V_SDLtoDoomMouseState(SDL_GetMouseState(NULL, NULL));
+            event.data1 = I_SDLtoDoomMouseState(SDL_GetMouseState(NULL, NULL));
         }
         
         event.data2 = event.data3 = 0;
@@ -579,7 +582,7 @@ static void V_GetEvent(SDL_Event *Event)
         
     case SDL_ACTIVEEVENT:
     case SDL_VIDEOEXPOSE:
-        V_UpdateFocus();
+        I_UpdateFocus();
         break;
         
     case SDL_QUIT:
@@ -608,10 +611,10 @@ static void V_GetEvent(SDL_Event *Event)
 }
 
 //
-// V_InitInputs
+// I_InitInputs
 //
 
-void V_InitInputs(void)
+static void I_InitInputs(void)
 {
     Uint8 data[1] = { 0x00 };
     
@@ -622,8 +625,12 @@ void V_InitInputs(void)
     UseMouse[0] = 1;
     UseMouse[1] = 2;
     
-    V_CenterMouse();
-    V_MouseAccelChange();
+    I_CenterMouse();
+    I_MouseAccelChange();
+
+#ifdef _USE_XINPUT
+    I_XInputInit();
+#endif
 }
 
 

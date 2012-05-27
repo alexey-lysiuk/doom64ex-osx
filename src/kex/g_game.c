@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: g_game.c 1085 2012-03-11 04:47:16Z svkaiser $
+// $Id: g_game.c 1100 2012-04-08 19:17:31Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -25,7 +25,7 @@
 
 #ifdef RCSID
 static const char
-rcsid[] = "$Id: g_game.c 1085 2012-03-11 04:47:16Z svkaiser $";
+rcsid[] = "$Id: g_game.c 1100 2012-04-08 19:17:31Z svkaiser $";
 #endif
 
 #include <stdlib.h>
@@ -540,7 +540,7 @@ dboolean G_Responder(event_t* ev)
             return true;
         }
 
-        if(demoplayback)
+        if(demoplayback && gameaction == ga_nothing)
         {
             if(ev->type == ev_keydown ||
                 ev->type == ev_gamepad)
@@ -625,15 +625,20 @@ void G_Ticker(void)
             cmd = &players[i].cmd;
                 
             dmemcpy(cmd, &netcmds[i][buf], sizeof(ticcmd_t));
-                
-            if(demoplayback)
+
+            //
+            // 20120404 villsa - make sure gameaction isn't set to anything before
+            // reading a demo lump
+            //
+            if(demoplayback && gameaction == ga_nothing)
                 G_ReadDemoTiccmd(cmd);
+
             if(demorecording)
                 G_WriteDemoTiccmd(cmd);
                 
             // check for turbo cheats
             if(cmd->forwardmove > TURBOTHRESHOLD
-                && !(gametic&31) && ((gametic>>5)&3) == i)
+                && !(gametic & 31) && ((gametic >> 5) & 3) == i)
             {
                 static char turbomessage[80];
                 sprintf(turbomessage, "%s is turbo!",player_names[i]);
@@ -829,15 +834,22 @@ dboolean G_CheckSpot(int playernum, mapthing_t* mthing)
     // flush an old corpse if needed
     if(bodyqueslot >= BODYQUESIZE)
         P_RemoveMobj(bodyque[bodyqueslot % BODYQUESIZE]);
+
     bodyque[bodyqueslot%BODYQUESIZE] = players[playernum].mo;
     bodyqueslot++;
     
     // spawn a teleport fog
     ss = R_PointInSubsector(x, y);
-    an = (ANG45 * (mthing->angle/45)) >> ANGLETOFINESHIFT;
+
+    // 20120402 villsa - force angle_t typecast to avoid issues on 64-bit machines
+    an = ANG45 * (angle_t)(mthing->angle / 45);
     
-    mo = P_SpawnMobj(x + 20*finecosine[an], y + 20*finesine[an],
-        ss->sector->floorheight, MT_TELEPORTFOG);
+    mo = P_SpawnMobj(
+        x + 20*dcos(an),
+        y + 20*dsin(an),
+        ss->sector->floorheight,
+        MT_TELEPORTFOG
+        );
     
     if(players[playernum].viewz != 1)
         S_StartSound(mo, sfx_telept);	// don't start sound on first frame

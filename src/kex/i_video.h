@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: v_sdl.h 1077 2012-03-05 18:26:15Z svkaiser $
+// $Id: i_video.h 1101 2012-04-08 19:48:22Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -19,8 +19,8 @@
 //-----------------------------------------------------------------------------
 
 
-#ifndef __V_SDL_H__
-#define __V_SDL_H__
+#ifndef __I_VIDEO_H__
+#define __I_VIDEO_H__
 
 #include "SDL.h"
 
@@ -30,23 +30,28 @@
 
 extern SDL_Surface *screen;
 
-void V_Init(void);
-void V_InitGL(void);
-void V_NetWaitScreen(void);
-void V_Shutdown(void);
-void V_StartTic (void);
-void V_FinishUpdate(void);
+void I_InitVideo(void);
+void I_InitGL(void);
+void I_NetWaitScreen(void);
+void I_ShutdownVideo(void);
+//
+// Called by D_DoomLoop,
+// called before processing each tic in a frame.
+// Quick syncronous operations are performed here.
+// Can call D_PostEvent.
+void I_StartTic(void);
 
-int V_ShutdownWait(void);
+void I_FinishUpdate(void);
+
+int I_ShutdownWait(void);
 
 ////////////Input//////////////
 
 extern int	UseMouse[2];
 extern int	UseJoystick;
 
-void V_InitInputs(void);
-int V_MouseAccel(int val);
-void V_MouseAccelChange(void);
+int I_MouseAccel(int val);
+void I_MouseAccelChange(void);
 
 void V_RegisterCvars(void);
 

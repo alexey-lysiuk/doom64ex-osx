@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: g_actions.c 1085 2012-03-11 04:47:16Z svkaiser $
+// $Id: g_actions.c 1101 2012-04-08 19:48:22Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 1085 $
-// $Date: 2012-03-11 06:47:16 +0200 (нд, 11 бер 2012) $
+// $Revision: 1101 $
+// $Date: 2012-04-08 22:48:22 +0300 (нд, 08 кві 2012) $
 //
 //
 // DESCRIPTION:
@@ -32,7 +32,7 @@ rcsid[] = "$Id:";
 #include "g_local.h"
 #include "m_keys.h"
 #include "i_system.h"
-#include "v_sdl.h"
+#include "i_video.h"
 #include "doomstat.h"
 #include "con_console.h"
 #include "z_zone.h"

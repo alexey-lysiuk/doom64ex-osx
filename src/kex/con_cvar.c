@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: con_cvar.c 1043 2012-02-03 20:26:29Z svkaiser $
+// $Id: con_cvar.c 1101 2012-04-08 19:48:22Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,18 +15,18 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 1043 $
-// $Date: 2012-02-03 22:26:29 +0200 (пт, 03 лют 2012) $
+// $Revision: 1101 $
+// $Date: 2012-04-08 22:48:22 +0300 (нд, 08 кві 2012) $
 //
 // DESCRIPTION: Console cvar functionality (from Quake)
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
-static const char rcsid[] = "$Id: con_cvar.c 1043 2012-02-03 20:26:29Z svkaiser $";
+static const char rcsid[] = "$Id: con_cvar.c 1101 2012-04-08 19:48:22Z svkaiser $";
 #endif
 
 #include "doomstat.h"
-#include "v_sdl.h"
+#include "i_video.h"
 #include "con_console.h"
 #include "z_zone.h"
 #include "i_system.h"

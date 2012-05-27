@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: r_gl.c 1087 2012-03-14 05:40:46Z svkaiser $
+// $Id: r_gl.c 1101 2012-04-08 19:48:22Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,14 +15,14 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 1087 $
-// $Date: 2012-03-14 07:40:46 +0200 (ср, 14 бер 2012) $
+// $Revision: 1101 $
+// $Date: 2012-04-08 22:48:22 +0300 (нд, 08 кві 2012) $
 //
 // DESCRIPTION: OpenGL exclusive functions. All OGL initializations are also handled here
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
-static const char rcsid[] = "$Id: r_gl.c 1087 2012-03-14 05:40:46Z svkaiser $";
+static const char rcsid[] = "$Id: r_gl.c 1101 2012-04-08 19:48:22Z svkaiser $";
 #endif
 
 #include <math.h>
@@ -32,7 +32,7 @@ static const char rcsid[] = "$Id: r_gl.c 1087 2012-03-14 05:40:46Z svkaiser $";
 
 #include "doomdef.h"
 #include "doomstat.h"
-#include "v_sdl.h"
+#include "i_video.h"
 #include "r_gl.h"
 #include "i_system.h"
 #include "z_zone.h"

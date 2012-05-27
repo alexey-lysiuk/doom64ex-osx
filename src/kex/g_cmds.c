@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: g_cmds.c 1043 2012-02-03 20:26:29Z svkaiser $
+// $Id: g_cmds.c 1101 2012-04-08 19:48:22Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 1043 $
-// $Date: 2012-02-03 22:26:29 +0200 (пт, 03 лют 2012) $
+// $Revision: 1101 $
+// $Date: 2012-04-08 22:48:22 +0300 (нд, 08 кві 2012) $
 //
 //
 // DESCRIPTION:
@@ -38,7 +38,7 @@ rcsid[] = "";
 #include "p_local.h"
 #include "info.h"
 #include "m_misc.h"
-#include "v_sdl.h"
+#include "i_video.h"
 #include "con_console.h"
 #include "r_local.h"
 
@@ -182,8 +182,8 @@ void G_DoCmdMouseMove(int x, int y)
     playercontrols_t *pc;
     
     pc = &Controls;
-    pc->mousex += ((V_MouseAccel(x) * (int)v_msensitivityx.value) / 128);
-    pc->mousey += ((V_MouseAccel(y) * (int)v_msensitivityy.value) / 128);
+    pc->mousex += ((I_MouseAccel(x) * (int)v_msensitivityx.value) / 128);
+    pc->mousey += ((I_MouseAccel(y) * (int)v_msensitivityy.value) / 128);
 }
 
 //

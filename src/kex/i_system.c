@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: i_system.c 1077 2012-03-05 18:26:15Z svkaiser $
+// $Id: i_system.c 1101 2012-04-08 19:48:22Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 1077 $
-// $Date: 2012-03-05 20:26:15 +0200 (пн, 05 бер 2012) $
+// $Revision: 1101 $
+// $Date: 2012-04-08 22:48:22 +0300 (нд, 08 кві 2012) $
 //
 //
 // DESCRIPTION: System Interface
@@ -24,7 +24,7 @@
 //-----------------------------------------------------------------------------
 #ifdef RCSID
 static const char
-rcsid[] = "$Id: i_system.c 1077 2012-03-05 18:26:15Z svkaiser $";
+rcsid[] = "$Id: i_system.c 1101 2012-04-08 19:48:22Z svkaiser $";
 #endif
 
 
@@ -40,7 +40,7 @@ rcsid[] = "$Id: i_system.c 1077 2012-03-05 18:26:15Z svkaiser $";
 #include "doomstat.h"
 #include "doomdef.h"
 #include "m_misc.h"
-#include "v_sdl.h"
+#include "i_video.h"
 #include "d_net.h"
 #include "g_game.h"
 #include "d_main.h"
@@ -103,7 +103,7 @@ LRESULT CALLBACK SysConsoleProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         {
         case QUIT_ID:
             I_DestroySysConsole();
-            V_Shutdown();
+            I_ShutdownVideo();
             exit(0);
             break;
             
@@ -466,6 +466,7 @@ void I_Init(void)
     //I_SpawnLauncher(hwndMain);
 #endif
 
+    I_InitVideo();
     I_InitClockRate();
 }
 
@@ -498,14 +499,14 @@ void I_Error(char* string, ...)
             M_DrawText(0, 0, WHITE, 1, 1, "Error - %s\n", buff);
             R_GLFinish();
 
-            if(V_ShutdownWait())
+            if(I_ShutdownWait())
                 break;
 
             I_Sleep(1);
         }
     }
     else
-        V_Shutdown();
+        I_ShutdownVideo();
 
 #ifdef USESYSCONSOLE
     {
@@ -543,7 +544,7 @@ void I_Quit(void)
 #endif
 
     I_ShutdownSound();
-    V_Shutdown();
+    I_ShutdownVideo();
     
     exit(0);
 }
@@ -613,21 +614,6 @@ void I_BeginRead(void)
     inshowbusy=true;
     inshowbusy=false;
     BusyDisk=true;
-}
-
-void I_FinishUpdate(void)
-{
-    V_FinishUpdate();
-    BusyDisk = false;
-}
-
-//
-// I_StartTic
-//
-
-void I_StartTic(void)
-{
-    V_StartTic();
 }
 
 //

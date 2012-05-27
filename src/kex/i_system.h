@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: i_system.h 1043 2012-02-03 20:26:29Z svkaiser $
+// $Id: i_system.h 1101 2012-04-08 19:48:22Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -59,17 +59,6 @@ dboolean    I_StartDisplay(void);
 void        I_EndDisplay(void);
 fixed_t     I_GetTimeFrac(void);
 void        I_GetTime_SaveMS(void);
-
-
-void I_FinishUpdate(void);
-
-
-//
-// Called by D_DoomLoop,
-// called before processing each tic in a frame.
-// Quick syncronous operations are performed here.
-// Can call D_PostEvent.
-void I_StartTic (void);
 
 // Asynchronous interrupt functions should maintain private queues
 // that are read by the synchronous functions

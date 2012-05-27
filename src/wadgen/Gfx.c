@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: Gfx.c 916 2011-08-12 00:54:53Z svkaiser $
+// $Id: Gfx.c 1096 2012-03-31 18:28:01Z svkaiser $
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -18,14 +18,14 @@
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
 // $Author: svkaiser $
-// $Revision: 916 $
-// $Date: 2011-08-12 03:54:53 +0300 (пт, 12 сер 2011) $
+// $Revision: 1096 $
+// $Date: 2012-03-31 21:28:01 +0300 (сб, 31 бер 2012) $
 //
 // DESCRIPTION: GFX parsing and converting
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
-static const char rcsid[] = "$Id: Gfx.c 916 2011-08-12 00:54:53Z svkaiser $";
+static const char rcsid[] = "$Id: Gfx.c 1096 2012-03-31 18:28:01Z svkaiser $";
 #endif
 
 #include "WadGen.h"
@@ -245,6 +245,6 @@ void Gfx_Setup(void)
 			gfxEx[i].lumpRef = l;	// Need to point where we originally got the gfx from
 		}
 
-		WGen_UpdateProgress();
+		WGen_UpdateProgress("Converting GFX...");
 	}
 }

@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: doomstat.h 1069 2012-03-03 22:18:12Z svkaiser $
+// $Id: doomstat.h 1097 2012-04-01 22:24:04Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -256,6 +256,9 @@ extern  FILE*       debugfile;
 
 // if true, load all graphics at level load
 extern  dboolean    precache;
+
+// outdated iwad file?
+extern  dboolean    oldiwad;
 
 #define MAXSENSITIVITY	32
 

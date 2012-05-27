@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: sc_main.c 875 2011-07-04 23:37:26Z svkaiser $
+// $Id: sc_main.c 1097 2012-04-01 22:24:04Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 875 $
-// $Date: 2011-07-05 02:37:26 +0300 (вт, 05 лип 2011) $
+// $Revision: 1097 $
+// $Date: 2012-04-02 01:24:04 +0300 (пн, 02 кві 2012) $
 //
 //
 // DESCRIPTION:
@@ -26,7 +26,7 @@
 //-----------------------------------------------------------------------------
 #ifdef RCSID
 static const char
-rcsid[] = "$Id: sc_main.c 875 2011-07-04 23:37:26Z svkaiser $";
+rcsid[] = "$Id: sc_main.c 1097 2012-04-01 22:24:04Z svkaiser $";
 #endif
 
 #ifdef _MSC_VER
@@ -224,7 +224,32 @@ static int SC_Find(dboolean forceupper)
                     continue;
                 }
                 else if(havetoken)
-                    return true;
+                {
+                    c = sc_parser.getchar();
+
+                    if(c != ',')
+                        return true;
+                    else
+                    {
+                        havetoken = false;
+                        continue;
+                    }
+                }
+                else
+                {
+                    if(sc_parser.getchar() == '"')
+                    {
+                        if(sc_parser.getchar() == ',')
+                            continue;
+                        else
+                        {
+                            sc_parser.rewind();
+                            sc_parser.rewind();
+                        }
+                    }
+                    else
+                        sc_parser.rewind();
+                }
             }
 
             if(!string)
@@ -240,7 +265,7 @@ static int SC_Find(dboolean forceupper)
             }
             else
             {
-                if(c >= ' ')
+                if(c >= ' ' && c != '"')
                 {
                     havetoken = true;
                     sc_parser.token[i++] =
@@ -270,6 +295,16 @@ static char SC_GetChar(void)
 {
     sc_parser.rowpos++;
     return sc_parser.buffer[sc_parser.buffpos++];
+}
+
+//
+// SC_Rewind
+//
+
+static void SC_Rewind(void)
+{
+    sc_parser.rowpos--;
+    sc_parser.buffpos--;
 }
 
 //
@@ -306,6 +341,7 @@ void SC_Init(void)
     sc_parser.compare       = SC_Compare;
     sc_parser.find          = SC_Find;
     sc_parser.getchar       = SC_GetChar;
+    sc_parser.rewind        = SC_Rewind;
     sc_parser.getstring     = SC_GetString;
     sc_parser.getint        = SC_GetInteger;
     sc_parser.setdata       = SC_SetData;

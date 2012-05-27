@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: r_texture.h 1062 2012-02-26 22:09:44Z svkaiser $
+// $Id: r_texture.h 1100 2012-04-08 19:17:31Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -66,6 +66,7 @@ int         R_BindGfxTexture(const char* name, dboolean alpha);
 int         R_PadTextureDims(int size);
 void        R_SetNewPalette(int id, byte palID);
 void        R_DumpTextures(void);
+void        R_ResetTextures(void);
 void        R_BindDummyTexture(void);
 void        R_UpdateEnvTexture(rcolor color);
 void        R_BindEnvTexture(void);

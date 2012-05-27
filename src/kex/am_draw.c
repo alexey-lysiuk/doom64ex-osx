@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: am_draw.c 1059 2012-02-24 04:34:01Z svkaiser $
+// $Id: am_draw.c 1100 2012-04-08 19:17:31Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,14 +15,14 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 1059 $
-// $Date: 2012-02-24 06:34:01 +0200 (пт, 24 лют 2012) $
+// $Revision: 1100 $
+// $Date: 2012-04-08 22:17:31 +0300 (нд, 08 кві 2012) $
 //
 // DESCRIPTION: Automap rendering code
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
-static const char rcsid[] = "$Id: am_draw.c 1059 2012-02-24 04:34:01Z svkaiser $";
+static const char rcsid[] = "$Id: am_draw.c 1100 2012-04-08 19:17:31Z svkaiser $";
 #endif
 
 #include "r_lights.h"
@@ -56,7 +56,6 @@ CVAR_EXTERNAL(r_texturecombiner);
 
 void AM_BeginDraw(angle_t view, fixed_t x, fixed_t y)
 {
-    curtexture = cursprite = curgfx = -1;
     am_viewangle = view;
 
     if(r_texturecombiner.value > 0 && am_overlay.value)
@@ -84,6 +83,7 @@ void AM_BeginDraw(angle_t view, fixed_t x, fixed_t y)
     drawlist[DLT_AMAP].index = 0;
 
     R_FrustrumSetup();
+    R_ResetTextures();
 }
 
 //

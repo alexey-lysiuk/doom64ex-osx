@@ -59,6 +59,7 @@ add_executable(doom64ex
 #	i_opndir.c
 	i_png.c
 	i_system.c
+	i_video.c
 	i_xinput.c
 	in_stuff.c
 	info.c
@@ -106,7 +107,6 @@ add_executable(doom64ex
 	sc_main.c
 	st_stuff.c
 	tables.c
-	v_sdl.c
 	w_file.c
 	w_merge.c
 	w_wad.c

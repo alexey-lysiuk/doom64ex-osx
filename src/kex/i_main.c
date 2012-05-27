@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: i_main.c 924 2011-08-13 00:49:41Z svkaiser $
+// $Id: i_main.c 1101 2012-04-08 19:48:22Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 924 $
-// $Date: 2011-08-13 03:49:41 +0300 (сб, 13 сер 2011) $
+// $Revision: 1101 $
+// $Date: 2012-04-08 22:48:22 +0300 (нд, 08 кві 2012) $
 //
 //
 // DESCRIPTION:
@@ -25,7 +25,7 @@
 //-----------------------------------------------------------------------------
 #ifdef RCSID
 static const char
-rcsid[] = "$Id: i_main.c 924 2011-08-13 00:49:41Z svkaiser $";
+rcsid[] = "$Id: i_main.c 1101 2012-04-08 19:48:22Z svkaiser $";
 #endif
 
 #ifdef _MSC_VER
@@ -38,14 +38,10 @@ rcsid[] = "$Id: i_main.c 924 2011-08-13 00:49:41Z svkaiser $";
 #include "doomstat.h"
 #include "d_main.h"
 #include "SDL.h"
-#include "v_sdl.h"
+#include "i_video.h"
 #include "m_misc.h"
 #include "i_system.h"
 #include "con_console.h"
-
-#ifdef _WIN32
-#include "i_xinput.h"
-#endif
 
 const char version_date[] = __DATE__;
 
@@ -541,11 +537,6 @@ int I_Main(int argc, char *argv[])
     I_SpawnSysConsole();
 #endif
 
-#ifdef _USE_XINPUT
-    I_Printf("I_XInputInit: Initializing XInput API\n");
-    I_XInputInit();
-#endif
-
     //process affinity mask stuff
 #if defined(_WIN32) || defined(HAVE_SCHED_SETAFFINITY)
     {
@@ -554,7 +545,6 @@ int I_Main(int argc, char *argv[])
     }
 #endif
 
-    V_Init();
     D_DoomMain();
     
     return 0;

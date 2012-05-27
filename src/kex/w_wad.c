@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: w_wad.c 1081 2012-03-06 18:36:00Z svkaiser $
+// $Id: w_wad.c 1099 2012-04-02 17:34:36Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 1081 $
-// $Date: 2012-03-06 20:36:00 +0200 (вт, 06 бер 2012) $
+// $Revision: 1099 $
+// $Date: 2012-04-02 20:34:36 +0300 (пн, 02 кві 2012) $
 //
 //
 // DESCRIPTION:
@@ -26,7 +26,7 @@
 
 #ifdef RCSID
 static const char
-rcsid[] = "$Id: w_wad.c 1081 2012-03-06 18:36:00Z svkaiser $";
+rcsid[] = "$Id: w_wad.c 1099 2012-04-02 17:34:36Z svkaiser $";
 #endif
 
 #ifdef _MSC_VER
@@ -98,7 +98,7 @@ typedef struct
 #pragma pack(pop)
 #endif
 
-void W_CheckIwadVersion(void);
+void W_IwadChecksum(void);
 
 #define MAX_MEMLUMPS	16
 
@@ -185,16 +185,16 @@ static void W_HashLumps(void)
 
 void W_Init(void)
 {
-    char*       iwad;
-    wadinfo_t   header;
-    lumpinfo_t* lump_p;
-    int         i;
-    wad_file_t* wadfile;
-    int         length;
-    int         startlump;
-    filelump_t* fileinfo;
-    filelump_t* filerover;
-    int         p;
+    char*           iwad;
+    wadinfo_t       header;
+    lumpinfo_t*     lump_p;
+    int             i;
+    wad_file_t*     wadfile;
+    int             length;
+    int             startlump;
+    filelump_t*     fileinfo;
+    filelump_t*     filerover;
+    int             p;
     
     // open the file and add to directory
     iwad = W_FindIWAD();
@@ -248,9 +248,6 @@ void W_Init(void)
 
     Z_Free(fileinfo);
 
-    // 20120302 villsa - check for out of date lumps
-    W_CheckIwadVersion();
-
     p = M_CheckParm("-file");
     if(p)
     {
@@ -265,6 +262,9 @@ void W_Init(void)
     }
 
     W_HashLumps();
+
+    // 20120302 villsa - check for out of date lumps
+    W_IwadChecksum();
 }
 
 //
@@ -645,61 +645,38 @@ void W_Checksum(md5_digest_t digest)
 }
 
 //
-// W_CheckIwadVersion
+// W_IwadChecksum
 //
 
-static const md5_digest_t iwad_digest =
-{ 0x61,0x8F,0xA8,0x3D,0xAB,0x7E,0x3F,0x47,0xC4,0x44,0x91,0xFA,0xE9,0xAF,0xF5,0x41 };
+#define MAXDIGESTS  4
 
-static int GetUnhashedLumpIndex(const char *name)
+static const md5_digest_t iwad_digests[MAXDIGESTS] =
+{
+    { 0x35,0xd6,0x24,0xb3,0xa6,0xb8,0xcc,0xcc,0x39,0xf1,0xd4,0x5f,0x5b,0x84,0x90,0xf6 },    // USA1
+    { 0x0c,0x1d,0x47,0x92,0x39,0x5e,0x2d,0xe3,0x7e,0x79,0xb5,0xdf,0x6d,0xb2,0x70,0x9a },    // European
+    { 0xab,0x45,0xc3,0x16,0x4c,0xe2,0x3a,0xbd,0x76,0xe1,0xe5,0x0d,0x1e,0x32,0x63,0x9c },    // Japan
+    { 0x25,0xa0,0xb7,0xcd,0x3f,0x64,0x09,0x01,0x54,0x84,0xdb,0x3b,0xb5,0xe1,0xfa,0xd4 }     // USA2??
+};
+
+void W_IwadChecksum(void)
 {
     int i;
+    md5_digest_t checksum;
+    int lump;
 
-    for(i = 0; i < numlumps; i++)
+    if((lump = W_CheckNumForName("CHECKSUM")) != -1)
     {
-        if(!dstrncmp(lumpinfo[i].name, name, 8))
-            return i;
+        W_ReadLump(lump, checksum);
+
+        for(i = 0; i < MAXDIGESTS; i++)
+        {
+            if(!memcmp(iwad_digests[i], checksum, sizeof(md5_digest_t)))
+                return;
+            
+        }
     }
 
-    I_Error("W_CheckIwadVersion: Couldn't find lump: %s", name);
-
-    return 0;
-}
-
-static void ChecksumAddUnhashedLump(md5_context_t *md5_context, lumpinfo_t *lump)
-{
-    char buf[9];
-
-    strncpy(buf, lump->name, 8);
-    buf[8] = '\0';
-
-    MD5_UpdateString(md5_context, buf);
-    MD5_UpdateInt32(md5_context, GetFileNumber(lump->wadfile));
-    MD5_UpdateInt32(md5_context, lump->size);
-}
-
-void W_CheckIwadVersion(void)
-{
-    md5_digest_t digest;
-    md5_context_t md5_context;
-
-    MD5_Init(&md5_context);
-
-    //
-    // assume that the lumps aren't hashed yet...
-    //
-    ChecksumAddUnhashedLump(&md5_context, &lumpinfo[GetUnhashedLumpIndex("FANCRED")]);
-    ChecksumAddUnhashedLump(&md5_context, &lumpinfo[GetUnhashedLumpIndex("CRSHAIRS")]);
-    ChecksumAddUnhashedLump(&md5_context, &lumpinfo[GetUnhashedLumpIndex("BUTTONS")]);
-    ChecksumAddUnhashedLump(&md5_context, &lumpinfo[GetUnhashedLumpIndex("CONFONT")]);
-    ChecksumAddUnhashedLump(&md5_context, &lumpinfo[GetUnhashedLumpIndex("MAPINFO")]);
-    ChecksumAddUnhashedLump(&md5_context, &lumpinfo[GetUnhashedLumpIndex("ANIMDEFS")]);
-    ChecksumAddUnhashedLump(&md5_context, &lumpinfo[GetUnhashedLumpIndex("SKYDEFS")]);
-
-    MD5_Final(digest, &md5_context);
-
-    if(memcmp(digest, iwad_digest, sizeof(md5_digest_t)))
-        I_Error("W_CheckIwadVersion: IWAD is out of date. Please use Wadgen to generate a new one");
+    oldiwad = true;
 }
 
 

@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: sc_main.h 1042 2012-01-27 04:46:46Z svkaiser $
+// $Id: sc_main.h 1097 2012-04-01 22:24:04Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -36,6 +36,7 @@ typedef struct
     void    (*compare)(void*);
     int     (*find)(dboolean);
     char    (*getchar)(void);
+    void    (*rewind)(void);
     char*   (*getstring)(void);
     int     (*getint)(void);
     int     (*setdata)(void*, void*);

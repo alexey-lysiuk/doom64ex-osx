@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: SndFont.c 983 2011-12-27 22:30:53Z svkaiser $
+// $Id: SndFont.c 1096 2012-03-31 18:28:01Z svkaiser $
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -18,8 +18,8 @@
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
 // $Author: svkaiser $
-// $Revision: 983 $
-// $Date: 2011-12-28 00:30:53 +0200 (ср, 28 гру 2011) $
+// $Revision: 1096 $
+// $Date: 2012-03-31 21:28:01 +0300 (сб, 31 бер 2012) $
 //
 // DESCRIPTION: SoundFont creating/writing/utilities
 //              Doom64's SN64 and SSEQ libraries are not so different
@@ -27,7 +27,7 @@
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
-static const char rcsid[] = "$Id: SndFont.c 983 2011-12-27 22:30:53Z svkaiser $";
+static const char rcsid[] = "$Id: SndFont.c 1096 2012-03-31 18:28:01Z svkaiser $";
 #endif
 
 #include <math.h>
@@ -332,6 +332,8 @@ void SF_CreatePresets(patch_t* patch, int npatch,
     uint presetcount = 0;
     gentypes_t value;
     char name[20];
+
+    WGen_UpdateProgress("Building Soundfont Presets...");
 
     for(i = 0; i < npatch; i++)
     {

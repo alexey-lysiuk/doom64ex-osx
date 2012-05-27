@@ -19,6 +19,8 @@
 		8A316A79156812E9004DEB47 /* system.c in Sources */ = {isa = PBXBuildFile; fileRef = 8A316A6A156812E9004DEB47 /* system.c */; };
 		8A316A7A156812E9004DEB47 /* util.c in Sources */ = {isa = PBXBuildFile; fileRef = 8A316A6C156812E9004DEB47 /* util.c */; };
 		8A316A7B156812E9004DEB47 /* wad.c in Sources */ = {isa = PBXBuildFile; fileRef = 8A316A6E156812E9004DEB47 /* wad.c */; };
+		8A3CA4CB157235DC00DB0667 /* i_video.c in Sources */ = {isa = PBXBuildFile; fileRef = 8A3CA4C9157235DC00DB0667 /* i_video.c */; };
+		8A3CA4D71572363100DB0667 /* MD5.c in Sources */ = {isa = PBXBuildFile; fileRef = 8A3CA4D51572363100DB0667 /* MD5.c */; };
 		8A4A612415677FE7005A781F /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8A4A612315677FE7005A781F /* Cocoa.framework */; };
 		8A4A612C15678001005A781F /* libiconv.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 8A4A612B15678001005A781F /* libiconv.dylib */; };
 		8A4A612E15678016005A781F /* CoreMIDI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8A4A612D15678016005A781F /* CoreMIDI.framework */; };
@@ -122,7 +124,6 @@
 		8AC96F6D1412791200718A9D /* sc_main.c in Sources */ = {isa = PBXBuildFile; fileRef = 8AC96F0C1412791200718A9D /* sc_main.c */; };
 		8AC96F6E1412791200718A9D /* st_stuff.c in Sources */ = {isa = PBXBuildFile; fileRef = 8AC96F0F1412791200718A9D /* st_stuff.c */; };
 		8AC96F6F1412791200718A9D /* tables.c in Sources */ = {isa = PBXBuildFile; fileRef = 8AC96F121412791200718A9D /* tables.c */; };
-		8AC96F701412791200718A9D /* v_sdl.c in Sources */ = {isa = PBXBuildFile; fileRef = 8AC96F141412791200718A9D /* v_sdl.c */; };
 		8AC96F711412791200718A9D /* w_file.c in Sources */ = {isa = PBXBuildFile; fileRef = 8AC96F161412791200718A9D /* w_file.c */; };
 		8AC96F721412791200718A9D /* w_merge.c in Sources */ = {isa = PBXBuildFile; fileRef = 8AC96F181412791200718A9D /* w_merge.c */; };
 		8AC96F731412791200718A9D /* w_wad.c in Sources */ = {isa = PBXBuildFile; fileRef = 8AC96F1A1412791200718A9D /* w_wad.c */; };
@@ -161,6 +162,10 @@
 		8A316A6D156812E9004DEB47 /* util.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = util.h; sourceTree = "<group>"; };
 		8A316A6E156812E9004DEB47 /* wad.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = wad.c; sourceTree = "<group>"; };
 		8A316A6F156812E9004DEB47 /* wad.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = wad.h; sourceTree = "<group>"; };
+		8A3CA4C9157235DC00DB0667 /* i_video.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = i_video.c; sourceTree = "<group>"; };
+		8A3CA4CA157235DC00DB0667 /* i_video.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = i_video.h; sourceTree = "<group>"; };
+		8A3CA4D51572363100DB0667 /* MD5.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = MD5.c; path = wadgen/MD5.c; sourceTree = SOURCE_ROOT; };
+		8A3CA4D61572363100DB0667 /* MD5.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MD5.h; path = wadgen/MD5.h; sourceTree = SOURCE_ROOT; };
 		8A4A612315677FE7005A781F /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = System/Library/Frameworks/Cocoa.framework; sourceTree = SDKROOT; };
 		8A4A612B15678001005A781F /* libiconv.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libiconv.dylib; path = usr/lib/libiconv.dylib; sourceTree = SDKROOT; };
 		8A4A612D15678016005A781F /* CoreMIDI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMIDI.framework; path = System/Library/Frameworks/CoreMIDI.framework; sourceTree = SDKROOT; };
@@ -363,8 +368,6 @@
 		8AC96F111412791200718A9D /* t_bsp.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = t_bsp.h; sourceTree = "<group>"; };
 		8AC96F121412791200718A9D /* tables.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tables.c; sourceTree = "<group>"; };
 		8AC96F131412791200718A9D /* tables.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tables.h; sourceTree = "<group>"; };
-		8AC96F141412791200718A9D /* v_sdl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = v_sdl.c; sourceTree = "<group>"; };
-		8AC96F151412791200718A9D /* v_sdl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = v_sdl.h; sourceTree = "<group>"; };
 		8AC96F161412791200718A9D /* w_file.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = w_file.c; sourceTree = "<group>"; };
 		8AC96F171412791200718A9D /* w_file.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = w_file.h; sourceTree = "<group>"; };
 		8AC96F181412791200718A9D /* w_merge.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = w_merge.c; sourceTree = "<group>"; };
@@ -500,6 +503,8 @@
 				8A6E9A6314123A31007BDF4B /* Gfx.h */,
 				8A6E9A6514123A31007BDF4B /* Level.c */,
 				8A6E9A6614123A31007BDF4B /* Level.h */,
+				8A3CA4D51572363100DB0667 /* MD5.c */,
+				8A3CA4D61572363100DB0667 /* MD5.h */,
 				8A6E9A6714123A31007BDF4B /* Mem.c */,
 				8A6E9A6814123A31007BDF4B /* Mem.h */,
 				8A6E9A6914123A31007BDF4B /* Png.c */,
@@ -578,6 +583,8 @@
 				8AC96EBB1412791200718A9D /* i_swap.h */,
 				8AC96EBC1412791200718A9D /* i_system.c */,
 				8AC96EBD1412791200718A9D /* i_system.h */,
+				8A3CA4C9157235DC00DB0667 /* i_video.c */,
+				8A3CA4CA157235DC00DB0667 /* i_video.h */,
 				8AC96EBE1412791200718A9D /* i_xinput.c */,
 				8AC96EBF1412791200718A9D /* i_xinput.h */,
 				8AC96EC01412791200718A9D /* in_stuff.c */,
@@ -663,8 +670,6 @@
 				8AC96F111412791200718A9D /* t_bsp.h */,
 				8AC96F121412791200718A9D /* tables.c */,
 				8AC96F131412791200718A9D /* tables.h */,
-				8AC96F141412791200718A9D /* v_sdl.c */,
-				8AC96F151412791200718A9D /* v_sdl.h */,
 				8A4A622115678A0F005A781F /* version.h */,
 				8AC96F161412791200718A9D /* w_file.c */,
 				8AC96F171412791200718A9D /* w_file.h */,
@@ -904,6 +909,7 @@
 				8AC96F3D1412791200718A9D /* i_main.c in Sources */,
 				8AC96F3F1412791200718A9D /* i_png.c in Sources */,
 				8AC96F401412791200718A9D /* i_system.c in Sources */,
+				8A3CA4CB157235DC00DB0667 /* i_video.c in Sources */,
 				8AC96F411412791200718A9D /* i_xinput.c in Sources */,
 				8AC96F421412791200718A9D /* in_stuff.c in Sources */,
 				8AC96F431412791200718A9D /* info.c in Sources */,
@@ -951,7 +957,6 @@
 				8AC96F6D1412791200718A9D /* sc_main.c in Sources */,
 				8AC96F6E1412791200718A9D /* st_stuff.c in Sources */,
 				8AC96F6F1412791200718A9D /* tables.c in Sources */,
-				8AC96F701412791200718A9D /* v_sdl.c in Sources */,
 				8AC96F711412791200718A9D /* w_file.c in Sources */,
 				8AC96F721412791200718A9D /* w_merge.c in Sources */,
 				8AC96F731412791200718A9D /* w_wad.c in Sources */,
@@ -968,6 +973,7 @@
 				8A6E9A7D14123A31007BDF4B /* Files.c in Sources */,
 				8A6E9A7E14123A31007BDF4B /* Gfx.c in Sources */,
 				8A6E9A7F14123A31007BDF4B /* Level.c in Sources */,
+				8A3CA4D71572363100DB0667 /* MD5.c in Sources */,
 				8A6E9A8014123A31007BDF4B /* Mem.c in Sources */,
 				8A6E9A8114123A31007BDF4B /* Png.c in Sources */,
 				8A6E9A8214123A31007BDF4B /* Rom.c in Sources */,
