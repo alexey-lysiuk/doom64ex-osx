@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: am_draw.h 857 2011-06-02 03:59:07Z svkaiser $
+// $Id: am_draw.h 1047 2012-02-09 05:08:17Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -22,7 +22,7 @@
 void AM_BeginDraw(angle_t view, fixed_t x, fixed_t y);
 void AM_EndDraw(void);
 void AM_DrawLeafs(float scale);
-void AM_DrawLine(int x1, int x2, int y1, int y2, float scale, byte r, byte g, byte b);
+void AM_DrawLine(int x1, int x2, int y1, int y2, float scale, rcolor c);
 void AM_DrawTriangle(mobj_t* mobj, float scale, dboolean solid, byte r, byte g, byte b);
 void AM_DrawSprite(mobj_t* thing, float scale);
 

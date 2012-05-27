@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: w_wad.c 1027 2012-01-07 22:31:29Z svkaiser $
+// $Id: w_wad.c 1081 2012-03-06 18:36:00Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 1027 $
-// $Date: 2012-01-08 00:31:29 +0200 (нд, 08 січ 2012) $
+// $Revision: 1081 $
+// $Date: 2012-03-06 20:36:00 +0200 (вт, 06 бер 2012) $
 //
 //
 // DESCRIPTION:
@@ -26,7 +26,7 @@
 
 #ifdef RCSID
 static const char
-rcsid[] = "$Id: w_wad.c 1027 2012-01-07 22:31:29Z svkaiser $";
+rcsid[] = "$Id: w_wad.c 1081 2012-03-06 18:36:00Z svkaiser $";
 #endif
 
 #ifdef _MSC_VER
@@ -97,6 +97,8 @@ typedef struct
 #ifdef _MSC_VER
 #pragma pack(pop)
 #endif
+
+void W_CheckIwadVersion(void);
 
 #define MAX_MEMLUMPS	16
 
@@ -246,6 +248,9 @@ void W_Init(void)
 
     Z_Free(fileinfo);
 
+    // 20120302 villsa - check for out of date lumps
+    W_CheckIwadVersion();
+
     p = M_CheckParm("-file");
     if(p)
     {
@@ -320,8 +325,9 @@ wad_file_t *W_AddFile(char *filename)
         // WAD file
         W_Read(wadfile, 0, &header, sizeof(header));
 
-        if(dstrncmp(header.identification,"PWAD",4))
-            I_Error("W_AddFile: Wad file %s doesn't have PWAD id\n", filename);
+        if(dstrncmp(header.identification,"PWAD",4) &&
+            dstrncmp(header.identification,"IWAD",4))
+            I_Error("W_AddFile: Wad file %s doesn't have valid IWAD or PWAD id\n", filename);
 
         header.numlumps = LONG(header.numlumps);
         header.infotableofs = LONG(header.infotableofs);
@@ -576,6 +582,9 @@ void* W_CacheLumpName(const char* name, int tag)
     return W_CacheLumpNum(W_GetNumForName(name), tag);
 }
 
+//
+// W_Checksum
+//
 
 static wad_file_t **open_wadfiles = NULL;
 static int num_open_wadfiles = 0;
@@ -617,10 +626,6 @@ static void ChecksumAddLump(md5_context_t *md5_context, lumpinfo_t *lump)
     MD5_UpdateInt32(md5_context, lump->size);
 }
 
-//
-// W_Checksum
-//
-
 void W_Checksum(md5_digest_t digest)
 {
     md5_context_t md5_context;
@@ -637,6 +642,64 @@ void W_Checksum(md5_digest_t digest)
         ChecksumAddLump(&md5_context, &lumpinfo[i]);
     
     MD5_Final(digest, &md5_context);
+}
+
+//
+// W_CheckIwadVersion
+//
+
+static const md5_digest_t iwad_digest =
+{ 0x61,0x8F,0xA8,0x3D,0xAB,0x7E,0x3F,0x47,0xC4,0x44,0x91,0xFA,0xE9,0xAF,0xF5,0x41 };
+
+static int GetUnhashedLumpIndex(const char *name)
+{
+    int i;
+
+    for(i = 0; i < numlumps; i++)
+    {
+        if(!dstrncmp(lumpinfo[i].name, name, 8))
+            return i;
+    }
+
+    I_Error("W_CheckIwadVersion: Couldn't find lump: %s", name);
+
+    return 0;
+}
+
+static void ChecksumAddUnhashedLump(md5_context_t *md5_context, lumpinfo_t *lump)
+{
+    char buf[9];
+
+    strncpy(buf, lump->name, 8);
+    buf[8] = '\0';
+
+    MD5_UpdateString(md5_context, buf);
+    MD5_UpdateInt32(md5_context, GetFileNumber(lump->wadfile));
+    MD5_UpdateInt32(md5_context, lump->size);
+}
+
+void W_CheckIwadVersion(void)
+{
+    md5_digest_t digest;
+    md5_context_t md5_context;
+
+    MD5_Init(&md5_context);
+
+    //
+    // assume that the lumps aren't hashed yet...
+    //
+    ChecksumAddUnhashedLump(&md5_context, &lumpinfo[GetUnhashedLumpIndex("FANCRED")]);
+    ChecksumAddUnhashedLump(&md5_context, &lumpinfo[GetUnhashedLumpIndex("CRSHAIRS")]);
+    ChecksumAddUnhashedLump(&md5_context, &lumpinfo[GetUnhashedLumpIndex("BUTTONS")]);
+    ChecksumAddUnhashedLump(&md5_context, &lumpinfo[GetUnhashedLumpIndex("CONFONT")]);
+    ChecksumAddUnhashedLump(&md5_context, &lumpinfo[GetUnhashedLumpIndex("MAPINFO")]);
+    ChecksumAddUnhashedLump(&md5_context, &lumpinfo[GetUnhashedLumpIndex("ANIMDEFS")]);
+    ChecksumAddUnhashedLump(&md5_context, &lumpinfo[GetUnhashedLumpIndex("SKYDEFS")]);
+
+    MD5_Final(digest, &md5_context);
+
+    if(memcmp(digest, iwad_digest, sizeof(md5_digest_t)))
+        I_Error("W_CheckIwadVersion: IWAD is out of date. Please use Wadgen to generate a new one");
 }
 
 

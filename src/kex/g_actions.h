@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: g_actions.h 810 2010-12-21 05:56:08Z svkaiser $
+// $Id: g_actions.h 1042 2012-01-27 04:46:46Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -21,11 +21,11 @@
 
 #define MAX_ACTIONPARAM		2
 
-typedef void (*actionproc_t)(int data, char **param);
+typedef void (*actionproc_t)(int64 data, char **param);
 
 void        G_InitActions(void);
 dboolean    G_ActionResponder(event_t *ev);
-void        G_RegisterAction(char *name, actionproc_t proc, int data, dboolean allownet);
+void        G_RegisterAction(char *name, actionproc_t proc, int64 data, dboolean allownet);
 void        G_ActionTicker(void);
 void        G_ExecuteCommand(char *action);
 void        G_BindActionByName(char *key, char *action);
@@ -35,10 +35,10 @@ void        G_GetActionBindings(char *buff, char *action);
 void        G_UnbindAction(char *action);
 int         G_ListCommands(void);
 
-void        G_CmdAlias(int data, char **param);
+void        G_CmdAlias(int64 data, char **param);
 void        G_OutputBindings(FILE *fh);
-void        G_CmdUnbind(int data, char **param);
-void        G_CmdUnbindAll(int data, char **param);
+void        G_CmdUnbind(int64 data, char **param);
+void        G_CmdUnbindAll(int64 data, char **param);
 void        G_DoCmdMouseMove(int x, int y);
 
 extern dboolean	ButtonAction;

@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: d_net.c 886 2011-07-31 08:02:07Z svkaiser $
+// $Id: d_net.c 1048 2012-02-13 04:08:26Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 886 $
-// $Date: 2011-07-31 11:02:07 +0300 (нд, 31 лип 2011) $
+// $Revision: 1048 $
+// $Date: 2012-02-13 06:08:26 +0200 (пн, 13 лют 2012) $
 //
 // DESCRIPTION:
 //	DOOM Network game communication and protocol,
@@ -25,7 +25,7 @@
 //-----------------------------------------------------------------------------
 #ifdef RCSID
 
-static const char rcsid[] = "$Id: d_net.c 886 2011-07-31 08:02:07Z svkaiser $";
+static const char rcsid[] = "$Id: d_net.c 1048 2012-02-13 04:08:26Z svkaiser $";
 #endif
 
 #include "m_menu.h"
@@ -74,7 +74,6 @@ int			extratics;
 
 void D_ProcessEvents (void);
 void G_BuildTiccmd (ticcmd_t *cmd);
-void D_DoAdvanceDemo (void);
 void D_Display(void);
 
 dboolean renderinframe = false;

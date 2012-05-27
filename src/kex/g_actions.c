@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: g_actions.c 984 2011-12-28 19:30:22Z svkaiser $
+// $Id: g_actions.c 1085 2012-03-11 04:47:16Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 984 $
-// $Date: 2011-12-28 21:30:22 +0200 (ср, 28 гру 2011) $
+// $Revision: 1085 $
+// $Date: 2012-03-11 06:47:16 +0200 (нд, 11 бер 2012) $
 //
 //
 // DESCRIPTION:
@@ -55,7 +55,7 @@ struct action_s
     actionproc_t	proc;
     action_t		*children[2];
     action_t		*parent;
-    int				data;
+    int64			data;
     dboolean        allownet;
 };
 
@@ -73,7 +73,7 @@ struct alist_s
     char		*param[MAX_ACTIONPARAM+1];//NULL terminated list
 };
 
-void G_RunAlias(int data, char **param);
+void G_RunAlias(int64 data, char **param);
 void G_DoOptimizeActionTree(void);
 
 alist_t	*CurrentActions[MAX_CURRENTACTIONS];
@@ -262,7 +262,7 @@ alist_t *DoRunActions(alist_t *al, dboolean free)
                     // player# 0 is the server..
                     if(consoleplayer != 0)
                     {
-                        CON_Warnf("Client cannot change server cvars\n");
+                        CON_Warnf("Cannot change cvar that's locked by server\n");
                         goto next;
                     }
                 }
@@ -371,7 +371,13 @@ void G_ActionTicker(void)
     }
 
     if(OptimizeTree)
+    {
         G_DoOptimizeActionTree();
+
+        // 20120310 villsa - do we really need to optimize this every tick?
+        // set back to false when we're done
+        OptimizeTree = false;
+    }
 }
 
 //
@@ -748,12 +754,7 @@ void G_OutputBindings(FILE *fh)
     
     // cvars
     for(var = cvarcap; var; var = var->next)
-    {
-        if(var->nonclient)
-            continue;
-
         fprintf(fh, "seta \"%s\" \"%s\"\n", var->name, var->string);
-    }
 }
 
 //
@@ -995,7 +996,7 @@ static void AddAction(action_t *action)
 // Adds a new action to the list
 //
 
-void G_RegisterAction(char *name, actionproc_t proc, int data, dboolean allownet)
+void G_RegisterAction(char *name, actionproc_t proc, int64 data, dboolean allownet)
 {
     action_t *action;
     
@@ -1012,7 +1013,7 @@ void G_RegisterAction(char *name, actionproc_t proc, int data, dboolean allownet
 // G_RunAlias
 //
 
-void G_RunAlias(int data, char **param)
+void G_RunAlias(int64 data, char **param)
 {
     AddActions(DoRunActions((alist_t *)data, false));
 }
@@ -1084,7 +1085,7 @@ void G_UnregisterAction(char *name)
 // G_CmdAlias
 //
 
-void G_CmdAlias(int data, char **param)
+void G_CmdAlias(int64 data, char **param)
 {
     alist_t *al;
     
@@ -1098,7 +1099,7 @@ void G_CmdAlias(int data, char **param)
     if(!al)
         G_UnregisterAction(param[0]);
     else
-        G_RegisterAction(param[0], G_RunAlias, (int)al, true);
+        G_RegisterAction(param[0], G_RunAlias, (int64)al, true);
 }
 
 //
@@ -1153,7 +1154,7 @@ static void G_Unbind(char *action)
 // G_CmdUnbind
 //
 
-void G_CmdUnbind(int data, char **param)
+void G_CmdUnbind(int64 data, char **param)
 {   
     if(!param[0])
     {
@@ -1182,7 +1183,7 @@ static void UnbindActions(alist_t **alist, int num)
     }
 }
 
-void G_CmdUnbindAll(int data, char **param)
+void G_CmdUnbindAll(int64 data, char **param)
 {
     UnbindActions(AllActions, NUM_ACTIONS);
 }

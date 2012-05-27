@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: dgl.c 857 2011-06-02 03:59:07Z svkaiser $
+// $Id: dgl.c 1055 2012-02-19 21:21:21Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,21 +15,20 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 857 $
-// $Date: 2011-06-02 06:59:07 +0300 (чт, 02 чер 2011) $
+// $Revision: 1055 $
+// $Date: 2012-02-19 23:21:21 +0200 (нд, 19 лют 2012) $
 //
 // DESCRIPTION: Utility functions for rendering
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
-static const char rcsid[] = "$Id: dgl.c 857 2011-06-02 03:59:07Z svkaiser $";
+static const char rcsid[] = "$Id: dgl.c 1055 2012-02-19 21:21:21Z svkaiser $";
 #endif
 
 #include "SDL_opengl.h"
 #include "doomdef.h"
 #include "doomstat.h"
 #include "r_gl.h"
-#include "r_glExt.h"
 #include "con_console.h"
 #include "i_system.h"
 
@@ -39,6 +38,51 @@ word statindice = 0;
 
 static word indicecnt = 0;
 static word drawIndices[MAXINDICES];
+
+CVAR_EXTERNAL(r_drawtris);
+
+//
+// dglLogError
+//
+
+#ifdef USE_DEBUG_GLFUNCS
+void dglLogError(const char *message, const char *file, int line)
+{
+    GLint err = glGetError();
+    if(err != GL_NO_ERROR)
+    {
+        char str[64];
+
+        switch(err)
+        {
+        case GL_INVALID_ENUM:
+            dstrcpy(str, "INVALID_ENUM");
+            break;
+        case GL_INVALID_VALUE:
+            dstrcpy(str, "INVALID_VALUE");
+            break;
+        case GL_INVALID_OPERATION:
+            dstrcpy(str, "INVALID_OPERATION");
+            break;
+        case GL_STACK_OVERFLOW:
+            dstrcpy(str, "STACK_OVERFLOW");
+            break;
+        case GL_STACK_UNDERFLOW:
+            dstrcpy(str, "STACK_UNDERFLOW");
+            break;
+        case GL_OUT_OF_MEMORY:
+            dstrcpy(str, "OUT_OF_MEMORY");
+            break;
+        default:
+            sprintf(str, "0x%x", err);
+            break;
+    }
+
+        I_Printf("\nGL ERROR (%s) on gl function: %s (file = %s, line = %i)\n\n", str, message, file, line);
+        I_Sleep(1);
+    }
+}
+#endif
 
 //
 // dglSetVertex
@@ -80,9 +124,14 @@ d_inline void dglDrawGeometry(dword count, vtx_t *vtx)
 #ifdef LOG_GLFUNC_CALLS
     I_Printf("dglDrawGeometry(count=0x%x, vtx=0x%p)\n", count, vtx);
 #endif
-    dglLockArrays(0, count);
+
+    if(has_GL_EXT_compiled_vertex_array)
+        dglLockArraysEXT(0, count);
+
     dglDrawElements(GL_TRIANGLES, indicecnt, GL_UNSIGNED_SHORT, drawIndices);
-    dglUnlockArrays();
+
+    if(has_GL_EXT_compiled_vertex_array)
+        dglUnlockArraysEXT();
 
     if(r_drawtris.value)
     {
@@ -100,17 +149,25 @@ d_inline void dglDrawGeometry(dword count, vtx_t *vtx)
         dglGetBooleanv(GL_FOG, &b);
 
         if(b) dglDisable(GL_FOG);
+
         dglDisableClientState(GL_TEXTURE_COORD_ARRAY);
         dglDisable(GL_TEXTURE_2D);
         dglPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         dglDepthRange(0.0f, 0.0f);
-        dglLockArrays(0, count);
+
+        if(has_GL_EXT_compiled_vertex_array)
+            dglLockArraysEXT(0, count);
+
         dglDrawElements(GL_TRIANGLES, indicecnt, GL_UNSIGNED_SHORT, drawIndices);
-        dglUnlockArrays();
+
+        if(has_GL_EXT_compiled_vertex_array)
+            dglUnlockArraysEXT();
+
         dglDepthRange(0.0f, 1.0f);
         dglPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         dglEnableClientState(GL_TEXTURE_COORD_ARRAY);
         dglEnable(GL_TEXTURE_2D);
+
         if(b) dglEnable(GL_FOG);
     }
 
@@ -121,10 +178,10 @@ d_inline void dglDrawGeometry(dword count, vtx_t *vtx)
 }
 
 //
-// dglFrustum
+// dglViewFrustum
 //
 
-d_inline void dglFrustum(int width, int height, rfloat fovy, rfloat znear)
+d_inline void dglViewFrustum(int width, int height, rfloat fovy, rfloat znear)
 {
     rfloat left;
     rfloat right;
@@ -134,7 +191,7 @@ d_inline void dglFrustum(int width, int height, rfloat fovy, rfloat znear)
     rfloat m[16];
     
 #ifdef LOG_GLFUNC_CALLS
-    I_Printf("dglFrustum(width=%i, height=%i, fovy=%f, znear=%f)\n", width, height, fovy, znear);
+    I_Printf("dglViewFrustum(width=%i, height=%i, fovy=%f, znear=%f)\n", width, height, fovy, znear);
 #endif
     
     aspect = (rfloat)width / (rfloat)height;

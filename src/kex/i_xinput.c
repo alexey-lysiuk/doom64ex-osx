@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: i_xinput.c 810 2010-12-21 05:56:08Z svkaiser $
+// $Id: i_xinput.c 1043 2012-02-03 20:26:29Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 810 $
-// $Date: 2010-12-21 07:56:08 +0200 (вт, 21 гру 2010) $
+// $Revision: 1043 $
+// $Date: 2012-02-03 22:26:29 +0200 (пт, 03 лют 2012) $
 //
 //
 // DESCRIPTION: XInput API for Kex
@@ -24,7 +24,7 @@
 //-----------------------------------------------------------------------------
 #ifdef RCSID
 static const char
-rcsid[] = "$Id: i_xinput.c 810 2010-12-21 05:56:08Z svkaiser $";
+rcsid[] = "$Id: i_xinput.c 1043 2012-02-03 20:26:29Z svkaiser $";
 #endif
 
 #include <stdlib.h>
@@ -57,6 +57,10 @@ static LPXINPUTGETSTATE I_XInputGetState    = NULL;
 
 typedef dword   (WINAPI* LPXINPUTSETRUMBLE)(dword userID, xinputrumble_t* rumble);
 static LPXINPUTSETRUMBLE I_XInputSetRumble  = NULL;
+
+CVAR(i_rsticksensitivity, 0.0080);
+CVAR(i_rstickthreshold, 20.0);
+CVAR(i_xinputscheme, 0);
 
 //
 // Gamepad button layout table

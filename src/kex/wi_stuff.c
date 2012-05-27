@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: wi_stuff.c 937 2011-08-20 04:55:15Z svkaiser $
+// $Id: wi_stuff.c 1036 2012-01-22 21:34:26Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 937 $
-// $Date: 2011-08-20 07:55:15 +0300 (сб, 20 сер 2011) $
+// $Revision: 1036 $
+// $Date: 2012-01-22 23:34:26 +0200 (нд, 22 січ 2012) $
 //
 //
 // DESCRIPTION:
@@ -25,7 +25,7 @@
 //-----------------------------------------------------------------------------
 #ifdef RCSID
 static const char
-rcsid[] = "$Id: wi_stuff.c 937 2011-08-20 04:55:15Z svkaiser $";
+rcsid[] = "$Id: wi_stuff.c 1036 2012-01-22 21:34:26Z svkaiser $";
 #endif
 
 #include <stdio.h>
@@ -140,6 +140,7 @@ int WI_Ticker(void)
     dboolean    state = false;
     player_t*   player;
     int         i;
+    dboolean    next = false;
 
     if(wi_advance <= 3)
     {
@@ -182,7 +183,7 @@ int WI_Ticker(void)
         wi_counter = 0;
         wi_advance = 2;
 
-        for(i = 0, player = players; i < MAXPLAYERS; i++, player++)
+        for(i = 0; i < MAXPLAYERS; i++)
         {
             killvalue[i] = killpercent[i];
             itemvalue[i] = itempercent[i];
@@ -221,6 +222,8 @@ int WI_Ticker(void)
             return 0;
     }
 
+    next = true;
+
     // counter ticks
     switch(wi_stage)
     {
@@ -231,41 +234,65 @@ int WI_Ticker(void)
         break;
 
     case 1:     // kills
-        killvalue[0] += 4;
-        if(killvalue[0] > killpercent[0])
+        for(i = 0; i < MAXPLAYERS; i++)
         {
-            killvalue[0] = killpercent[0];
+            killvalue[i] += 4;
+            if(killvalue[i] > killpercent[i])
+                killvalue[i] = killpercent[i];
+            else
+                next = false;
+        }
+
+        if(next)
+        {
             S_StartSound(NULL, sfx_explode);
 
             wi_counter = gametic;
             wi_stage = 2;
         }
+
         state = true;
         break;
 
     case 2:     // item
-        itemvalue[0] += 4;
-        if(itemvalue[0] > itempercent[0])
+        for(i = 0; i < MAXPLAYERS; i++)
         {
-            itemvalue[0] = itempercent[0];
+            itemvalue[i] += 4;
+            if(itemvalue[i] > itempercent[i])
+                itemvalue[i] = itempercent[i];
+            else
+                next = false;
+        }
+
+        if(next)
+        {
             S_StartSound(NULL, sfx_explode);
 
             wi_counter = gametic;
             wi_stage = 3;
         }
+
         state = true;
         break;
 
     case 3:     // secret
-        secretvalue[0] += 4;
-        if(secretvalue[0] > secretpercent[0])
+        for(i = 0; i < MAXPLAYERS; i++)
         {
-            secretvalue[0] = secretpercent[0];
+            secretvalue[i] += 4;
+            if(secretvalue[i] > secretpercent[i])
+                secretvalue[i] = secretpercent[i];
+            else
+                next = false;
+        }
+
+        if(next)
+        {
             S_StartSound(NULL, sfx_explode);
 
             wi_counter = gametic;
             wi_stage = 4;
         }
+
         state = true;
         break;
 
@@ -318,29 +345,74 @@ void WI_Drawer(void)
     M_DrawSmbText(-1, 20, WHITE, P_GetMapInfo(currentmap)->mapname);
 	M_DrawSmbText(-1, 36, WHITE, "Finished");
 
-    // draw kills
-    M_DrawSmbText(57, 60, WIALPHARED, "Kills");
-    M_DrawSmbText(248, 60, WIALPHARED, "%");
-    if(wi_stage > 0 && killvalue[0] > -1)
-        M_DrawNumber(210, 60, killvalue[0], 1, WIALPHARED);
-
-    // draw items
-    M_DrawSmbText(57, 78, WIALPHARED, "Items");
-    M_DrawSmbText(248, 78, WIALPHARED, "%");
-    if(wi_stage > 1 && itemvalue[0] > -1)
-        M_DrawNumber(210, 78, itemvalue[0], 1, WIALPHARED);
-
-    // draw secrets
-    M_DrawSmbText(57, 99, WIALPHARED, "Secrets");
-    M_DrawSmbText(248, 99, WIALPHARED, "%");
-    if(wi_stage > 2 && secretvalue[0] > -1)
-        M_DrawNumber(210, 99, secretvalue[0], 1, WIALPHARED);
-
-    // draw time
-    if(wi_stage > 3)
+    if(!netgame)
     {
-        M_DrawSmbText(57, 120, WIALPHARED, "Time");
-        M_DrawSmbText(210, 120, WIALPHARED, timevalue);
+        // draw kills
+        M_DrawSmbText(57, 60, WIALPHARED, "Kills");
+        M_DrawSmbText(248, 60, WIALPHARED, "%");
+        if(wi_stage > 0 && killvalue[0] > -1)
+            M_DrawNumber(210, 60, killvalue[0], 1, WIALPHARED);
+
+        // draw items
+        M_DrawSmbText(57, 78, WIALPHARED, "Items");
+        M_DrawSmbText(248, 78, WIALPHARED, "%");
+        if(wi_stage > 1 && itemvalue[0] > -1)
+            M_DrawNumber(210, 78, itemvalue[0], 1, WIALPHARED);
+
+        // draw secrets
+        M_DrawSmbText(57, 99, WIALPHARED, "Secrets");
+        M_DrawSmbText(248, 99, WIALPHARED, "%");
+        if(wi_stage > 2 && secretvalue[0] > -1)
+            M_DrawNumber(210, 99, secretvalue[0], 1, WIALPHARED);
+
+        // draw time
+        if(wi_stage > 3)
+        {
+            M_DrawSmbText(57, 120, WIALPHARED, "Time");
+            M_DrawSmbText(210, 120, WIALPHARED, timevalue);
+        }
+    }
+    else
+    {
+        int i;
+        int y = 160;
+
+        R_GLSetOrthoScale(0.5f);
+
+        M_DrawSmbText(180, 140, WHITE, "Kills");
+        M_DrawSmbText(300, 140, WHITE, "Items");
+        M_DrawSmbText(412, 140, WHITE, "Secrets");
+
+        for(i = 0; i < MAXPLAYERS; i++)
+        {
+            if(!playeringame[i])
+                continue;
+
+            M_DrawSmbText(57, y, WIALPHARED, player_names[i]);
+            M_DrawSmbText(232, y, WIALPHARED, "%");
+            M_DrawSmbText(352, y, WIALPHARED, "%");
+            M_DrawSmbText(464, y, WIALPHARED, "%");
+
+            if(wi_stage > 0 && killvalue[i] > -1)
+                M_DrawNumber(180, y, killvalue[i], 1, WIALPHARED);
+
+            if(wi_stage > 1 && itemvalue[i] > -1)
+                M_DrawNumber(300, y, itemvalue[i], 1, WIALPHARED);
+
+            if(wi_stage > 2 && secretvalue[i] > -1)
+                M_DrawNumber(412, y, secretvalue[i], 1, WIALPHARED);
+
+            y += 16;
+        }
+
+        // draw time
+        if(wi_stage > 3)
+        {
+            M_DrawSmbText(248, y + 32, WIALPHARED, "Time");
+            M_DrawSmbText(324, y + 32, WIALPHARED, timevalue);
+        }
+
+        R_GLSetOrthoScale(1.0f);
     }
 
     // draw password and name of next map
@@ -349,9 +421,13 @@ void WI_Drawer(void)
         char password[20];
 	    byte *passData;
         int i = 0;
+        int y = 145;
 
-        M_DrawSmbText(-1, 145, WHITE, "Entering");
-        M_DrawSmbText(-1, 161, WHITE, P_GetMapInfo(nextmap)->mapname);
+        if(netgame)
+            y = 187;
+
+        M_DrawSmbText(-1, y, WHITE, "Entering");
+        M_DrawSmbText(-1, y + 16, WHITE, P_GetMapInfo(nextmap)->mapname);
 
         if(netgame)	// don't bother drawing the password on netgames
 		    return;

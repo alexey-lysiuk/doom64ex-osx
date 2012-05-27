@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: s_sound.h 901 2011-08-06 01:14:11Z svkaiser $
+// $Id: s_sound.h 1089 2012-03-17 05:37:23Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -40,6 +40,7 @@ void S_Init(void);
 
 void S_SetSoundVolume(float volume);
 void S_SetMusicVolume(float volume);
+void S_SetGainOutput(float db);
 
 void S_ResetSound(void);
 void S_PauseSound(void);
@@ -66,6 +67,8 @@ int S_GetActiveSounds(void);
 // Start music using <music_id> from sounds.h
 void S_StartMusic(int mnum);
 void S_StopMusic(void);
+
+void S_RegisterCvars(void);
 
 
 #endif

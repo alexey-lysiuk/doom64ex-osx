@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: p_spec.h 942 2011-08-20 18:46:35Z svkaiser $
+// $Id: p_spec.h 1039 2012-01-23 00:36:40Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -193,11 +193,11 @@ typedef enum
 
 typedef struct
 {
-    line_t*		line;
-    bwhere_e	where;
-    int			btexture;
-    int			btimer;
-    mobj_t*		soundorg;
+    line_t*     line;
+    bwhere_e    where;
+    int         btexture;
+    int         btimer;
+    mobj_t*     soundorg;
 } button_t;
 
 

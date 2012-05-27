@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: st_stuff.c 981 2011-12-22 22:13:41Z svkaiser $
+// $Id: st_stuff.c 1085 2012-03-11 04:47:16Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 981 $
-// $Date: 2011-12-23 00:13:41 +0200 (пт, 23 гру 2011) $
+// $Revision: 1085 $
+// $Date: 2012-03-11 06:47:16 +0200 (нд, 11 бер 2012) $
 //
 //
 // DESCRIPTION:
@@ -28,7 +28,7 @@
 //-----------------------------------------------------------------------------
 #ifdef RCSID
 static const char
-rcsid[] = "$Id: st_stuff.c 981 2011-12-22 22:13:41Z svkaiser $";
+rcsid[] = "$Id: st_stuff.c 1085 2012-03-11 04:47:16Z svkaiser $";
 #endif
 
 
@@ -58,6 +58,19 @@ rcsid[] = "$Id: st_stuff.c 981 2011-12-22 22:13:41Z svkaiser $";
 void M_DrawXInputButton(int x, int y, int button);
 
 #endif
+
+CVAR(st_drawhud, 1);
+CVAR(st_crosshair, 0);
+CVAR(st_crosshairopacity, 80);
+CVAR(st_flashoverlay, 0);
+CVAR(st_regionmsg, 0);
+CVAR(m_messages, 1);
+CVAR(m_playername, Player);
+CVAR(st_showpendingweapon, 1);
+CVAR(st_showstats, 0);
+
+CVAR_EXTERNAL(p_usecontext);
+CVAR_EXTERNAL(p_damageindicator);
 
 //
 // STATUS BAR DATA
@@ -105,6 +118,9 @@ static byte             st_flash_b;
 static byte             st_flash_a;
 static int              st_jmessages[ST_JMESSAGES];   // japan-specific messages
 static dboolean         st_hasjmsg = false;
+static dboolean         st_wpndisplay_show;
+static byte             st_wpndisplay_alpha;
+static int              st_wpndisplay_ticks;
 
 char* chat_macros[] =
 {
@@ -167,6 +183,10 @@ static void ST_EatChatMsg(void);
 static void ST_DisplayName(int playernum);
 
 //
+// STATUS BAR CODE
+//
+
+//
 // DAMAGE MARKER SYSTEM
 //
 
@@ -192,11 +212,13 @@ static void ST_RunDamageMarkers(void)
     {
         if(!dmgmarker->tics--)
         {
-            P_SetTarget(&dmgmarker->source, NULL);
+            damagemarker_t* marker = dmgmarker;
+            damagemarker_t* next = marker->next;
 
-            dmgmarker->next->prev = dmgmarker->prev;
-            dmgmarker->prev->next = dmgmarker->next;
-            Z_Free(dmgmarker);
+            P_SetTarget(&marker->source, NULL);
+
+            (next->prev = dmgmarker = marker->prev)->next = next;
+            Z_Free(marker);
         }
     }
 }
@@ -285,8 +307,54 @@ static void ST_DrawDamageMarkers(void)
 }
 
 //
-// STATUS BAR CODE
+// ST_DisplayPendingWeapon
 //
+
+void ST_DisplayPendingWeapon(void)
+{
+    st_wpndisplay_show = true;
+    st_wpndisplay_alpha = 0xC0;
+    st_wpndisplay_ticks = 2*TICRATE;
+}
+
+//
+// ST_DrawPendingWeapon
+//
+
+static void ST_DrawPendingWeapon(void)
+{
+    int i;
+    int x = 0;
+    int wpn;
+
+    if(!st_wpndisplay_show)
+        return;
+
+    R_GLSetOrthoScale(0.5f);
+
+    for(i = 0; i < NUMWEAPONS; i++)
+    {
+        rcolor color;
+
+        if(plyr->weaponowned[i])
+            color = D_RGBA(0xff, 0xff, 0x3f, st_wpndisplay_alpha);
+        else
+            color = WHITEALPHA(st_wpndisplay_alpha);
+
+        M_DrawNumber(245 + x, 400, i, 0, color);
+        x += 16;
+
+    }
+
+    if(plyr->pendingweapon == wp_nochange)
+        wpn = plyr->readyweapon;
+    else
+        wpn = plyr->pendingweapon;
+
+    M_DrawSmbText(235 + (wpn * 16), 404, WHITEALPHA(st_wpndisplay_alpha), "/b");
+
+    R_GLSetOrthoScale(1.0f);
+}
 
 //
 // ST_ClearMessage
@@ -391,6 +459,22 @@ void ST_Ticker (void)
 
     if(p_damageindicator.value)
         ST_RunDamageMarkers();
+
+    //
+    // pending weapon display
+    //
+    if(st_wpndisplay_show)
+    {
+        if(st_wpndisplay_ticks-- <= 0)
+        {
+            st_wpndisplay_alpha -= 8;
+            if(st_wpndisplay_alpha <= 0)
+            {
+                st_wpndisplay_alpha = 0;
+                st_wpndisplay_show = false;
+            }
+        }
+    }
 }
 
 //
@@ -451,15 +535,15 @@ static void ST_DrawKey(int key, const float uv[4][2], const float xy[4][2])
 
         if(st_drawhud.value >= 2)
         {
-            keydrawxy[0][0] += 24;
-            keydrawxy[1][0] += 24;
-            keydrawxy[2][0] += 24;
-            keydrawxy[3][0] += 24;
+            keydrawxy[0][0] += 20;
+            keydrawxy[1][0] += 20;
+            keydrawxy[2][0] += 20;
+            keydrawxy[3][0] += 20;
 
-            keydrawxy[0][1] += 8;
-            keydrawxy[1][1] += 8;
-            keydrawxy[2][1] += 8;
-            keydrawxy[3][1] += 8;
+            keydrawxy[0][1] += 78;
+            keydrawxy[1][1] += 78;
+            keydrawxy[2][1] += 78;
+            keydrawxy[3][1] += 78;
         }
 
         ST_DrawStatusItem(keydrawxy, uv, D_RGBA(0xff, 0xff, 0xff, 0x80));
@@ -527,6 +611,9 @@ static void ST_DrawStatus(void)
     dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, DGL_CLAMP);
     dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, DGL_CLAMP);
 
+    if(st_drawhud.value >= 2)
+        R_GLSetOrthoScale(0.725f);
+
     R_GLEnable2D(0);
 
     dglSetVertex(st_vtx);
@@ -593,6 +680,9 @@ static void ST_DrawStatus(void)
 
     R_GLDisable2D();
     R_GLToggleBlend(0);
+
+    if(st_drawhud.value >= 2)
+        R_GLSetOrthoScale(1.0f);
 }
 
 //
@@ -705,51 +795,59 @@ void ST_Drawer(void)
         // arranged hud layout
         else if(st_drawhud.value >= 2)
         {
+            int wpn;
+
+            if(plyr->pendingweapon == wp_nochange)
+                wpn = plyr->readyweapon;
+            else
+                wpn = plyr->pendingweapon;
+
             // display ammo sprite
-            switch(weaponinfo[plyr->readyweapon].ammo)
+            switch(weaponinfo[wpn].ammo)
             {
                 case am_clip:
-                    R_DrawHudSprite(SPR_CLIP, 0, 0, 248, 233, 1.0f, 0, WHITEALPHA(0xC0));
+                    R_DrawHudSprite(SPR_CLIP, 0, 0, 524, 460, 0.5f, 0, WHITEALPHA(0xC0));
                     break;
                 case am_shell:
-                    R_DrawHudSprite(SPR_SHEL, 0, 0, 248, 233, 1.0f, 0, WHITEALPHA(0xC0));
+                    R_DrawHudSprite(SPR_SHEL, 0, 0, 524, 460, 0.5f, 0, WHITEALPHA(0xC0));
                     break;
                 case am_misl:
-                    R_DrawHudSprite(SPR_RCKT, 0, 0, 332, 312, 0.75f, 0, WHITEALPHA(0xC0));
+                    R_DrawHudSprite(SPR_RCKT, 0, 0, 524, 464, 0.5f, 0, WHITEALPHA(0xC0));
                     break;
                 case am_cell:
-                    R_DrawHudSprite(SPR_CELL, 0, 0, 330, 312, 0.75f, 0, WHITEALPHA(0xC0));
+                    R_DrawHudSprite(SPR_CELL, 0, 0, 524, 464, 0.5f, 0, WHITEALPHA(0xC0));
                     break;
             }
 
-            // display artifact sprite when using laser weapon
-            if(plyr->readyweapon == wp_laser)
-            {
-                if(plyr->artifacts & (1<<ART_TRIPLE))
-                    R_DrawHudSprite(SPR_ART3, 0, 0, 496, 456, 0.5f, 0, WHITEALPHA(0xC0));
-        
-                if(plyr->artifacts & (1<<ART_DOUBLE))
-                    R_DrawHudSprite(SPR_ART2, 0, 0, 532, 456, 0.5f, 0, WHITEALPHA(0xC0));
-        
-                if(plyr->artifacts & (1<<ART_FAST))
-                    R_DrawHudSprite(SPR_ART1, 0, 0, 568, 456, 0.5f, 0, WHITEALPHA(0xC0));
-            }
+            // display artifact sprites
+            if(plyr->artifacts & (1<<ART_TRIPLE))
+                R_DrawHudSprite(SPR_ART3, 0, 0, 260, 872, 0.275f, 0, WHITEALPHA(0xC0));
+    
+            if(plyr->artifacts & (1<<ART_DOUBLE))
+                R_DrawHudSprite(SPR_ART2, 0, 0, 296, 872, 0.275f, 0, WHITEALPHA(0xC0));
+    
+            if(plyr->artifacts & (1<<ART_FAST))
+                R_DrawHudSprite(SPR_ART1, 0, 0, 332, 872, 0.275f, 0, WHITEALPHA(0xC0));
 
             // display medkit/armor
-            R_DrawHudSprite(SPR_MEDI, 0, 0, 24, 286, 0.75f, 0, WHITEALPHA(0xC0));
-            R_DrawHudSprite(SPR_ARM1, 0, 0, 32, 465, 0.5f, 0, WHITEALPHA(0xC0));
+            R_DrawHudSprite(SPR_MEDI, 0, 0, 50, 662, 0.35f, 0, WHITEALPHA(0xC0));
+            R_DrawHudSprite(SPR_ARM1, 0, 0, 50, 632, 0.35f, 0, WHITEALPHA(0xC0));
+
+            R_GLSetOrthoScale(0.5f);
 
             //Draw Health
-            M_DrawNumber(72, 220-18, plyr->health, 2, REDALPHA(0xC0));
-            M_DrawSmbText(80, 222-18, REDALPHA(0xC0), "%");
+            M_DrawNumber(96, 448, plyr->health, 2, REDALPHA(0xC0));
+            M_DrawSmbText(104, 450, REDALPHA(0xC0), "%");
 
             //Draw Armor
-            M_DrawNumber(72, 220, plyr->armorpoints, 2, REDALPHA(0xC0));
-            M_DrawSmbText(80, 222, REDALPHA(0xC0), "%");
+            M_DrawNumber(96, 424, plyr->armorpoints, 2, REDALPHA(0xC0));
+            M_DrawSmbText(104, 426, REDALPHA(0xC0), "%");
 
             //Draw Ammo counter
-            if(weaponinfo[plyr->readyweapon].ammo != am_noammo)
-                M_DrawNumber(268, 220, plyr->ammo[weaponinfo[plyr->readyweapon].ammo], 1, REDALPHA(0xC0));
+            if(weaponinfo[wpn].ammo != am_noammo)
+                M_DrawNumber(550, 448, plyr->ammo[weaponinfo[wpn].ammo], 1, REDALPHA(0xC0));
+
+            R_GLSetOrthoScale(1.0f);
         }
     }
     
@@ -844,7 +942,7 @@ void ST_Drawer(void)
 #endif
             {
                 G_GetActionBindings(usestring, "+use");
-                dsprintf(contextstring, "(%s)Use", usestring);
+                sprintf(contextstring, "(%s)Use", usestring);
 
                 x = (160 / 0.75f) - ((dstrlen(contextstring) * 8) / 2);
 
@@ -859,6 +957,29 @@ void ST_Drawer(void)
 
     if(p_damageindicator.value)
         ST_DrawDamageMarkers();
+
+    //
+    // display pending weapon
+    //
+
+    if(st_showpendingweapon.value)
+        ST_DrawPendingWeapon();
+
+    //
+    // display stats in automap
+    //
+
+    if(st_showstats.value && automapactive)
+    {
+        M_DrawText(20, 430, WHITE, 0.5f, false,
+            "Monsters:  %i / %i", plyr->killcount, totalkills);
+        M_DrawText(20, 440, WHITE, 0.5f, false,
+            "Items:     %i / %i", plyr->itemcount, totalitems);
+        M_DrawText(20, 450, WHITE, 0.5f, false,
+            "Secrets:   %i / %i", plyr->secretcount, totalsecret);
+        M_DrawText(20, 460, WHITE, 0.5f, false,
+            "Time:      %2.2d:%2.2d", (leveltime / TICRATE) / 60, (leveltime / TICRATE) % 60);
+    }
 }
 
 //
@@ -1015,12 +1136,18 @@ void ST_Init (void)
     {
         char name[9];
 
-        dsprintf(name, "JPMSG%02d", i + 1);
+        sprintf(name, "JPMSG%02d", i + 1);
         st_jmessages[i] = W_CheckNumForName(name);
 
         if(st_jmessages[i] != -1)
             st_hasjmsg = true;
     }
+
+    // setup weapon display variables
+
+    st_wpndisplay_show = false;
+    st_wpndisplay_alpha = 0;
+    st_wpndisplay_ticks = 0;
 }
 
 //
@@ -1371,4 +1498,21 @@ static void ST_DisplayName(int playernum)
     M_DrawText(screenx, screeny, color, 1.0f, 0, name);
 }
 
+
+//
+// ST_RegisterCvars
+//
+
+void ST_RegisterCvars(void)
+{
+    CON_CvarRegister(&st_drawhud);
+    CON_CvarRegister(&st_crosshair);
+    CON_CvarRegister(&st_crosshairopacity);
+    CON_CvarRegister(&st_flashoverlay);
+    CON_CvarRegister(&st_regionmsg);
+    CON_CvarRegister(&st_showpendingweapon);
+    CON_CvarRegister(&st_showstats);
+    CON_CvarRegister(&m_messages);
+    CON_CvarRegister(&m_playername);
+}
 

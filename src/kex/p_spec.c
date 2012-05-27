@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: p_spec.c 982 2011-12-27 04:06:58Z svkaiser $
+// $Id: p_spec.c 1085 2012-03-11 04:47:16Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 982 $
-// $Date: 2011-12-27 06:06:58 +0200 (вт, 27 гру 2011) $
+// $Revision: 1085 $
+// $Date: 2012-03-11 06:47:16 +0200 (нд, 11 бер 2012) $
 //
 //
 // DESCRIPTION:
@@ -29,7 +29,7 @@
 //-----------------------------------------------------------------------------
 #ifdef RCSID
 static const char
-rcsid[] = "$Id: p_spec.c 982 2011-12-27 04:06:58Z svkaiser $";
+rcsid[] = "$Id: p_spec.c 1085 2012-03-11 04:47:16Z svkaiser $";
 #endif
 
 #include <stdlib.h>
@@ -55,6 +55,7 @@ rcsid[] = "$Id: p_spec.c 982 2011-12-27 04:06:58Z svkaiser $";
 #include "r_sky.h"
 #include "sc_main.h"
 
+CVAR_EXTERNAL(p_features);
 
 short globalint = 0;
 static byte tryopentype[3];
@@ -81,11 +82,11 @@ animdef_t*  animdefs;
 
 static scdatatable_t animdatatable[] =
 {
-    {   "RESTARTDELAY",     (int)&((animdef_t*)0)->delay,   'i' },
-    {   "FRAMES",           (int)&((animdef_t*)0)->frames,  'i' },
-    {   "CYCLEPALETTES",    (int)&((animdef_t*)0)->palette, 'b' },
-    {   "REWIND",           (int)&((animdef_t*)0)->reverse, 'b' },
-    {   "SPEED",            (int)&((animdef_t*)0)->speed,   'i' },
+    {   "RESTARTDELAY",     (int64)&((animdef_t*)0)->delay,   'i' },
+    {   "FRAMES",           (int64)&((animdef_t*)0)->frames,  'i' },
+    {   "CYCLEPALETTES",    (int64)&((animdef_t*)0)->palette, 'b' },
+    {   "REWIND",           (int64)&((animdef_t*)0)->reverse, 'b' },
+    {   "SPEED",            (int64)&((animdef_t*)0)->speed,   'i' },
     {   NULL,               0,                              0   }
 };
 
@@ -171,7 +172,6 @@ extern line_t** linespeciallist;
 void P_InitPicAnims(void)
 {
     int	i = 0;
-    int j = 0;
 
     P_InitAnimdef();
     
@@ -185,24 +185,18 @@ void P_InitPicAnims(void)
         animinfo[i].isreverse = false;
         animinfo[i].texnum = W_GetNumForName(animdefs[i].name) - t_start;
         animinfo[i].frame = -1;
-    }
 
-    for(i = 0; i < numtextures; i++)
-    {
         // reallocate texture pointers if they contain multiple palettes
         // check by looking up animdefs
-        for(j = 0; j < numanimdef; j++)
+
+        if(animdefs[i].palette)
         {
-            if(animdefs[j].palette)
-            {
-                int lump = W_GetNumForName(animdefs[j].name) - t_start;
-                
-                textureptr[lump] = (dtexture*)Z_Realloc(textureptr[lump],
-                    animdefs[j].frames * sizeof(dtexture), PU_STATIC, 0);
-            }
+            int lump = animinfo[i].texnum;
+            
+            textureptr[lump] = (dtexture*)Z_Realloc(textureptr[lump],
+                animdefs[i].frames * sizeof(dtexture), PU_STATIC, 0);
         }
     }
-    
 }
 
 //
@@ -892,7 +886,11 @@ int P_SetAimCamera(player_t* player, line_t* line, dboolean aim)
         if(player->cameratarget->tid == line->tag)
             continue;
 
-        player->cameratarget = mo;
+        // 20120304 villsa - handle certain case for co-op
+        if(netgame && mo->type == MT_PLAYER)
+            player->cameratarget = player->mo;
+        else
+            player->cameratarget = mo;
 
         if(player->mo == player->cameratarget)
             return 1;
@@ -955,15 +953,9 @@ void T_MovingCamera(movecamera_t* camera)
     camera->tic++;
     if(camera->tic < CAMMOVESPEED)
     {
-        // [kex] unset position just to be safe
-        P_UnsetThingPosition(camtarget);
-
         camtarget->x += camera->slopex;
         camtarget->y += camera->slopey;
         camtarget->z += camera->slopez;
-
-        // [kex] reset position just to be safe
-        P_SetThingPosition(camtarget);
 
         return;
     }

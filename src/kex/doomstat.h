@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: doomstat.h 982 2011-12-27 04:06:58Z svkaiser $
+// $Id: doomstat.h 1069 2012-03-03 22:18:12Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -78,6 +78,12 @@ extern	dboolean    netgame;
 extern	dboolean    netcheat;
 extern	dboolean    netkill;
 
+extern  int         gameflags;
+extern  int         compatflags;
+
+extern  int         damagescale;
+extern  int         healthscale;
+
 // Flag: true only if started as net deathmatch.
 // An enum might handle altdeath/cooperative better.
 extern int          deathmatch;
@@ -102,9 +108,6 @@ extern  dboolean    allowmenu;          // Allow menu interaction?
 extern	dboolean    mainmenuactive;
 extern  dboolean    allowclearmenu;
 extern  dboolean    paused;             // Game Pause?
-
-extern  dboolean    nodrawers;
-extern  dboolean    noblit;
 
 extern	dboolean    InWindow;
 extern	dboolean    setWindow;
@@ -189,6 +192,8 @@ typedef struct
     dboolean    clearchts;
     dboolean    forcegodmode;
     dboolean    contmusexit;
+    int         oldcollision;
+    int         allowjump;
 } mapdef_t;
 
 typedef struct

@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: d_englsh.h 914 2011-08-11 02:48:39Z svkaiser $
+// $Id: d_englsh.h 1036 2012-01-22 21:34:26Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -178,10 +178,10 @@
 
 #define HUSTR_MESSAGESENT	"[Message Sent]"
 
-#define HUSTR_PLR1	"Green: "
-#define HUSTR_PLR2	"Red: "
-#define HUSTR_PLR3	"Aqua: "
-#define HUSTR_PLR4	"Blue: "
+#define HUSTR_PLR1	"Green"
+#define HUSTR_PLR2	"Red"
+#define HUSTR_PLR3	"Aqua"
+#define HUSTR_PLR4	"Blue"
 
 #define HUSTR_KEYPLR1	'g'
 #define HUSTR_KEYPLR2	'r'

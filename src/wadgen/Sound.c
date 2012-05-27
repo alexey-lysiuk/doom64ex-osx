@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: Sound.c 920 2011-08-12 03:13:17Z svkaiser $
+// $Id: Sound.c 1088 2012-03-15 05:28:09Z svkaiser $
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -18,15 +18,15 @@
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
 // $Author: svkaiser $
-// $Revision: 920 $
-// $Date: 2011-08-12 06:13:17 +0300 (пт, 12 сер 2011) $
+// $Revision: 1088 $
+// $Date: 2012-03-15 07:28:09 +0200 (чт, 15 бер 2012) $
 //
 // DESCRIPTION: Finds and process Doom 64's audio library files and implements them
 //              in the IWAD.
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
-static const char rcsid[] = "$Id: Sound.c 920 2011-08-12 03:13:17Z svkaiser $";
+static const char rcsid[] = "$Id: Sound.c 1088 2012-03-15 05:28:09Z svkaiser $";
 #endif
 
 #include "WadGen.h"
@@ -371,6 +371,7 @@ static void Sound_CreateMidiTrack(midiheader_t* mthd, track_t* track, byte* data
             tracksize++;
         } while(*midi++ & 0x80);
 
+        // end marker
         if(*midi == 0x22)
         {
             *buff++ = 0xff;
@@ -437,6 +438,7 @@ static void Sound_CreateMidiTrack(midiheader_t* mthd, track_t* track, byte* data
         case 0x0e:  // channel aftertouch
             *buff++ = ((0x0d << 4) | chan); *midi++;
             *buff++ = *midi++;
+            tracksize += 2;
             break;
         case 0x0f:  // unknown 0x0f
             PRINTSTRING(*midi);

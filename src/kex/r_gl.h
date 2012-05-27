@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: r_gl.h 947 2011-08-24 01:25:17Z svkaiser $
+// $Id: r_gl.h 1087 2012-03-14 05:40:46Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 947 $
-// $Date: 2011-08-24 04:25:17 +0300 (ср, 24 сер 2011) $
+// $Revision: 1087 $
+// $Date: 2012-03-14 07:40:46 +0200 (ср, 14 бер 2012) $
 //
 // DESCRIPTION: OpenGL exclusive functions. All OGL initializations are also handled here
 //
@@ -34,8 +34,6 @@ typedef GLfloat		rfloat;
 typedef GLuint		rcolor;
 typedef GLuint		rbuffer;
 typedef GLhandleARB	rhandle;
-
-extern rcolor TextureClearColor;
 
 typedef struct
 {
@@ -71,7 +69,6 @@ extern int ViewWindowY;
 
 #define TESTALPHA(x)        ((byte)((x >> 24) & 0xff) < 0xff)
 
-extern int glFilter;
 extern int DGL_CLAMP;
 
 extern dboolean usingGL;
@@ -81,8 +78,9 @@ void R_GLClearFrame(rcolor clearcolor);
 dboolean R_GLGet(int x);
 void R_GLCheckFillMode(void);
 void R_GLToggleBlend(dboolean enable);
+void R_GLEnableCulling(dboolean enable);
 void R_GLFinish(void);
-byte* R_GLGetScreen(int width, int height);
+byte* R_GLGetScreen(int x, int y, int width, int height);
 void R_GLSetFilter(void);
 void R_GLEnable2D(dboolean filladjust);
 void R_GLDisable2D(void);

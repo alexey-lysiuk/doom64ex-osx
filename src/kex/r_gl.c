@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: r_gl.c 947 2011-08-24 01:25:17Z svkaiser $
+// $Id: r_gl.c 1087 2012-03-14 05:40:46Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,14 +15,14 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 947 $
-// $Date: 2011-08-24 04:25:17 +0300 (ср, 24 сер 2011) $
+// $Revision: 1087 $
+// $Date: 2012-03-14 07:40:46 +0200 (ср, 14 бер 2012) $
 //
 // DESCRIPTION: OpenGL exclusive functions. All OGL initializations are also handled here
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
-static const char rcsid[] = "$Id: r_gl.c 947 2011-08-24 01:25:17Z svkaiser $";
+static const char rcsid[] = "$Id: r_gl.c 1087 2012-03-14 05:40:46Z svkaiser $";
 #endif
 
 #include <math.h>
@@ -52,10 +52,14 @@ const char *gl_version;
 static float glScaleFactor = 1.0f;
 
 dboolean    usingGL = false;
-rcolor      TextureClearColor;
-int         DGL_CLAMP;
+int         DGL_CLAMP = GL_CLAMP;
+float       max_anisotropic = 0;
+dboolean    widescreen = false;
 
-dboolean widescreen = false;
+CVAR_EXTERNAL(r_filter);
+CVAR_EXTERNAL(r_texturecombiner);
+CVAR_EXTERNAL(r_anisotropic);
+CVAR_EXTERNAL(st_flashoverlay);
 
 //
 // R_GLEnable2D
@@ -142,6 +146,7 @@ float R_GLGetOrthoScale(void)
 
 void R_GLFinish(void)
 {
+    dglFinish();
     SDL_GL_SwapBuffers();
 }
 
@@ -149,35 +154,39 @@ void R_GLFinish(void)
 // R_GLGetScreen
 //
 
-byte* R_GLGetScreen(int width, int height)
+byte* R_GLGetScreen(int x, int y, int width, int height)
 {
-    byte *row1;
-    byte *row2;
+    byte* buffer;
     byte* data;
-    int col;
     int i;
+    int pack;
+    int col;
 
-    col = (width * 3);
-    data = (byte*)Z_Calloc(height * col, PU_STATIC, 0);
+    col     = (width * 3);
+    data    = (byte*)Z_Calloc(height * width * 3, PU_STATIC, 0);
+    buffer  = (byte*)Z_Calloc(col, PU_STATIC, 0);
 
-    dglReadPixels(0, 0, video_width, video_height, GL_RGB, GL_UNSIGNED_BYTE, data);
+    //
+    // 20120313 villsa - force pack alignment to 1
+    //
+    dglGetIntegerv(GL_PACK_ALIGNMENT, &pack);
+    dglPixelStorei(GL_PACK_ALIGNMENT, 1);
+    dglFlush();
+    dglReadPixels(x, y, width, height, GL_RGB, GL_UNSIGNED_BYTE, data);
+    dglPixelStorei(GL_PACK_ALIGNMENT, pack);
 
+    //
     // Need to vertically flip the image
-    
-    row1 = (byte*)Z_Malloc(col, PU_STATIC, 0);
-    row2 = (byte*)Z_Malloc(col, PU_STATIC, 0);
-    
-    for(i = 0; i < (height / 2); i++)
+    // 20120313 villsa - better method to flip image. uses one buffer instead of two
+    //
+    for(i = 0; i < height / 2; i++)
     {
-        dmemcpy(row1, data + (i * col), col);
-        dmemcpy(row2, data + (((height - 1) - i) * col), col);
-        
-        dmemcpy(data + (i * col), row2, col);
-        dmemcpy(data + (((height - 1) - i) * col), row1, col);
+        dmemcpy(buffer, &data[i * col], col);
+        dmemcpy(&data[i * col], &data[(height - (i + 1)) * col], col);
+        dmemcpy(&data[(height - (i + 1)) * col], buffer, col);
     }
     
-    Z_Free(row1);
-    Z_Free(row2);
+    Z_Free(buffer);
 
     return data;
 }
@@ -188,8 +197,19 @@ byte* R_GLGetScreen(int width, int height)
 
 void R_GLSetFilter(void)
 {
+    if(!usingGL)
+        return;
+
     dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (int)r_filter.value == 0 ? GL_LINEAR : GL_NEAREST);
     dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, (int)r_filter.value == 0 ? GL_LINEAR : GL_NEAREST);
+
+    if(has_GL_EXT_texture_filter_anisotropic)
+    {
+        if(r_anisotropic.value)
+            dglTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, max_anisotropic);
+        else
+            dglTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, 0);
+    }
 }
 
 //
@@ -198,18 +218,20 @@ void R_GLSetFilter(void)
 
 void R_GLResetCombiners(void)
 {
-    dglActiveTexture(GL_TEXTURE1_ARB);
-    dglDisable(GL_TEXTURE_2D);
-    dglActiveTexture(GL_TEXTURE2_ARB);
-    dglDisable(GL_TEXTURE_2D);
-    dglActiveTexture(GL_TEXTURE3_ARB);
-    dglDisable(GL_TEXTURE_2D);
-    dglActiveTexture(GL_TEXTURE4_ARB);
-    dglDisable(GL_TEXTURE_2D);
-    dglActiveTexture(GL_TEXTURE0_ARB);
-    dglEnable(GL_TEXTURE_2D);
+    if(has_GL_ARB_multitexture)
+    {
+        R_SetTextureUnit(1, false);
+        R_SetTextureUnit(2, false);
+        R_SetTextureUnit(3, false);
+        R_SetTextureUnit(0, true);
+    }
+
     R_GLCheckFillMode();
-    dglTexCombModulate(GL_TEXTURE0_ARB, GL_PRIMARY_COLOR);
+
+    if(r_texturecombiner.value > 0)
+        dglTexCombModulate(GL_TEXTURE0_ARB, GL_PRIMARY_COLOR);
+    else
+        R_SetTextureMode(GL_MODULATE);
 }
 
 //
@@ -255,7 +277,7 @@ void R_GLRenderVertex(vtx_t *v, dboolean filladjust)
 
     dglSetVertex(v);
     dglTriangle(0, 1, 2);
-    dglTriangle(1, 2, 3);
+    dglTriangle(3, 2, 1);
     dglDrawGeometry(4, v);
     
     R_GLDisable2D();
@@ -302,12 +324,38 @@ void R_GLToggleBlend(dboolean enable)
 // R_GLCheckFillMode
 //
 
+static dboolean rFillEnabled = false;
 void R_GLCheckFillMode(void)
 {
-    if(!r_fillmode.value)
+    if(r_fillmode.value <= 0 && rFillEnabled == true)
+    {
         dglDisable(GL_TEXTURE_2D);
-    else
+        rFillEnabled = false;
+    }
+    else if(r_fillmode.value > 0 && rFillEnabled == false)
+    {
         dglEnable(GL_TEXTURE_2D);
+        rFillEnabled = true;
+    }
+}
+
+//
+// R_GLEnableCulling
+//
+
+static dboolean rCullEnabled = true;
+void R_GLEnableCulling(dboolean enable)
+{
+    if(enable && rCullEnabled == false)
+    {
+        dglEnable(GL_CULL_FACE);
+        rCullEnabled = true;
+    }
+    else if(!enable && rCullEnabled == true)
+    {
+        dglDisable(GL_CULL_FACE);
+        rCullEnabled = false;
+    }
 }
 
 //
@@ -411,19 +459,32 @@ static int R_GLGetVersionInt(const char* version)
 
 void R_GLInitialize(void)
 {
+    int temp;
+
     gl_vendor = dglGetString(GL_VENDOR);
     I_Printf("GL_VENDOR: %s\n", gl_vendor);
     gl_renderer = dglGetString(GL_RENDERER);
     I_Printf("GL_RENDERER: %s\n", gl_renderer);
     gl_version = dglGetString(GL_VERSION);
     I_Printf("GL_VERSION: %s\n", gl_version);
+    dglGetIntegerv(GL_MAX_TEXTURE_SIZE, &temp);
+    I_Printf("GL_MAX_TEXTURE_SIZE: %i\n", temp);
+    dglGetIntegerv(GL_MAX_TEXTURE_UNITS_ARB, &temp);
+    I_Printf("GL_MAX_TEXTURE_UNITS_ARB: %i\n", temp);
+
+    if(temp <= 2)
+    {
+        CON_Warnf("Not enough texture units supported...\n");
+        CON_Warnf("Setting st_flashoverlay to 1\n");
+        CON_CvarSetValue(st_flashoverlay.name, 1.0f);
+    }
 
     R_CalcViewSize();
     
     dglViewport(0, 0, video_width, video_height);
     dglClearDepth(1.0f);
     dglDisable(GL_TEXTURE_2D);
-    dglDisable(GL_CULL_FACE);
+    dglEnable(GL_CULL_FACE);
     dglCullFace(GL_FRONT);
     dglShadeModel(GL_SMOOTH);
     dglHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
@@ -433,10 +494,21 @@ void R_GLInitialize(void)
     dglFogi(GL_FOG_MODE, GL_LINEAR);
     dglHint(GL_FOG_HINT, GL_NICEST);
     dglEnable(GL_SCISSOR_TEST);
+    dglEnable(GL_DITHER);
     
     R_GLSetFilter();
     R_GLInitExtensions();
     R_GLResetCombiners();
+
+    if(!has_GL_ARB_multitexture)
+        CON_Warnf("Warning: GL_ARB_multitexture not supported...\n");
+
+    if(!(has_GL_ARB_texture_env_combine | has_GL_EXT_texture_env_combine))
+    {
+        CON_Warnf("Warning: Texture combiners not supported...\n");
+        CON_Warnf("Setting r_texturecombiner to 0\n");
+        CON_CvarSetValue(r_texturecombiner.name, 0.0f);
+    }
 
     dglEnableClientState(GL_VERTEX_ARRAY);
     dglEnableClientState(GL_TEXTURE_COORD_ARRAY);
@@ -445,5 +517,8 @@ void R_GLInitialize(void)
     DGL_CLAMP = (R_GLGetVersionInt(gl_version) >= OPENGL_VERSION_1_2 ? GL_CLAMP_TO_EDGE : GL_CLAMP);
     
     glScaleFactor = 1.0f;
+
+    if(has_GL_EXT_texture_filter_anisotropic)
+        dglGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &max_anisotropic);
 }
 

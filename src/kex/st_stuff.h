@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: st_stuff.h 927 2011-08-15 03:43:28Z svkaiser $
+// $Id: st_stuff.h 1048 2012-02-13 04:08:26Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -63,6 +63,8 @@ void ST_DrawCrosshair(int x, int y, int slot, byte scalefactor, rcolor color);
 void ST_UpdateFlash(void);
 void ST_AddDamageMarker(mobj_t* target, mobj_t* source);
 void ST_ClearDamageMarkers(void);
+void ST_RegisterCvars(void);
+void ST_DisplayPendingWeapon(void);
 
 extern char player_names[MAXPLAYERS][MAXPLAYERNAME];
 extern dboolean st_chatOn;

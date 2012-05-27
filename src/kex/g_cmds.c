@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: g_cmds.c 984 2011-12-28 19:30:22Z svkaiser $
+// $Id: g_cmds.c 1043 2012-02-03 20:26:29Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 984 $
-// $Date: 2011-12-28 21:30:22 +0200 (ср, 28 гру 2011) $
+// $Revision: 1043 $
+// $Date: 2012-02-03 22:26:29 +0200 (пт, 03 лют 2012) $
 //
 //
 // DESCRIPTION:
@@ -44,25 +44,29 @@ rcsid[] = "";
 
 #include <stdlib.h>
 
-void G_CmdButton(int data, char **param);
-void G_CmdWeapon(int data, char **param);
-void G_CmdNextWeapon(int data, char **param);
-void G_CmdPrevWeapon(int data, char **param);
-void G_CmdAutorun(int data, char **param);
-void G_CmdBind(int data, char **param);
-void G_CmdSeta(int data, char **param);
-void G_CmdQuit(int data, char **param);
-void G_CmdExec(int data, char **param);
-void G_CmdList(int data, char **param);
-void G_CmdCheat(int data, char **param);
-void G_CmdPause(int data, char **param);
-void G_CmdWireframe(int data, char** param);
-void G_CmdSpawnThing(int data, char** param);
-void G_CmdLockMonsters(int data, char **param);
-void G_CmdExitLevel(int data, char **param);
-void G_CmdTriggerSpecial(int data, char** param);
-void G_CmdPrintGLExt(int data, char** param);
-void G_CmdPlayerCamera(int data, char** param);
+CVAR_EXTERNAL(v_msensitivityx);
+CVAR_EXTERNAL(v_msensitivityy);
+CVAR_EXTERNAL(p_autorun);
+
+void G_CmdButton(int64 data, char **param);
+void G_CmdWeapon(int64 data, char **param);
+void G_CmdNextWeapon(int64 data, char **param);
+void G_CmdPrevWeapon(int64 data, char **param);
+void G_CmdAutorun(int64 data, char **param);
+void G_CmdBind(int64 data, char **param);
+void G_CmdSeta(int64 data, char **param);
+void G_CmdQuit(int64 data, char **param);
+void G_CmdExec(int64 data, char **param);
+void G_CmdList(int64 data, char **param);
+void G_CmdCheat(int64 data, char **param);
+void G_CmdPause(int64 data, char **param);
+void G_CmdWireframe(int64 data, char** param);
+void G_CmdSpawnThing(int64 data, char** param);
+void G_CmdLockMonsters(int64 data, char **param);
+void G_CmdExitLevel(int64 data, char **param);
+void G_CmdTriggerSpecial(int64 data, char** param);
+void G_CmdPrintGLExt(int64 data, char** param);
+void G_CmdPlayerCamera(int64 data, char** param);
 
 struct
 {
@@ -143,10 +147,10 @@ void G_InitCmds(void)
 // G_CmdButton
 //
 
-void G_CmdButton(int data, char **param)
+void G_CmdButton(int64 data, char **param)
 {
     playercontrols_t    *pc;
-    int                 key;
+    int64               key;
     
     pc = &Controls;
     
@@ -186,7 +190,7 @@ void G_DoCmdMouseMove(int x, int y)
 // G_CmdNextWeapon
 //
 
-void G_CmdNextWeapon(int data, char **param)
+void G_CmdNextWeapon(int64 data, char **param)
 {
     playercontrols_t *pc;
     
@@ -198,7 +202,7 @@ void G_CmdNextWeapon(int data, char **param)
 // G_CmdPrevWeapon
 //
 
-void G_CmdPrevWeapon(int data, char **param)
+void G_CmdPrevWeapon(int64 data, char **param)
 {
     playercontrols_t *pc;
     
@@ -210,7 +214,7 @@ void G_CmdPrevWeapon(int data, char **param)
 // G_CmdWeapon
 //
 
-void G_CmdWeapon(int data, char **param)
+void G_CmdWeapon(int64 data, char **param)
 {
     playercontrols_t    *pc;
     int                 id;
@@ -231,7 +235,7 @@ void G_CmdWeapon(int data, char **param)
 // G_CmdBind
 //
 
-void G_CmdBind(int data, char **param)
+void G_CmdBind(int64 data, char **param)
 {
     if(!param[0])
         return;
@@ -249,7 +253,7 @@ void G_CmdBind(int data, char **param)
 // G_CmdSeta
 //
 
-void G_CmdSeta(int data, char **param)
+void G_CmdSeta(int64 data, char **param)
 {
     if(!param[0] || !param[1])
         return;
@@ -267,7 +271,7 @@ void G_CmdSeta(int data, char **param)
 // G_CmdAutorun
 //
 
-void G_CmdAutorun(int data, char **param)
+void G_CmdAutorun(int64 data, char **param)
 {
     if(gamestate != GS_LEVEL)
         return;
@@ -288,7 +292,7 @@ void G_CmdAutorun(int data, char **param)
 // G_CmdQuit
 //
 
-void G_CmdQuit(int data, char **param)
+void G_CmdQuit(int64 data, char **param)
 {
     I_Quit();
 }
@@ -297,7 +301,7 @@ void G_CmdQuit(int data, char **param)
 // G_CmdExec
 //
 
-void G_CmdExec(int data, char **param)
+void G_CmdExec(int64 data, char **param)
 {
     G_ExecuteFile(param[0]);
 }
@@ -306,7 +310,7 @@ void G_CmdExec(int data, char **param)
 // G_CmdList
 //
 
-void G_CmdList(int data, char **param)
+void G_CmdList(int64 data, char **param)
 {
     int cmds;
     
@@ -319,7 +323,7 @@ void G_CmdList(int data, char **param)
 // G_CmdCheat
 //
 
-void G_CmdCheat(int data, char **param)
+void G_CmdCheat(int64 data, char **param)
 {
     player_t *player;
 
@@ -342,7 +346,7 @@ void G_CmdCheat(int data, char **param)
 // G_CmdPause
 //
 
-void G_CmdPause(int data, char **param)
+void G_CmdPause(int64 data, char **param)
 {
     sendpause = true;
 }
@@ -351,7 +355,7 @@ void G_CmdPause(int data, char **param)
 // G_CmdWireframe
 //
 
-void G_CmdWireframe(int data, char** param)
+void G_CmdWireframe(int64 data, char** param)
 {
     dboolean b;
     
@@ -366,7 +370,7 @@ void G_CmdWireframe(int data, char** param)
 // G_CmdSpawnThing
 //
 
-void G_CmdSpawnThing(int data, char** param)
+void G_CmdSpawnThing(int64 data, char** param)
 {
     int id = 0;
     player_t *player;
@@ -406,7 +410,7 @@ void G_CmdSpawnThing(int data, char** param)
 // G_CmdExitLevel
 //
 
-void G_CmdExitLevel(int data, char **param)
+void G_CmdExitLevel(int64 data, char **param)
 {
     if(gamestate != GS_LEVEL)
         return;
@@ -424,7 +428,7 @@ void G_CmdExitLevel(int data, char **param)
 // G_CmdTriggerSpecial
 //
 
-void G_CmdTriggerSpecial(int data, char** param)
+void G_CmdTriggerSpecial(int64 data, char** param)
 {
     line_t junk;
 
@@ -445,7 +449,7 @@ void G_CmdTriggerSpecial(int data, char** param)
 // G_CmdPrintGLExt
 //
 
-void G_CmdPrintGLExt(int data, char** param)
+void G_CmdPrintGLExt(int64 data, char** param)
 {
     char *string;
     int i = 0;
@@ -468,7 +472,7 @@ void G_CmdPrintGLExt(int data, char** param)
 // G_CmdPlayerCamera
 //
 
-void G_CmdPlayerCamera(int data, char** param)
+void G_CmdPlayerCamera(int64 data, char** param)
 {
     player_t *player;
 

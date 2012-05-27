@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: tables.h 1027 2012-01-07 22:31:29Z svkaiser $
+// $Id: tables.h 987 2011-12-29 01:41:39Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -35,32 +35,32 @@
 
 #include "m_fixed.h"
 
-typedef unsigned angle_t;
+#define M_PI            3.14159265358979323846
 
-#define M_PI                3.14159265358979323846
+#define FINEANGLES		8192
+#define FINEMASK		(FINEANGLES-1)
 
-#define FINEANGLES          8192
-#define FINEMASK            (FINEANGLES-1)
 
 // 0x100000000 to 0x2000
-#define ANGLETOFINESHIFT    19
+#define ANGLETOFINESHIFT	19
 
 // Binary Angle Measument, BAM.
-#define ANG45               0x20000000
-#define ANG90               0x40000000
-#define ANG180              0x80000000
-#define ANG270              0xc0000000
-#define ANG1                (ANG45/45)
-#define ANG5                (ANG90/18)
-#define ANGLE_MAX           (0xffffffff)
+#define ANG45			0x20000000
+#define ANG90			0x40000000
+#define ANG180			0x80000000
+#define ANG270			0xc0000000
+#define ANG1			(ANG45/45)
+#define ANG5			(ANG90/18)
+#define ANGLE_MAX		(0xffffffff)
 
 
-#define SLOPERANGE          2048
-#define SLOPEBITS           11
-#define DBITS               (FRACBITS-SLOPEBITS)
+#define SLOPERANGE		2048
+#define SLOPEBITS		11
+#define DBITS			(FRACBITS-SLOPEBITS)
 
-#define TRUEANGLES(x)       (((x) >> ANGLETOFINESHIFT) * 360.0f / FINEANGLES)
-#define FINERADIANS         ((M_PI * 2) / FINEANGLES)
+#define TRUEANGLES(x) (((x) >> ANGLETOFINESHIFT) * 360.0f / FINEANGLES)
+
+typedef unsigned angle_t;
 
 // Effective size is 10240.
 extern  fixed_t		finesine[5*FINEANGLES/4];

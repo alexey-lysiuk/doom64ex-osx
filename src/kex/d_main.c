@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: d_main.c 981 2011-12-22 22:13:41Z svkaiser $
+// $Id: d_main.c 1085 2012-03-11 04:47:16Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 981 $
-// $Date: 2011-12-23 00:13:41 +0200 (пт, 23 гру 2011) $
+// $Revision: 1085 $
+// $Date: 2012-03-11 06:47:16 +0200 (нд, 11 бер 2012) $
 //
 //
 // DESCRIPTION:
@@ -28,7 +28,7 @@
 //-----------------------------------------------------------------------------
 #ifdef RCSID
 
-static const char rcsid[] = "$Id: d_main.c 981 2011-12-22 22:13:41Z svkaiser $";
+static const char rcsid[] = "$Id: d_main.c 1085 2012-03-11 04:47:16Z svkaiser $";
 #endif
 
 #ifdef _WIN32
@@ -61,6 +61,7 @@ static const char rcsid[] = "$Id: d_main.c 981 2011-12-22 22:13:41Z svkaiser $";
 #include "r_local.h"
 #include "r_wipe.h"
 #include "g_controls.h"
+#include "p_saveg.h"
 
 #include "Ext/ChocolateDoom/net_client.h"
 
@@ -85,33 +86,41 @@ static int      creditscreenstage;
 int             video_width;
 int             video_height;
 dboolean        InWindow;
-dboolean        setWindow = true;
-int             validcount=1;
-dboolean        windowpause = false;
-dboolean        devparm=false;	    // started game with -devparm
-dboolean        nomonsters=false;	// checkparm of -nomonsters
-dboolean        respawnparm=false;	// checkparm of -respawn
-dboolean        respawnitem=false;	// checkparm of -respawnitem
-dboolean        fastparm=false;	    // checkparm of -fast
-dboolean        BusyDisk=false;
-dboolean        nolights = false;
+dboolean        setWindow       = true;
+int             validcount      = 1;
+dboolean        windowpause     = false;
+dboolean        devparm         = false;    // started game with -devparm
+dboolean        nomonsters      = false;    // checkparm of -nomonsters
+dboolean        respawnparm     = false;    // checkparm of -respawn
+dboolean        respawnitem     = false;    // checkparm of -respawnitem
+dboolean        fastparm        = false;    // checkparm of -fast
+dboolean        BusyDisk        = false;
+dboolean        nolights        = false;
 skill_t         startskill;
 int             startmap;
-dboolean        autostart=false;
-FILE*           debugfile=NULL;
-dboolean        advancedemo=false;
-//char			wadfile[1024];		// primary wad file
-char            mapdir[1024];		// directory of development maps
-char            basedefault[1024];	// default file
-dboolean        rundemo4 = false;   // run demo lump #4?
+dboolean        autostart       = false;
+FILE*           debugfile       = NULL;
+//char			wadfile[1024];              // primary wad file
+char            mapdir[1024];               // directory of development maps
+char            basedefault[1024];          // default file
+dboolean        rundemo4        = false;    // run demo lump #4?
+int             gameflags       = 0;
+int             compatflags     = 0;
+int             damagescale     = 0;
+int             healthscale     = 0;
 
 
 void D_CheckNetGame(void);
 void D_ProcessEvents(void);
 void G_BuildTiccmd(ticcmd_t* cmd);
-void D_DoAdvanceDemo(void);
 
 #define STRPAUSED	"Paused"
+
+CVAR_EXTERNAL(sv_nomonsters);
+CVAR_EXTERNAL(sv_fastmonsters);
+CVAR_EXTERNAL(sv_respawnitems);
+CVAR_EXTERNAL(sv_respawn);
+CVAR_EXTERNAL(sv_skill);
 
 
 //
@@ -179,6 +188,8 @@ void D_IncValidCount(void)
 //
 // D_MiniLoop
 //
+
+CVAR_EXTERNAL(i_interpolateframes);
 
 extern dboolean renderinframe;
 extern int      gametime;
@@ -509,6 +520,8 @@ static void Title_Stop(void)
 //
 // Legal_Start
 //
+
+CVAR_EXTERNAL(p_regionmode);
 
 static char* legalpic = "USLEGAL";
 static int legal_x = 32;
@@ -962,7 +975,7 @@ static void DoLooseFiles(void)
 
         // Now go back and redo the whole myargv array with our stuff in it.
         // First, create a new myargv array to copy into
-        tmyargv = calloc(myargc + n);
+        tmyargv = calloc(0, myargc + n);
         tmyargv[0] = myargv[0]; // invocation
         tmyargc = 1;
 
@@ -1005,7 +1018,6 @@ static void DoLooseFiles(void)
 static void D_Init(void)
 {
     int     p;
-    char    file[256];
 
     FindResponseFile();
     DoLooseFiles();
@@ -1103,8 +1115,9 @@ static void D_Init(void)
     p = M_CheckParm ("-loadgame");
     if (p && p < myargc-1)
     {
-        sprintf(file, SAVEGAMENAME"%c.dsg",myargv[p+1][0]);
-        G_LoadGame (file);
+        // sprintf(file, SAVEGAMENAME"%c.dsg",myargv[p+1][0]);
+        G_LoadGame(P_GetSaveGameName( myargv[p+1][0]-'0' ));
+            autostart = true; // 20120105 bkw: this was missing
     }
     
     if(M_CheckParm("-nogun"))
@@ -1183,11 +1196,11 @@ void D_DoomMain(void)
     I_Printf("NET_Init: Init network subsystem.\n");
     NET_Init();
     
-    I_Printf("D_CheckNetGame: Checking network game status.\n");
-    D_CheckNetGame();
-    
     I_Printf("S_Init: Setting up sound.\n");
     S_Init();
+
+    I_Printf("D_CheckNetGame: Checking network game status.\n");
+    D_CheckNetGame();
     
     I_Printf("ST_Init: Init status bar.\n");
     ST_Init();

@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: r_sky.c 915 2011-08-11 04:31:20Z svkaiser $
+// $Id: r_sky.c 1085 2012-03-11 04:47:16Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,14 +15,14 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 915 $
-// $Date: 2011-08-11 07:31:20 +0300 (чт, 11 сер 2011) $
+// $Revision: 1085 $
+// $Date: 2012-03-11 06:47:16 +0200 (нд, 11 бер 2012) $
 //
 // DESCRIPTION: Sky rendering code
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
-static const char rcsid[] = "$Id: r_sky.c 915 2011-08-11 04:31:20Z svkaiser $";
+static const char rcsid[] = "$Id: r_sky.c 1085 2012-03-11 04:47:16Z svkaiser $";
 #endif
 
 #include <stdlib.h>
@@ -57,6 +57,9 @@ static word CloudOffsetY = 0;
 static word CloudOffsetX = 0;
 
 #define FIRESKYSIZE 64
+
+CVAR_EXTERNAL(r_looksky);
+CVAR_EXTERNAL(r_texturecombiner);
 
 //
 // R_GetSkyViewPos
@@ -200,8 +203,8 @@ static void R_DrawSimpleSky(int offset)
 
     width = (float)SCREENWIDTH / (float)gfxwidth[gfxLmp];
     
-    R_GLDraw2DStrip(0, (float)offset, SCREENWIDTH, -height,
-        pos1, width + pos1, -pos2, -1.0f - pos2, WHITE, 1);
+    R_GLDraw2DStrip(0, (float)offset - height, SCREENWIDTH, height,
+        pos1, width + pos1, pos2, 1.0f - pos2, WHITE, 1);
 }
 
 //
@@ -239,17 +242,54 @@ static void R_DrawClouds(void)
     rfloat pos = 0.0f;
     vtx_t v[4];
 
-    dglMatrixMode(GL_PROJECTION);
-    dglLoadIdentity();
-    dglFrustum(SCREENWIDTH, SCREENHEIGHT, 45.0f, 0.1f);
-
-    R_GLSetOrthoScale(1.0f); // force ortho mode to be set
+    R_SetTextureUnit(0, true);
     R_BindGfxTexture(lumpinfo[skypicnum].name, false);
+
+    pos = (TRUEANGLES(viewangle) / 360.0f) * 2.0f;
 
     dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
-    pos = (TRUEANGLES(viewangle) / 360.0f) * 2.0f;
+    dglSetVertex(v);
+
+    if(r_texturecombiner.value > 0)
+    {
+        dglSetVertexColor(&v[0], sky->skycolor[0], 2);
+        dglSetVertexColor(&v[2], sky->skycolor[1], 2);
+
+        R_UpdateEnvTexture(WHITE);
+
+        // pass 1: texture * skycolor
+        dglTexCombColor(GL_TEXTURE, sky->skycolor[2], GL_MODULATE);
+
+        // pass 2: result * const (though the original game uses the texture's alpha)
+        R_SetTextureUnit(1, true);
+        dglTexCombColor(GL_PREVIOUS, 0xFF909090, GL_MODULATE);
+
+        // pass 3: result + fragment color
+        R_SetTextureUnit(2, true);
+        dglTexCombAdd(GL_PREVIOUS, GL_PRIMARY_COLOR);
+    }
+    else
+    {
+        R_GLSetupVertex(v, 0, 0, SCREENWIDTH, 120, 0, 0, 0, 0, 0);
+        dglSetVertexColor(&v[0], sky->skycolor[0], 2);
+        dglSetVertexColor(&v[2], sky->skycolor[1], 2);
+
+        dglDisable(GL_TEXTURE_2D);
+
+        R_GLRenderVertex(v, true);
+
+        dglEnable(GL_TEXTURE_2D);
+
+        R_SetTextureUnit(1, true);
+        R_SetTextureMode(GL_ADD);
+        R_UpdateEnvTexture(sky->skycolor[1]);
+        R_SetTextureUnit(0, true);
+
+        dglSetVertexColor(&v[0], sky->skycolor[2], 4);
+        v[0].a = v[1].a = v[2].a = v[3].a = 0x60;
+    }
 
     v[3].x = v[1].x = 1.1025f;
     v[0].x = v[2].x = -1.1025f;
@@ -262,42 +302,22 @@ static void R_DrawClouds(void)
     v[0].tv = v[1].tv = F2D3D(CloudOffsetY);
     v[2].tv = v[3].tv = F2D3D(CloudOffsetY) + 2.0f;
 
-    dglSetVertexColor(&v[0], sky->skycolor[0], 2);
-    dglSetVertexColor(&v[2], sky->skycolor[1], 2);
+    R_GLSetOrthoScale(1.0f); // force ortho mode to be set
 
-    dglSetVertex(v);
-
-    // pass 1: texture * skycolor
-    dglTexCombReplaceAlpha(GL_TEXTURE0_ARB);
-    dglActiveTexture(GL_TEXTURE0_ARB);
-    dglTexCombColor(GL_TEXTURE, sky->skycolor[2], GL_MODULATE);
-
-    // pass 2: result * const (though the original game uses the texture's alpha)
-    dglActiveTexture(GL_TEXTURE1_ARB);
-    dglEnable(GL_TEXTURE_2D);
-    dglTexCombColor(GL_PREVIOUS, 0xFF909090, GL_MODULATE);
-
-    // pass 3: result + fragment color
-    dglActiveTexture(GL_TEXTURE2_ARB);
-    dglEnable(GL_TEXTURE_2D);
-    dglTexCombAdd(GL_PREVIOUS, GL_PRIMARY_COLOR);
-
-    dglAlphaFunc(GL_ALWAYS, 0);
-    dglEnable(GL_BLEND);
+    dglMatrixMode(GL_PROJECTION);
+    dglLoadIdentity();
+    dglViewFrustum(SCREENWIDTH, SCREENHEIGHT, 45.0f, 0.1f);
     dglMatrixMode(GL_MODELVIEW);
+    dglEnable(GL_BLEND);
     dglPushMatrix();
     dglTranslated(0.0f, 0.0f, -1.0f);
     dglTriangle(0, 1, 2);
-    dglTriangle(1, 2, 3);
+    dglTriangle(3, 2, 1);
     dglDrawGeometry(4, v);
     dglPopMatrix();
     dglDisable(GL_BLEND);
-    dglAlphaFunc(GL_GEQUAL, ALPHACLEARGLOBAL);
     
     R_GLResetCombiners();
-
-    if(skybackdropnum >= 0)
-        R_DrawSkyBackdrop();
 }
 
 //

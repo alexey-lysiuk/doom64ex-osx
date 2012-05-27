@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: r_glExt.h 817 2011-01-13 04:20:24Z svkaiser $
+// $Id: r_glExt.h 1050 2012-02-16 03:01:58Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 817 $
-// $Date: 2011-01-13 06:20:24 +0200 (чт, 13 січ 2011) $
+// $Revision: 1050 $
+// $Date: 2012-02-16 05:01:58 +0200 (чт, 16 лют 2012) $
 //
 // DESCRIPTION: OpenGL extensions
 //
@@ -24,24 +24,6 @@
 
 #ifndef __R_GLEXT_H__
 #define __R_GLEXT_H__
-
-#include "SDL_opengl.h"
-
-extern PFNGLMULTITEXCOORD2FARBPROC      glExtMultiTexCoord2fARB;
-extern PFNGLMULTITEXCOORD2FVARBPROC     glExtMultiTexCoord2fvARB;
-extern PFNGLACTIVETEXTUREARBPROC        glExtActiveTextureARB;
-extern PFNGLCLIENTACTIVETEXTUREARBPROC  glExtClientActiveTextureARB;
-extern PFNGLLOCKARRAYSEXTPROC           glExtLockArrays;
-extern PFNGLUNLOCKARRAYSEXTPROC         glExtUnlockArrays;
-extern PFNGLMULTIDRAWARRAYSEXTPROC      glExtMultiDrawArrays;
-extern PFNGLFOGCOORDFEXTPROC            glExtFogCoordf;
-extern PFNGLFOGCOORDPOINTEREXTPROC      glExtFogCoordPointer;
-extern PFNGLBINDBUFFERARBPROC           glExtBindBufferARB;
-extern PFNGLDELETEBUFFERSARBPROC        glExtDeleteBuffersARB;
-extern PFNGLGENBUFFERSARBPROC           glExtGenBuffersARB;
-extern PFNGLBUFFERDATAARBPROC           glExtBufferDataARB;
-extern PFNGLMAPBUFFERARBPROC            glExtMapBufferARB;
-extern PFNGLUNMAPBUFFERARBPROC          glExtUnmapBufferARB;
 
 void R_GLInitExtensions(void);
 dboolean R_GLCheckExt(const char *ext);

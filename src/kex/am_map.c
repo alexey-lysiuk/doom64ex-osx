@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: am_map.c 961 2011-09-27 02:19:36Z svkaiser $
+// $Id: am_map.c 1047 2012-02-09 05:08:17Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,15 +15,15 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 961 $
-// $Date: 2011-09-27 05:19:36 +0300 (вт, 27 вер 2011) $
+// $Revision: 1047 $
+// $Date: 2012-02-09 07:08:17 +0200 (чт, 09 лют 2012) $
 //
 // DESCRIPTION:  the automap code (new and improved)
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
 static const char
-rcsid[] = "$Id: am_map.c 961 2011-09-27 02:19:36Z svkaiser $";
+rcsid[] = "$Id: am_map.c 1047 2012-02-09 05:08:17Z svkaiser $";
 #endif
 
 #include <stdio.h>
@@ -49,6 +49,25 @@ rcsid[] = "$Id: am_map.c 961 2011-09-27 02:19:36Z svkaiser $";
 #ifdef _WIN32
 #include "i_xinput.h"
 #include "g_controls.h"
+#endif
+
+// automap cvars
+
+CVAR(am_lines, 1);
+CVAR(am_nodes, 0);
+CVAR(am_ssect, 0);
+CVAR(am_fulldraw, 0);
+CVAR(am_showkeycolors, 0);
+CVAR(am_showkeymarkers, 0);
+CVAR(am_drawobjects, 0);
+CVAR(am_overlay, 0);
+
+CVAR_EXTERNAL(v_msensitivityx);
+CVAR_EXTERNAL(v_msensitivityy);
+
+#ifdef _USE_XINPUT  // XINPUT
+CVAR_EXTERNAL(i_rsticksensitivity);
+CVAR_EXTERNAL(i_xinputscheme);
 #endif
 
 // automap flags
@@ -665,7 +684,7 @@ static void AM_DrawMapped(void)
                         x2 = seg->linedef->v2->x;
                         y2 = seg->linedef->v2->y;
   
-                        AM_DrawLine(x1, x2, y1, y2, scale, 255, 255, 255);
+                        AM_DrawLine(x1, x2, y1, y2, scale, WHITE);
                     }
 
                     //
@@ -714,56 +733,56 @@ static void AM_DrawNodes(void)
             x2 = node->bbox[0][BOXRIGHT];
             y2 = node->bbox[0][BOXTOP];
             
-            AM_DrawLine(x1, x2, y1, y2, scale, 0, 255, 255);
+            AM_DrawLine(x1, x2, y1, y2, scale, 0x00FFFFFF);
             
             x1 = node->bbox[0][BOXRIGHT];
             y1 = node->bbox[0][BOXTOP];
             x2 = node->bbox[0][BOXRIGHT];
             y2 = node->bbox[0][BOXBOTTOM];
             
-            AM_DrawLine(x1, x2, y1, y2, scale, 0, 255, 255);
+            AM_DrawLine(x1, x2, y1, y2, scale, 0x00FFFFFF);
             
             x1 = node->bbox[0][BOXRIGHT];
             y1 = node->bbox[0][BOXBOTTOM];
             x2 = node->bbox[0][BOXLEFT];
             y2 = node->bbox[0][BOXBOTTOM];
             
-            AM_DrawLine(x1, x2, y1, y2, scale, 0, 255, 255);
+            AM_DrawLine(x1, x2, y1, y2, scale, 0x00FFFFFF);
             
             x1 = node->bbox[0][BOXLEFT];
             y1 = node->bbox[0][BOXBOTTOM];
             x2 = node->bbox[0][BOXLEFT];
             y2 = node->bbox[0][BOXTOP];
             
-            AM_DrawLine(x1, x2, y1, y2, scale, 0, 255, 255);
+            AM_DrawLine(x1, x2, y1, y2, scale, 0x00FFFFFF);
             
             x1 = node->bbox[1][BOXLEFT];
             y1 = node->bbox[1][BOXTOP];
             x2 = node->bbox[1][BOXRIGHT];
             y2 = node->bbox[1][BOXTOP];
             
-            AM_DrawLine(x1, x2, y1, y2, scale, 0, 255, 0);
+            AM_DrawLine(x1, x2, y1, y2, scale, 0x00FF00FF);
             
             x1 = node->bbox[1][BOXRIGHT];
             y1 = node->bbox[1][BOXTOP];
             x2 = node->bbox[1][BOXRIGHT];
             y2 = node->bbox[1][BOXBOTTOM];
             
-            AM_DrawLine(x1, x2, y1, y2, scale, 0, 255, 0);
+            AM_DrawLine(x1, x2, y1, y2, scale, 0x00FF00FF);
             
             x1 = node->bbox[1][BOXRIGHT];
             y1 = node->bbox[1][BOXBOTTOM];
             x2 = node->bbox[1][BOXLEFT];
             y2 = node->bbox[1][BOXBOTTOM];
             
-            AM_DrawLine(x1, x2, y1, y2, scale, 0, 255, 0);
+            AM_DrawLine(x1, x2, y1, y2, scale, 0x00FF00FF);
             
             x1 = node->bbox[1][BOXLEFT];
             y1 = node->bbox[1][BOXBOTTOM];
             x2 = node->bbox[1][BOXLEFT];
             y2 = node->bbox[1][BOXTOP];
             
-            AM_DrawLine(x1, x2, y1, y2, scale, 0, 255, 0);
+            AM_DrawLine(x1, x2, y1, y2, scale, 0x00FF00FF);
         }
         
         if(am_nodes.value == 2 || am_nodes.value >= 3)
@@ -773,7 +792,7 @@ static void AM_DrawNodes(void)
             x2 = (node->x + node->dx);
             y2 = (node->y + node->dy);
             
-            AM_DrawLine(x1, x2, y1, y2, scale, 255, 255, 0);
+            AM_DrawLine(x1, x2, y1, y2, scale, 0xFFFF00FF);
         }
         
         if(am_nodes.value >= 4)
@@ -794,71 +813,87 @@ void AM_DrawWalls(void)
     
     for(i = 0; i < numlines; i++)
     {
-        x1 = lines[i].v1->x;
-        y1 = lines[i].v1->y;
-        x2 = lines[i].v2->x;
-        y2 = lines[i].v2->y;
-        
-        if((lines[i].flags & ML_MAPPED) && (!(lines[i].flags & ML_DONTDRAW) || am_fulldraw.value))
-        {
-            
-            if(!lines[i].backsector)
-                AM_DrawLine(x1, x2, y1, y2, scale, 164, 0, 0);
-            
-            else
-            {
-                if(lines[i].special)
-                {
-                    //
-                    // draw colored doors based on key requirement
-                    //
-                    if(am_showkeycolors.value)
-                    {
-                        if(lines[i].special & MLU_RED)
-                        {
-                            AM_DrawLine(x1, x2, y1, y2, scale, 255, 0, 0);
-                            continue;
-                        }
-                        else if(lines[i].special & MLU_BLUE)
-                        {
-                            AM_DrawLine(x1, x2, y1, y2, scale, 0, 0, 255);
-                            continue;
-                        }
-                        else if(lines[i].special & MLU_YELLOW)
-                        {
-                            AM_DrawLine(x1, x2, y1, y2, scale, 255, 255, 0);
-                            continue;
-                        }
-                        else
-                        {
-                            //
-                            // change color to green to avoid confusion with yellow key doors
-                            //
-                            AM_DrawLine(x1, x2, y1, y2, scale, 0, 204, 0);
-                            continue;
-                        }
-                    }
+        line_t *l;
 
+        l = &lines[i];
+
+        x1 = l->v1->x;
+        y1 = l->v1->y;
+        x2 = l->v2->x;
+        y2 = l->v2->y;
+
+        //
+        // 20120208 villsa - re-ordered flag checks to match original game
+        //
+
+        if(l->flags & ML_DONTDRAW)
+            continue;
+        
+        if((l->flags & ML_MAPPED) || am_fulldraw.value || plr->powers[pw_allmap] || amCheating)
+        {
+            rcolor color = D_RGBA(0x8A, 0x5C, 0x30, 0xFF);  // default color
+
+            //
+            // check for cheats
+            //
+            if((plr->powers[pw_allmap] || amCheating) && !(l->flags & ML_MAPPED))
+            {
+                color = D_RGBA(0x80, 0x80, 0x80, 0xFF);
+            }
+            //
+            // check for secret line
+            //
+            else if(l->flags & ML_SECRET)
+            {
+                color = D_RGBA(0xA4, 0x00, 0x00, 0xFF);
+            }
+            //
+            // handle special line
+            //
+            else if(l->special)
+            {
+                //
+                // draw colored doors based on key requirement
+                //
+                if(am_showkeycolors.value)
+                {
+                    if(l->special & MLU_RED)
+                    {
+                        color = D_RGBA(0xFF, 0x00, 0x00, 0xFF);
+                    }
+                    else if(l->special & MLU_BLUE)
+                    {
+                        color = D_RGBA(0x00, 0x00, 0xFF, 0xFF);
+                    }
+                    else if(l->special & MLU_YELLOW)
+                    {
+                        color = D_RGBA(0xFF, 0xFF, 0x00, 0xFF);
+                    }
+                    else
+                    {
+                        //
+                        // change color to green to avoid confusion with yellow key doors
+                        //
+                        color = D_RGBA(0x00, 0xCC, 0x00, 0xFF);
+                    }
+                }
+                else
+                {
                     //
                     // default color for special lines
                     //
-                    AM_DrawLine(x1, x2, y1, y2, scale, 204, 204, 0);
+                    color = D_RGBA(0xCC, 0xCC, 0x00, 0xFF);
                 }
-                
-                else if(lines[i].flags & ML_SECRET) // secret door
-                    AM_DrawLine(x1, x2, y1, y2, scale, 164, 0, 0);
-                
-                else if((lines[i].backsector->floorheight != lines[i].frontsector->floorheight) ||
-                    (lines[i].backsector->ceilingheight != lines[i].frontsector->ceilingheight))  //sector level change
-                    AM_DrawLine(x1, x2, y1, y2, scale, 138, 92, 48);
-                
-                else AM_DrawLine(x1, x2, y1, y2, scale, 128, 80, 32);
             }
-        }
-        else if(plr->powers[pw_allmap] || amCheating)
-        {
-            if(!(lines[i].flags & ML_DONTDRAW) || am_fulldraw.value) 
-                AM_DrawLine(x1, x2, y1, y2, scale, 128, 128, 128);
+            //
+            // solid wall?
+            //
+            else if(!(l->flags & ML_TWOSIDED))
+            {
+                color = D_RGBA(0xA4, 0x00, 0x00, 0xFF);
+            }
+
+            AM_DrawLine(x1, x2, y1, y2, scale, color);
         }
     }
 }
@@ -1087,3 +1122,20 @@ void AM_Drawer(void)
 
     AM_EndDraw();
 }
+
+//
+// AM_RegisterCvars
+//
+
+void AM_RegisterCvars(void)
+{
+    CON_CvarRegister(&am_lines);
+    CON_CvarRegister(&am_nodes);
+    CON_CvarRegister(&am_ssect);
+    CON_CvarRegister(&am_fulldraw);
+    CON_CvarRegister(&am_showkeycolors);
+    CON_CvarRegister(&am_showkeymarkers);
+    CON_CvarRegister(&am_drawobjects);
+    CON_CvarRegister(&am_overlay);
+}
+

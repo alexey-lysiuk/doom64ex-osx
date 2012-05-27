@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: WadGen.c 954 2011-08-24 03:40:42Z svkaiser $
+// $Id: WadGen.c 1031 2012-01-15 04:55:14Z svkaiser $
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -18,14 +18,14 @@
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
 // $Author: svkaiser $
-// $Revision: 954 $
-// $Date: 2011-08-24 06:40:42 +0300 (ср, 24 сер 2011) $
+// $Revision: 1031 $
+// $Date: 2012-01-15 06:55:14 +0200 (нд, 15 січ 2012) $
 //
 // DESCRIPTION: Global stuff and main application functions
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
-static const char rcsid[] = "$Id: WadGen.c 954 2011-08-24 03:40:42Z svkaiser $";
+static const char rcsid[] = "$Id: WadGen.c 1031 2012-01-15 04:55:14Z svkaiser $";
 #endif
 
 #include "WadGen.h"
@@ -96,7 +96,12 @@ void WGen_AddLumpFile(const char* name)
     cache data;
     char lumpname[16];
     
+#ifdef _WIN32
     sprintf(file, "%s/Content/%s", wgenfile.basePath, name);
+#else
+	 // on *NIX, File_Read searches a couple of places besides current dir
+    sprintf(file, "Content/%s", name);
+#endif
     size = File_Read(file, &data);
     
     strncpy(lumpname, name, 16);

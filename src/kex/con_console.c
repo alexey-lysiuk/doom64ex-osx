@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: con_console.c 957 2011-08-28 04:52:09Z svkaiser $
+// $Id: con_console.c 1055 2012-02-19 21:21:21Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,14 +15,14 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 957 $
-// $Date: 2011-08-28 07:52:09 +0300 (нд, 28 сер 2011) $
+// $Revision: 1055 $
+// $Date: 2012-02-19 23:21:21 +0200 (нд, 19 лют 2012) $
 //
 // DESCRIPTION: Main console functions
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
-static const char rcsid[] = "$Id: con_console.c 957 2011-08-28 04:52:09Z svkaiser $";
+static const char rcsid[] = "$Id: con_console.c 1055 2012-02-19 21:21:21Z svkaiser $";
 #endif
 
 #include "version.h"
@@ -400,7 +400,7 @@ dboolean CON_Responder(event_t* ev)
                 break;
                 
             default:
-                if(c == KEY_SHIFT)
+                if(c == KEY_SHIFT || c == KEY_ALT || c == KEY_CTRL)
                     break;
 
                 clearheld = false;
@@ -776,8 +776,8 @@ static float CON_DrawConsoleText(float x, float y, rcolor color, float scale, co
 
             dglSetVertexColor(vtxstring + vi, color, 4);
 
-            dglTriangle(vi + 0, vi + 1, vi + 2);
-            dglTriangle(vi + 0, vi + 2, vi + 3);
+            dglTriangle(vi + 2, vi + 1, vi + 0);
+            dglTriangle(vi + 3, vi + 2, vi + 0);
 
             if(devparm) vertCount += 4;
             
@@ -785,7 +785,8 @@ static float CON_DrawConsoleText(float x, float y, rcolor color, float scale, co
         }
     }
 
-    dglDrawGeometry(vi, vtxstring);
+    if(vi)
+        dglDrawGeometry(vi, vtxstring);
     
     R_GLDisable2D();
     R_GLToggleBlend(0);

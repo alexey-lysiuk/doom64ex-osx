@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: m_menu.c 1027 2012-01-07 22:31:29Z svkaiser $
+// $Id: m_menu.c 1089 2012-03-17 05:37:23Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 1027 $
-// $Date: 2012-01-08 00:31:29 +0200 (нд, 08 січ 2012) $
+// $Revision: 1089 $
+// $Date: 2012-03-17 07:37:23 +0200 (сб, 17 бер 2012) $
 //
 //
 // DESCRIPTION:
@@ -26,7 +26,7 @@
 //-----------------------------------------------------------------------------
 #ifdef RCSID
 static const char
-rcsid[] = "$Id: m_menu.c 1027 2012-01-07 22:31:29Z svkaiser $";
+rcsid[] = "$Id: m_menu.c 1089 2012-03-17 05:37:23Z svkaiser $";
 #endif
 
 #ifdef _WIN32
@@ -74,7 +74,7 @@ rcsid[] = "$Id: m_menu.c 1027 2012-01-07 22:31:29Z svkaiser $";
 // definitions
 //
 
-#define MENUSAVESTRINGSIZE  16
+#define MENUSTRINGSIZE      32
 #define SKULLXOFF           -40	//villsa: changed from -32 to -40
 #define SKULLXTEXTOFF       -24
 #define LINEHEIGHT          18
@@ -83,24 +83,41 @@ rcsid[] = "$Id: m_menu.c 1027 2012-01-07 22:31:29Z svkaiser $";
 #define MENUCOLORWHITE	    D_RGBA(255, 255, 255, menualphacolor)
 #define MAXBRIGHTNESS	    100
 
+CVAR(m_regionblood, 0);
+CVAR_CMD(m_menufadetime, 20)
+{
+    if(cvar->value < 0)
+        cvar->value = 0;
+
+    if(cvar->value > 256)
+        cvar->value = 256;
+}
+
+#if 0
+CVAR(m_menumouse, 0);
+#endif
+
 //
 // defaulted values
 //
 
-char        *messageBindCommand;
-int         quickSaveSlot;                      // -1 = no quicksave slot picked!
-int         saveStringEnter = false;            // we are going to be entering a savegame string
-int         saveSlot;                           // which slot to save in
-int         saveCharIndex;                      // which char we're editing
-char        saveOldString[MENUSAVESTRINGSIZE];      // old save description before edit
-dboolean    allowmenu = true;                   // can menu be accessed?
-dboolean	menuactive = false;
-dboolean	mainmenuactive = false;
-dboolean    allowclearmenu = true;              // can user hit escape to clear menu?
-char        savegamestrings[10][MENUSAVESTRINGSIZE];
-char        endstring[160];
-dboolean    alphaprevmenu = false;
-int         menualphacolor = 0xff;
+dboolean            allowmenu = true;                   // can menu be accessed?
+dboolean	        menuactive = false;
+dboolean	        mainmenuactive = false;
+dboolean            allowclearmenu = true;              // can user hit escape to clear menu?
+
+static char         *messageBindCommand;
+static int          quickSaveSlot;                      // -1 = no quicksave slot picked!
+static int          saveSlot;                           // which slot to save in
+static char         savegamestrings[10][MENUSTRINGSIZE];
+static dboolean     alphaprevmenu = false;
+static int          menualphacolor = 0xff;
+
+static char         inputString[MENUSTRINGSIZE];
+static char         oldInputString[MENUSTRINGSIZE];
+static dboolean     inputEnter = false;
+static int          inputCharIndex;
+static int          inputMax = 0;
 
 //
 // fade-in/out stuff
@@ -187,7 +204,8 @@ short           whichSkull;             // which skull to draw
 char    msgNames[2][4]          = {"Off","On"};
 
 // current menudef
-menu_t* currentMenu;
+static menu_t* currentMenu;
+static menu_t* nextmenu;
 
 //------------------------------------------------------------------------
 //
@@ -212,6 +230,7 @@ static void M_ReturnToOptions(int choice);
 static void M_SetCvar(cvar_t *cvar, float value);
 static void M_DrawSmbString(const char* text, menu_t* menu, int item);
 static void M_DrawSaveGameFrontend(menu_t* def);
+static void M_SetInputString(char* string, int len);
 
 static dboolean M_SetThumbnail(int which);
 
@@ -620,17 +639,19 @@ void M_Display(int choice);
 void M_Video(int choice);
 void M_Misc(int choice);
 void M_Password(int choice);
+void M_Network(int choice);
 void M_Region(int choice);
 
 enum
 {
     options_controls,
     options_mouse,
+    options_misc,
     options_soundvol,
     options_display,
     options_video,
-    options_misc,
     options_password,
+    options_network,
     options_region,
     options_return,
     opt_end
@@ -640,11 +661,12 @@ menuitem_t OptionsMenu[]=
 {
     {1,"Controls",M_Controls, 'c'},
     {1,"Mouse",M_Mouse,'m'},
+    {1,"Setup",M_Misc, 'e'},
     {1,"Sound",M_Sound,'s'},
     {1,"Display",M_Display, 'd'},
     {1,"Video",M_Video, 'v'},
-    {1,"Misc",M_Misc, 'i'},
     {1,"Password",M_Password, 'p'},
+    {1,"Network",M_Network, 'n'},
     {1,"Region",M_Region, 'f'},
     {1,"/r Return",M_Return, 0x20}
 };
@@ -653,11 +675,12 @@ char* OptionHints[opt_end]=
 {
     "change keyboard bindings",
     "configure mouse functionality",
+    "miscellaneous options for gameplay and other features",
     "adjust sound volume",
-    "change how the game is displayed on screen",
+    "settings for heads up display",
     "configure video-specific options",
-    "various options for gameplay and other features",
     "enter a password to access a level",
+    "setup options for a hosted session",
     "configure localization settings",
     NULL
 };
@@ -670,7 +693,7 @@ menu_t  OptionsDef =
     OptionsMenu,
     M_DrawOptions,
     "Options",
-    170,85,
+    170,80,
     0,
     false,
     NULL,
@@ -703,6 +726,10 @@ void M_DrawOptions(void)
 
 void M_RegionChoice(int choice);
 void M_DrawRegion(void);
+
+CVAR_EXTERNAL(st_regionmsg);
+CVAR_EXTERNAL(m_regionblood);
+CVAR_EXTERNAL(p_regionmode);
 
 enum
 {
@@ -770,6 +797,12 @@ void M_RegionChoice(int choice)
     switch(itemOn)
     {
     case region_mode:
+        //
+        // 20120304 villsa
+        //
+        if(RegionMenu[region_mode].status == 1)
+            return;
+
         if(choice)
         {
             if(p_regionmode.value < 2)
@@ -785,13 +818,27 @@ void M_RegionChoice(int choice)
                 CON_CvarSetValue(p_regionmode.name, 0);
         }
         break;
+
     case region_lang:
+        //
+        // 20120304 villsa
+        //
+        if(RegionMenu[region_lang].status == 1)
+            return;
+
         if(choice)
             M_SetCvar(&st_regionmsg, 1);
         else
             M_SetCvar(&st_regionmsg, 0);
         break;
+
     case region_blood:
+        //
+        // 20120304 villsa
+        //
+        if(RegionMenu[region_blood].status == 1)
+            return;
+
         if(choice)
             M_SetCvar(&m_regionblood, 1);
         else
@@ -816,31 +863,47 @@ void M_DrawRegion(void)
     static const char* bloodcolor[2]    = { "Red", "Green" };
     static const char* language[2]      = { "English", "Japanese" };
     static const char* regionmode[3]    = { "NTSC", "PAL", "NTSC-Japan" };
+    char* string;
     rcolor color;
 
     if(RegionMenu[region_mode].status == 1)
+    {
         color = MENUCOLORWHITE;
+        string = "Unavailable";
+    }
     else
+    {
         color = MENUCOLORRED;
+        string = (char*)regionmode[(int)p_regionmode.value];
+    }
 
-    M_DrawSmbText(RegionDef.x + 136, RegionDef.y + LINEHEIGHT * region_mode, color,
-        regionmode[(int)p_regionmode.value]);
+    M_DrawSmbText(RegionDef.x + 136, RegionDef.y + LINEHEIGHT * region_mode, color, string);
 
     if(RegionMenu[region_lang].status == 1)
+    {
         color = MENUCOLORWHITE;
+        string = "Unavailable";
+    }
     else
+    {
         color = MENUCOLORRED;
+        string = (char*)language[(int)st_regionmsg.value];
+    }
 
-    M_DrawSmbText(RegionDef.x + 136, RegionDef.y + LINEHEIGHT * region_lang, color,
-        language[(int)st_regionmsg.value]);
+    M_DrawSmbText(RegionDef.x + 136, RegionDef.y + LINEHEIGHT * region_lang, color, string);
 
     if(RegionMenu[region_blood].status == 1)
+    {
         color = MENUCOLORWHITE;
+        string = "Unavailable";
+    }
     else
+    {
         color = MENUCOLORRED;
+        string = (char*)bloodcolor[(int)m_regionblood.value];
+    }
 
-    M_DrawSmbText(RegionDef.x + 136, RegionDef.y + LINEHEIGHT * region_blood, color,
-        bloodcolor[(int)m_regionblood.value]);
+    M_DrawSmbText(RegionDef.x + 136, RegionDef.y + LINEHEIGHT * region_blood, color, string);
 
     if(RegionDef.hints[itemOn] != NULL)
     {
@@ -852,12 +915,335 @@ void M_DrawRegion(void)
 
 //------------------------------------------------------------------------
 //
+// NETWORK MENU
+//
+//------------------------------------------------------------------------
+
+void M_NetworkChoice(int choice);
+void M_PlayerSetName(int choice);
+void M_DrawNetwork(void);
+
+CVAR_EXTERNAL(m_playername);
+CVAR_EXTERNAL(p_allowjump);
+CVAR_EXTERNAL(p_autoaim);
+CVAR_EXTERNAL(sv_nomonsters);
+CVAR_EXTERNAL(sv_fastmonsters);
+CVAR_EXTERNAL(sv_respawnitems);
+CVAR_EXTERNAL(sv_respawn);
+CVAR_EXTERNAL(sv_damagescale);
+CVAR_EXTERNAL(sv_healthscale);
+CVAR_EXTERNAL(sv_allowcheats);
+CVAR_EXTERNAL(sv_friendlyfire);
+CVAR_EXTERNAL(sv_keepitems);
+
+enum
+{
+    network_header1,
+    network_playername,
+    network_header2,
+    network_allowcheats,
+    network_friendlyfire,
+    network_keepitems,
+    network_allowjump,
+    network_allowautoaim,
+    network_header3,
+    network_nomonsters,
+    network_fastmonsters,
+    network_respawnmonsters,
+    network_respawnitems,
+    network_damagescale,
+    network_empty1,
+    network_healthscale,
+    network_empty2,
+    network_default,
+    network_return,
+    network_end
+} network_e;
+
+menuitem_t NetworkMenu[]=
+{
+    {-1,"Player Setup",0 },
+    {1,"Player Name:", M_PlayerSetName, 'p'},
+    {-1,"Player Rules",0 },
+    {2,"Allow Cheats:", M_NetworkChoice, 'c'},
+    {2,"Friendly Fire:", M_NetworkChoice, 'f'},
+    {2,"Keep Items:", M_NetworkChoice, 'k'},
+    {2,"Allow Jumping:", M_NetworkChoice, 'j'},
+    {2,"Allow Auto Aiming:", M_NetworkChoice, 'a'},
+    {-1,"Gameplay Rules",0 },
+    {2,"No Monsters:", M_NetworkChoice, 'n'},
+    {2,"Fast Monsters:", M_NetworkChoice, 'f'},
+    {2,"Respawn Monsters:", M_NetworkChoice, 'r'},
+    {2,"Respawn Items:", M_NetworkChoice, 'i'},
+    {3,"Damage Scale", M_NetworkChoice, 'd'},
+    {-1,"",0 },
+    {3,"Health Scale", M_NetworkChoice, 'h'},
+    {-1,"",0 },
+    {-2,"Default",M_DoDefaults,'d'},
+    {1,"/r Return",M_Return, 0x20}
+};
+
+menudefault_t NetworkDefault[] =
+{
+    { &sv_allowcheats, 0 },
+    { &sv_friendlyfire, 0 },
+    { &sv_keepitems, 0 },
+    { &p_allowjump, 0 },
+    { &p_autoaim, 1 },
+    { &sv_nomonsters, 0 },
+    { &sv_fastmonsters, 0 },
+    { &sv_respawn, 0 },
+    { &sv_respawnitems, 0 },
+    { &sv_damagescale, 1 },
+    { &sv_healthscale, 1 },
+    { NULL, -1 }
+};
+
+char* NetworkHints[network_end]=
+{
+    NULL,
+    "set a name for yourself",
+    NULL,
+    "allow clients and host to use cheats",
+    "allow players to damage other players",
+    "players keep items when respawned from death",
+    "allow players to jump",
+    "enable or disable auto aiming for all players",
+    NULL,
+    "no monsters will appear",
+    "increased speed for monsters and projectiles",
+    "monsters will respawn after death",
+    "items will respawn after pickup",
+    "set a multiplier for damage dealt by monsters",
+    NULL,
+    "set a multiplier for monster health",
+    NULL,
+    NULL,
+    NULL
+};
+
+menu_t  NetworkDef =
+{
+    network_end,
+    false,
+    &OptionsDef,
+    NetworkMenu,
+    M_DrawNetwork,
+    "Network",
+    208,108,
+    0,
+    false,
+    NetworkDefault,
+    14,
+    0,
+    0.5f,
+    NetworkHints
+};
+
+void M_Network(int choice)
+{
+    M_SetupNextMenu(&NetworkDef);
+    dstrcpy(inputString, m_playername.string);
+}
+
+void M_PlayerSetName(int choice)
+{
+    M_SetInputString(m_playername.string, 16);
+}
+
+void M_NetworkChoice(int choice)
+{
+    switch(itemOn)
+    {
+    case network_damagescale:
+        if(choice)
+        {
+            if(sv_damagescale.value < 30.0f)
+                M_SetCvar(&sv_damagescale, sv_damagescale.value + 0.5f);
+            else
+                CON_CvarSetValue(sv_damagescale.name, 30);
+        }
+        else
+        {
+            if(sv_damagescale.value > 1.0f)
+                M_SetCvar(&sv_damagescale, sv_damagescale.value - 0.5f);
+            else
+                CON_CvarSetValue(sv_damagescale.name, 1);
+        }
+        break;
+    case network_healthscale:
+        if(choice)
+        {
+            if(sv_healthscale.value < 20.0f)
+                M_SetCvar(&sv_healthscale, sv_healthscale.value + 0.5f);
+            else
+                CON_CvarSetValue(sv_healthscale.name, 20);
+        }
+        else
+        {
+            if(sv_healthscale.value > 1.0f)
+                M_SetCvar(&sv_healthscale, sv_healthscale.value - 0.5f);
+            else
+                CON_CvarSetValue(sv_healthscale.name, 1);
+        }
+        break;
+    case network_allowcheats:
+        M_SetCvar(&sv_allowcheats, (float)choice);
+        break;
+    case network_friendlyfire:
+        M_SetCvar(&sv_friendlyfire, (float)choice);
+        break;
+    case network_keepitems:
+        M_SetCvar(&sv_keepitems, (float)choice);
+        break;
+    case network_allowjump:
+        M_SetCvar(&p_allowjump, (float)choice);
+        break;
+    case network_allowautoaim:
+        M_SetCvar(&p_autoaim, (float)choice);
+        break;
+    case network_nomonsters:
+        M_SetCvar(&sv_nomonsters, (float)choice);
+        break;
+    case network_fastmonsters:
+        M_SetCvar(&sv_fastmonsters, (float)choice);
+        break;
+    case network_respawnmonsters:
+        M_SetCvar(&sv_respawn, (float)choice);
+        break;
+    case network_respawnitems:
+        if(choice)
+        {
+            if(sv_respawnitems.value < 10)
+                M_SetCvar(&sv_respawnitems, sv_respawnitems.value + 1);
+            else
+                CON_CvarSetValue(sv_respawnitems.name, 10);
+        }
+        else
+        {
+            if(sv_respawnitems.value > 0)
+                M_SetCvar(&sv_respawnitems, sv_respawnitems.value - 1);
+            else
+                CON_CvarSetValue(sv_respawnitems.name, 0);
+        }
+        break;
+    }
+}
+
+void M_DrawNetwork(void)
+{
+    int y;
+    static const char* respawnitemstrings[11] =
+    {
+        "Off",
+        "1 Minute",
+        "2 Minutes",
+        "3 Minutes",
+        "4 Minutes",
+        "5 Minutes",
+        "6 Minutes",
+        "7 Minutes",
+        "8 Minutes",
+        "9 Minutes",
+        "10 Minutes"
+    };
+
+    if(currentMenu->menupageoffset <= network_damagescale+1 &&
+        (network_damagescale+1) - currentMenu->menupageoffset < currentMenu->numpageitems)
+    {
+        char str[8];
+
+        y = network_damagescale - currentMenu->menupageoffset;
+        M_DrawThermo(NetworkDef.x, NetworkDef.y + LINEHEIGHT * (y + 1), 30, sv_damagescale.value);
+
+        sprintf(str, "x %i", (int)sv_damagescale.value);
+
+        M_DrawSmbText(
+            NetworkDef.x + 192,
+            NetworkDef.y + LINEHEIGHT * (y + 1),
+            MENUCOLORRED,
+            str);
+    }
+
+    if(currentMenu->menupageoffset <= network_healthscale+1 &&
+        (network_healthscale+1) - currentMenu->menupageoffset < currentMenu->numpageitems)
+    {
+        char str[8];
+
+        y = network_healthscale - currentMenu->menupageoffset;
+        M_DrawThermo(NetworkDef.x, NetworkDef.y + LINEHEIGHT * (y + 1), 20, sv_healthscale.value);
+
+        sprintf(str, "x %i", (int)sv_healthscale.value);
+
+        M_DrawSmbText(
+            NetworkDef.x + 192,
+            NetworkDef.y + LINEHEIGHT * (y + 1),
+            MENUCOLORRED,
+            str);
+    }
+
+#define DRAWNETWORKITEM(a, b, c) \
+    if(currentMenu->menupageoffset <= a && \
+        a - currentMenu->menupageoffset < currentMenu->numpageitems) \
+    { \
+        y = a - currentMenu->menupageoffset; \
+        M_DrawSmbText(NetworkDef.x + 194, NetworkDef.y+LINEHEIGHT*y, MENUCOLORRED, \
+            c[(int)b]); \
+    }
+
+    DRAWNETWORKITEM(network_playername, 0, &inputString);
+    DRAWNETWORKITEM(network_allowcheats, sv_allowcheats.value, msgNames);
+    DRAWNETWORKITEM(network_friendlyfire, sv_friendlyfire.value, msgNames);
+    DRAWNETWORKITEM(network_keepitems, sv_keepitems.value, msgNames);
+    DRAWNETWORKITEM(network_allowjump, p_allowjump.value, msgNames);
+    DRAWNETWORKITEM(network_allowautoaim, p_autoaim.value, msgNames);
+    DRAWNETWORKITEM(network_nomonsters, sv_nomonsters.value, msgNames);
+    DRAWNETWORKITEM(network_fastmonsters, sv_fastmonsters.value, msgNames);
+    DRAWNETWORKITEM(network_respawnmonsters, sv_respawn.value, msgNames);
+    DRAWNETWORKITEM(network_respawnitems, sv_respawnitems.value, respawnitemstrings);
+
+#undef DRAWNETWORKITEM
+
+    if(inputEnter)
+    {
+        int i;
+
+        y = network_playername - currentMenu->menupageoffset;
+        i = ((int)(160.0f / NetworkDef.scale) - M_CenterSmbText(inputString)) * 2;
+        M_DrawSmbText(NetworkDef.x + i + 198, (NetworkDef.y + LINEHEIGHT * y), MENUCOLORWHITE, "/r");
+    }
+
+    if(NetworkDef.hints[itemOn] != NULL)
+    {
+        R_GLSetOrthoScale(0.5f);
+        M_DrawSmbText(-1, 410, MENUCOLORWHITE, NetworkDef.hints[itemOn]);
+        R_GLSetOrthoScale(NetworkDef.scale);
+    }
+}
+
+//------------------------------------------------------------------------
+//
 // MISC MENU
 //
 //------------------------------------------------------------------------
 
 void M_MiscChoice(int choice);
 void M_DrawMisc(void);
+
+CVAR_EXTERNAL(am_showkeymarkers);
+CVAR_EXTERNAL(am_showkeycolors);
+CVAR_EXTERNAL(am_drawobjects);
+CVAR_EXTERNAL(am_overlay);
+CVAR_EXTERNAL(r_looksky);
+CVAR_EXTERNAL(r_texnonpowresize);
+CVAR_EXTERNAL(i_interpolateframes);
+CVAR_EXTERNAL(p_usecontext);
+CVAR_EXTERNAL(compat_collision);
+CVAR_EXTERNAL(compat_limitpain);
+CVAR_EXTERNAL(compat_mobjpass);
+CVAR_EXTERNAL(r_wipe);
+CVAR_EXTERNAL(r_rendersprites);
+CVAR_EXTERNAL(r_texturecombiner);
 
 enum
 {
@@ -871,11 +1257,11 @@ enum
     misc_aim,
     misc_jump,
     misc_context,
-    misc_align,
     misc_header3,
     misc_wipe,
     misc_texresize,
     misc_frame,
+    misc_combine,
     misc_sprites,
     misc_skylook,
     misc_header4,
@@ -885,6 +1271,8 @@ enum
     misc_amoverlay,
     misc_header5,
     misc_comp_collision,
+    misc_comp_pain,
+    misc_comp_pass,
     misc_default,
     misc_return,
     misc_end
@@ -902,11 +1290,11 @@ menuitem_t MiscMenu[]=
     {2,"Auto Aim:",M_MiscChoice, 'a'},
     {2,"Jumping:",M_MiscChoice, 'j'},
     {2,"Use Context:",M_MiscChoice, 'u'},
-    {2,"Aligned Pitch:",M_MiscChoice, 'l'},
     {-1,"Rendering",0 },
     {2,"Screen Melt:",M_MiscChoice, 's' },
     {2,"Texture Fit:",M_MiscChoice,'t' },
     {2,"Framerate:",M_MiscChoice, 'f' },
+    {2,"Use Combiners:",M_MiscChoice, 'c' },
     {2,"Sprite Pitch:",M_MiscChoice,'p'},
     {2,"Sky Pitch:",M_MiscChoice,'k'},
     {-1,"Automap",0 },
@@ -916,6 +1304,8 @@ menuitem_t MiscMenu[]=
     {2,"Overlay:",M_MiscChoice },
     {-1,"N64 Compatibility",0 },
     {2,"Collision:",M_MiscChoice,'c' },
+    {2,"Limit Lost Souls:",M_MiscChoice,'l'},
+    {2,"Tall Actors:",M_MiscChoice,'i'},
     {-2,"Default",M_DoDefaults,'d'},
     {1,"/r Return",M_Return, 0x20}
 };
@@ -932,11 +1322,11 @@ char* MiscHints[misc_end]=
     "toggle classic style auto-aiming",
     "toggle the ability to jump",
     "if enabled interactive objects will highlight when near",
-    "adjust view pitch when standing on sloped surfaces",
     NULL,
     "enable the melt effect when completing a level",
     "set how texture dimentions are stretched",
     "interpolate between frames to achieve smooth framerate",
+    "use texture combining - not supported by low-end cards",
     "toggles billboard sprite rendering",
     "sky backgrounds will adjust accordingly to player view",
     NULL,
@@ -946,6 +1336,8 @@ char* MiscHints[misc_end]=
     "render the automap into the player hud",
     NULL,
     "surrounding blockmaps are not checked for an object",
+    "limit max amount of lost souls spawned by pain elemental to 17",
+    "emulate infinite height bug for all solid actors",
     NULL,
     NULL
 };
@@ -959,10 +1351,10 @@ menudefault_t MiscDefault[] =
     { &p_autoaim, 1 },
     { &p_allowjump, 0 },
     { &p_usecontext, 0 },
-    { &p_alignpitch, 1 },
     { &r_wipe, 1 },
     { &r_texnonpowresize, 0 },
     { &i_interpolateframes, 0 },
+    { &r_texturecombiner, 1 },
     { &r_rendersprites, 1 },
     { &r_looksky, 0 },
     { &am_showkeymarkers, 0 },
@@ -970,6 +1362,8 @@ menudefault_t MiscDefault[] =
     { &am_drawobjects, 0 },
     { &am_overlay, 0 },
     { &compat_collision, 1 },
+    { &compat_limitpain, 1 },
+    { &compat_mobjpass, 1 },
     { NULL, -1 }
 };
 
@@ -980,7 +1374,7 @@ menu_t  MiscDef =
     &OptionsDef,
     MiscMenu,
     M_DrawMisc,
-    "Miscellaneous",
+    "Setup",
     216,108,
     0,
     false,
@@ -1037,10 +1431,6 @@ void M_MiscChoice(int choice)
         M_SetCvar(&p_usecontext, (float)choice);
         break;
 
-    case misc_align:
-        M_SetCvar(&p_alignpitch, (float)choice);
-        break;
-
     case misc_wipe:
         M_SetCvar(&r_wipe, (float)choice);
         break;
@@ -1070,6 +1460,10 @@ void M_MiscChoice(int choice)
 
     case misc_frame:
         M_SetCvar(&i_interpolateframes, (float)choice);
+        break;
+
+    case misc_combine:
+        M_SetCvar(&r_texturecombiner, (float)choice);
         break;
 
     case misc_sprites:
@@ -1115,6 +1509,14 @@ void M_MiscChoice(int choice)
     case misc_comp_collision:
         M_SetCvar(&compat_collision, (float)choice);
         break;
+
+    case misc_comp_pain:
+        M_SetCvar(&compat_limitpain, (float)choice);
+        break;
+
+    case misc_comp_pass:
+        M_SetCvar(&compat_mobjpass, (float)(choice ^ 1));
+        break;
     }
 }
 
@@ -1149,10 +1551,10 @@ void M_DrawMisc(void)
     DRAWMISCITEM(misc_aim, p_autoaim.value, msgNames);
     DRAWMISCITEM(misc_jump, p_allowjump.value, msgNames);
     DRAWMISCITEM(misc_context, p_usecontext.value, mapdisplaytype);
-    DRAWMISCITEM(misc_align, p_alignpitch.value, msgNames);
     DRAWMISCITEM(misc_wipe, r_wipe.value, msgNames);
     DRAWMISCITEM(misc_texresize, r_texnonpowresize.value, texresizetype);
     DRAWMISCITEM(misc_frame, i_interpolateframes.value, frametype);
+    DRAWMISCITEM(misc_combine, r_texturecombiner.value, msgNames);
     DRAWMISCITEM(misc_sprites, r_rendersprites.value - 1, msgNames);
     DRAWMISCITEM(misc_skylook, r_looksky.value, msgNames);
     DRAWMISCITEM(misc_showkey, am_showkeymarkers.value, mapdisplaytype);
@@ -1160,6 +1562,10 @@ void M_DrawMisc(void)
     DRAWMISCITEM(misc_amobjects, am_drawobjects.value, objectdrawtype);
     DRAWMISCITEM(misc_amoverlay, am_overlay.value, msgNames);
     DRAWMISCITEM(misc_comp_collision, compat_collision.value, msgNames);
+    DRAWMISCITEM(misc_comp_pain, compat_limitpain.value, msgNames);
+    DRAWMISCITEM(misc_comp_pass, !compat_mobjpass.value, msgNames);
+
+#undef DRAWMISCITEM
 
     if(MiscDef.hints[itemOn] != NULL)
     {
@@ -1180,6 +1586,12 @@ void M_ChangeMouseAccel(int choice);
 void M_ChangeMouseLook(int choice);
 void M_ChangeMouseInvert(int choice);
 void M_DrawMouse(void);
+
+CVAR_EXTERNAL(v_msensitivityx);
+CVAR_EXTERNAL(v_msensitivityy);
+CVAR_EXTERNAL(v_mlook);
+CVAR_EXTERNAL(v_mlookinvert);
+CVAR_EXTERNAL(v_macceleration);
 
 enum
 {
@@ -1338,9 +1750,21 @@ void M_ChangeMessages(int choice);
 void M_ToggleHudDraw(int choice);
 void M_ToggleFlashOverlay(int choice);
 void M_ToggleDamageHud(int choice);
+void M_ToggleWpnDisplay(int choice);
+void M_ToggleShowStats(int choice);
 void M_ChangeCrosshair(int choice);
 void M_ChangeOpacity(int choice);
 void M_DrawDisplay(void);
+
+CVAR_EXTERNAL(st_drawhud);
+CVAR_EXTERNAL(st_crosshair);
+CVAR_EXTERNAL(st_crosshairopacity);
+CVAR_EXTERNAL(st_flashoverlay);
+CVAR_EXTERNAL(st_showpendingweapon);
+CVAR_EXTERNAL(st_showstats);
+CVAR_EXTERNAL(i_brightness);
+CVAR_EXTERNAL(m_messages);
+CVAR_EXTERNAL(p_damageindicator);
 
 enum
 {
@@ -1350,6 +1774,8 @@ enum
     statusbar,
     display_flash,
     display_damage,
+    display_weapon,
+    display_stats,
     display_crosshair,
     display_opacity,
     display_empty2,
@@ -1366,6 +1792,8 @@ menuitem_t DisplayMenu[]=
     {2,"Status Bar:",M_ToggleHudDraw, 's'},
     {2,"Hud Flash:",M_ToggleFlashOverlay, 'f'},
     {2,"Damage Hud:",M_ToggleDamageHud, 'd'},
+    {2,"Show Weapon:",M_ToggleWpnDisplay, 'w'},
+    {2,"Show Stats:",M_ToggleShowStats, 't'},
     {2,"Crosshair:",M_ChangeCrosshair, 'c'},
     {3,"Crosshair Opacity",M_ChangeOpacity, 'o'},
     {-1,"",0},
@@ -1379,8 +1807,10 @@ char* DisplayHints[display_end]=
     NULL,
     "toggle messages displaying on hud",
     "change look and style for hud",
-    "change how flashes are rendered",
+    "use texture environment or a simple overlay for flashes",
     "toggle hud indicators when taking damage",
+    "shows the next or previous pending weapon",
+    "display level stats in automap",
     "toggle crosshair",
     "change opacity for crosshairs",
     NULL,
@@ -1394,6 +1824,8 @@ menudefault_t DisplayDefault[] =
     { &m_messages, 1 },
     { &st_drawhud, 1 },
     { &p_damageindicator, 0 },
+    { &st_showpendingweapon, 1 },
+    { &st_showstats, 0 },
     { &st_crosshair, 0 },
     { &st_crosshairopacity, 80 },
     { NULL, -1 }
@@ -1407,13 +1839,13 @@ menu_t  DisplayDef =
     DisplayMenu,
     M_DrawDisplay,
     "Display",
-    140,60,
+    165,65,
     0,
     false,
     DisplayDefault,
     -1,
     0,
-    0.8f,
+    0.715f,
     DisplayHints
 };
 
@@ -1424,27 +1856,31 @@ void M_Display(int choice)
 
 void M_DrawDisplay(void)
 {
-    static const char* hudtype[3] = { "Off", "Classic", "Absolution" };
-    static const char* flashtype[2] = { "Blending", "Overlay" };
+    static const char* hudtype[3] = { "Off", "Classic", "Arranged" };
+    static const char* flashtype[2] = { "Environment", "Overlay" };
     
     M_DrawThermo(DisplayDef.x, DisplayDef.y+LINEHEIGHT*(dbrightness+1), MAXBRIGHTNESS, i_brightness.value);
-    M_DrawSmbText(DisplayDef.x + 136, DisplayDef.y+LINEHEIGHT*messages, MENUCOLORRED,
+    M_DrawSmbText(DisplayDef.x + 140, DisplayDef.y+LINEHEIGHT*messages, MENUCOLORRED,
         msgNames[(int)m_messages.value]);
-    M_DrawSmbText(DisplayDef.x + 136, DisplayDef.y+LINEHEIGHT*statusbar, MENUCOLORRED,
+    M_DrawSmbText(DisplayDef.x + 140, DisplayDef.y+LINEHEIGHT*statusbar, MENUCOLORRED,
         hudtype[(int)st_drawhud.value]);
-    M_DrawSmbText(DisplayDef.x + 136, DisplayDef.y+LINEHEIGHT*display_flash, MENUCOLORRED,
+    M_DrawSmbText(DisplayDef.x + 140, DisplayDef.y+LINEHEIGHT*display_flash, MENUCOLORRED,
         flashtype[(int)st_flashoverlay.value]);
-    M_DrawSmbText(DisplayDef.x + 136, DisplayDef.y+LINEHEIGHT*display_damage, MENUCOLORRED,
+    M_DrawSmbText(DisplayDef.x + 140, DisplayDef.y+LINEHEIGHT*display_damage, MENUCOLORRED,
         msgNames[(int)p_damageindicator.value]);
+    M_DrawSmbText(DisplayDef.x + 140, DisplayDef.y+LINEHEIGHT*display_weapon, MENUCOLORRED,
+        msgNames[(int)st_showpendingweapon.value]);
+    M_DrawSmbText(DisplayDef.x + 140, DisplayDef.y+LINEHEIGHT*display_stats, MENUCOLORRED,
+        msgNames[(int)st_showstats.value]);
 
     if(st_crosshair.value <= 0)
     {
-        M_DrawSmbText(DisplayDef.x + 136, DisplayDef.y+LINEHEIGHT*display_crosshair, MENUCOLORRED,
+        M_DrawSmbText(DisplayDef.x + 140, DisplayDef.y+LINEHEIGHT*display_crosshair, MENUCOLORRED,
         msgNames[0]);
     }
     else
     {
-        ST_DrawCrosshair(DisplayDef.x + 136, DisplayDef.y+LINEHEIGHT*display_crosshair,
+        ST_DrawCrosshair(DisplayDef.x + 140, DisplayDef.y+LINEHEIGHT*display_crosshair,
             (int)st_crosshair.value, 1, MENUCOLORWHITE);
     }
 
@@ -1454,7 +1890,7 @@ void M_DrawDisplay(void)
     if(DisplayDef.hints[itemOn] != NULL)
     {
         R_GLSetOrthoScale(0.5f);
-        M_DrawSmbText(-1, 415, MENUCOLORWHITE, DisplayDef.hints[itemOn]);
+        M_DrawSmbText(-1, 432, MENUCOLORWHITE, DisplayDef.hints[itemOn]);
         R_GLSetOrthoScale(DisplayDef.scale);
     }
 }
@@ -1509,6 +1945,16 @@ void M_ToggleHudDraw(int choice)
 void M_ToggleDamageHud(int choice)
 {
     M_SetCvar(&p_damageindicator, (float)choice);
+}
+
+void M_ToggleWpnDisplay(int choice)
+{
+    M_SetCvar(&st_showpendingweapon, (float)choice);
+}
+
+void M_ToggleShowStats(int choice)
+{
+    M_SetCvar(&st_showstats, (float)choice);
 }
 
 void M_ToggleFlashOverlay(int choice)
@@ -1568,13 +2014,26 @@ void M_ChangeResolution(int choice);
 void M_ChangeVSync(int choice);
 void M_ChangeDepthSize(int choice);
 void M_ChangeBufferSize(int choice);
+void M_ChangeAnisotropic(int choice);
 void M_DrawVideo(void);
+
+CVAR_EXTERNAL(v_width);
+CVAR_EXTERNAL(v_height);
+CVAR_EXTERNAL(v_windowed);
+CVAR_EXTERNAL(v_vsync);
+CVAR_EXTERNAL(v_depthsize);
+CVAR_EXTERNAL(v_buffersize);
+CVAR_EXTERNAL(i_gamma);
+CVAR_EXTERNAL(i_brightness);
+CVAR_EXTERNAL(r_filter);
+CVAR_EXTERNAL(r_anisotropic);
 
 enum
 {
     video_dgamma,
     video_empty1,
     filter,
+    anisotropic,
     windowed,
     vsync,
     depth,
@@ -1591,13 +2050,14 @@ menuitem_t VideoMenu[]=
     {3,"Gamma Correction",M_ChangeGammaLevel, 'g'},
     {-1,"",0},
     {2,"Filter:",M_ChangeFilter, 'f'},
-    {2,"Windowed:",M_ChangeWindowed,'w'},
+    {2,"Anisotropy:",M_ChangeAnisotropic, 'a'},
+    {2,"Windowed:",M_ChangeWindowed, 'w'},
     {2,"Vsync:",M_ChangeVSync, 'v'},
     {2,"Depth Size:",M_ChangeDepthSize, 'd'},
     {2,"Buffer Size:",M_ChangeBufferSize, 'b'},
-    {2,"Aspect Ratio:",M_ChangeRatio,'a'},
+    {2,"Aspect Ratio:",M_ChangeRatio, 'a'},
     {2,"Resolution:",M_ChangeResolution, 'r'},
-    {-2,"Default",M_DoDefaults,'e'},
+    {-2,"Default",M_DoDefaults, 'e'},
     {1,"/r Return",M_Return, 0x20}
 };
 
@@ -1605,6 +2065,7 @@ menudefault_t VideoDefault[] =
 {
     { &i_gamma, 0 },
     { &r_filter, 0 },
+    { &r_anisotropic, 0 },
     { &v_windowed, 1 },
     { &v_vsync, 1 },
     { &v_depthsize, 24 },
@@ -1775,6 +2236,7 @@ void M_DrawVideo(void)
 #define DRAWVIDEOITEM2(a, b, c) DRAWVIDEOITEM(a, c[(int)b])
 
     DRAWVIDEOITEM2(filter, r_filter.value, filterType);
+    DRAWVIDEOITEM2(anisotropic, r_anisotropic.value, msgNames);
     DRAWVIDEOITEM2(windowed, v_windowed.value, msgNames);
     DRAWVIDEOITEM2(ratio, m_aspectRatio, ratioName);
 
@@ -1816,6 +2278,9 @@ void M_DrawVideo(void)
         y = buffer - currentMenu->menupageoffset;
         M_DrawSmbText(VideoDef.x + 176, VideoDef.y+LINEHEIGHT*y, MENUCOLORRED, bitValue);
     }
+
+#undef DRAWVIDEOITEM
+#undef DRAWVIDEOITEM2
     
     M_DrawText(145, 308, MENUCOLORWHITE, VideoDef.scale, false,
         "Changes will take effect\nafter restarting the game..");
@@ -1844,18 +2309,19 @@ void M_ChangeGammaLevel(int choice)
         (int)i_gamma.value++;
         if (i_gamma.value > 20)
             i_gamma.value = 0;
-        players[consoleplayer].message=gammamsg[(int)i_gamma.value];
+        players[consoleplayer].message = gammamsg[(int)i_gamma.value];
         break;
     }
-    R_DumpTextures();
 }
 
 void M_ChangeFilter(int choice)
 {
     M_SetCvar(&r_filter, (float)choice);
-    
-    R_DumpTextures();
-    R_GLSetFilter();
+}
+
+void M_ChangeAnisotropic(int choice)
+{
+    M_SetCvar(&r_anisotropic, (float)choice);
 }
 
 void M_ChangeWindowed(int choice)
@@ -2187,7 +2653,12 @@ static void M_PasswordDeSelect(void)
 
 void M_SfxVol(int choice);
 void M_MusicVol(int choice);
+void M_GainOutput(int choice);
 void M_DrawSound(void);
+
+CVAR_EXTERNAL(s_sfxvol);
+CVAR_EXTERNAL(s_musvol);
+CVAR_EXTERNAL(s_gain);
 
 enum
 {
@@ -2195,6 +2666,8 @@ enum
     sfx_empty1,
     music_vol,
     sfx_empty2,
+    gain,
+    sfx_empty3,
     sound_default,
     sound_return,
     sound_end
@@ -2206,6 +2679,8 @@ menuitem_t SoundMenu[]=
     {-1,"",0},
     {3,"Music Volume",M_MusicVol,'m'},
     {-1,"",0},
+    {3,"Gain Output",M_GainOutput,'g'},
+    {-1,"",0},
     {-2,"Default",M_DoDefaults,'d'},
     {1,"/r Return",M_Return, 0x20}
 };
@@ -2214,6 +2689,7 @@ menudefault_t SoundDefault[] =
 {
     { &s_sfxvol, 80 },
     { &s_musvol, 80 },
+    { &s_gain, 1 },
     { NULL, -1 }
 };
 
@@ -2244,6 +2720,7 @@ void M_DrawSound(void)
 {
     M_DrawThermo(SoundDef.x,SoundDef.y+LINEHEIGHT*(sfx_vol+1), 100, s_sfxvol.value);
     M_DrawThermo(SoundDef.x,SoundDef.y+LINEHEIGHT*(music_vol+1), 100, s_musvol.value);
+    M_DrawThermo(SoundDef.x,SoundDef.y+LINEHEIGHT*(gain+1), 2, s_gain.value);
 }
 
 void M_SfxVol(int choice)
@@ -2264,8 +2741,6 @@ void M_SfxVol(int choice)
             CON_CvarSetValue(s_sfxvol.name, 100);
         break;
     }
-
-    S_SetSoundVolume(s_sfxvol.value);
 }
 
 void M_MusicVol(int choice)
@@ -2286,8 +2761,26 @@ void M_MusicVol(int choice)
             CON_CvarSetValue(s_musvol.name, 100);
         break;
     }
+}
 
-    S_SetMusicVolume(s_musvol.value);
+void M_GainOutput(int choice)
+{
+    float slope = 2.0f / 100.0f;
+    switch(choice)
+    {
+    case 0:
+        if(s_gain.value > 0.0f)
+            M_SetCvar(&s_gain, s_gain.value - slope);
+        else
+            CON_CvarSetValue(s_gain.name, 0);
+        break;
+    case 1:
+        if(s_gain.value < 2.0f)
+            M_SetCvar(&s_gain, s_gain.value + slope);
+        else
+            CON_CvarSetValue(s_gain.name, 2);
+        break;
+    }
 }
 
 //------------------------------------------------------------------------
@@ -2298,6 +2791,8 @@ void M_MusicVol(int choice)
 
 void M_DoFeature(int choice);
 void M_DrawFeaturesMenu(void);
+
+CVAR_EXTERNAL(sv_lockmonsters);
 
 enum
 {
@@ -2508,6 +3003,10 @@ void M_DrawXGamePad(void);
 void M_XCtrlSchemeChoice(int choice);
 void M_DrawXCtrlScheme(void);
 #endif
+
+CVAR_EXTERNAL(i_rsticksensitivity);
+CVAR_EXTERNAL(i_rstickthreshold);
+CVAR_EXTERNAL(i_xinputscheme);
 
 enum
 {
@@ -2796,7 +3295,11 @@ void M_Controls(int choice)
         M_SetupNextMenu(&XGamePadDef);
     else
 #endif
+        
+    {
         M_BuildControlMenu();
+        M_SetupNextMenu(&ControlsDef);
+    }
 }
 
 void M_BuildControlMenu(void)
@@ -2873,8 +3376,6 @@ void M_BuildControlMenu(void)
     ADD_NONBINDABLE_ITEM(14,"Map Pan Down   : Down", 1);
     ADD_NONBINDABLE_ITEM(15,"Map Pan Drag   : Space", 1);
     ADD_NONBINDABLE_ITEM(16,"Chat           : t", 1);
-
-    M_SetupNextMenu(menu);
 }
 
 void M_ChangeKeyBinding(int choice)
@@ -3085,11 +3586,20 @@ void M_DrawSave(void)
     M_DrawSaveGameFrontend(&SaveDef);
     
     for(i = 0; i < load_end; i++)
-        M_DrawSmbText(SaveDef.x, SaveDef.y + LINEHEIGHT * i, MENUCOLORRED, savegamestrings[i]);
-    
-    if(saveStringEnter)
     {
-        i = ((int)(160.0f / SaveDef.scale) - M_CenterSmbText(savegamestrings[saveSlot])) * 2;
+        char *string;
+
+        if(i == saveSlot && inputEnter)
+            string = inputString;
+        else
+            string = savegamestrings[i];
+
+        M_DrawSmbText(SaveDef.x, SaveDef.y + LINEHEIGHT * i, MENUCOLORRED, string);
+    }
+    
+    if(inputEnter)
+    {
+        i = ((int)(160.0f / SaveDef.scale) - M_CenterSmbText(inputString)) * 2;
         M_DrawSmbText(SaveDef.x + i, (SaveDef.y + LINEHEIGHT * saveSlot) - 2, MENUCOLORWHITE, "/r");
     }
 }
@@ -3114,16 +3624,9 @@ void M_DoSave(int slot)
 //
 void M_SaveSelect(int choice)
 {
-    // we are going to be intercepting all chars
-    saveStringEnter = 1;
-    
     saveSlot = choice;
-    dstrcpy(saveOldString,savegamestrings[choice]);
-
-    if(!dstrcmp(savegamestrings[choice],EMPTYSTRING))
-        savegamestrings[choice][0] = 0;
-
-    saveCharIndex = dstrlen(savegamestrings[choice]);
+    dstrcpy(inputString, savegamestrings[choice]);
+    M_SetInputString(savegamestrings[choice], (SAVESTRINGSIZE - 1));
 }
 
 //
@@ -3222,10 +3725,11 @@ void M_DrawLoad(void)
 //
 void M_LoadSelect(int choice)
 {
-    char name[256];
+    //char name[256];
     
-    dsprintf(name, SAVEGAMENAME"%d.dsg", choice);
-    G_LoadGame(name);
+    // sprintf(name, SAVEGAMENAME"%d.dsg", choice);
+    // G_LoadGame(name);
+    G_LoadGame(P_GetSaveGameName(choice));
     M_ClearMenus();
 }
 
@@ -3258,20 +3762,21 @@ void M_ReadSaveStrings(void)
 {
     int     handle;
     int     i;
-    char    name[256];
+    // char    name[256];
     
     for (i = 0; i < load_end; i++)
     {
-        dsprintf(name, SAVEGAMENAME"%d.dsg", i);
+        // sprintf(name, SAVEGAMENAME"%d.dsg", i);
         
-        handle = open(name, O_RDONLY | 0, 0666);
+        // handle = open(name, O_RDONLY | 0, 0666);
+        handle = open(P_GetSaveGameName(i), O_RDONLY | 0, 0666);
         if(handle == -1)
         {
             dstrcpy(&savegamestrings[i][0],EMPTYSTRING);
             DoomLoadMenu[i].status = 0;
             continue;
         }
-        read(handle, &savegamestrings[i], MENUSAVESTRINGSIZE);
+        read(handle, &savegamestrings[i], MENUSTRINGSIZE);
         close(handle);
         DoomLoadMenu[i].status = 1;
     }
@@ -3405,12 +3910,6 @@ static void M_DoDefaults(int choice)
     
     if(currentMenu == &DisplayDef)
         R_RefreshBrightness();
-
-    if(currentMenu == &SoundDef)
-    {
-        S_SetSoundVolume(s_sfxvol.value);
-        S_SetMusicVolume(s_musvol.value);
-    }
     
     if(currentMenu == &VideoDef)
     {
@@ -3463,6 +3962,23 @@ static void M_ReturnInstant(void)
     }
     else
         M_ClearMenus();
+}
+
+//
+// M_SetInputString
+//
+
+static void M_SetInputString(char* string, int len)
+{
+    inputEnter = true;
+    dstrcpy(oldInputString, string);
+
+    // hack
+    if(!dstrcmp(string, EMPTYSTRING))
+        inputString[0] = 0;
+
+    inputCharIndex = dstrlen(inputString);
+    inputMax = len;
 }
 
 //
@@ -3599,7 +4115,7 @@ static int thumbnail_map = -1;
 static dboolean M_SetThumbnail(int which)
 {
     byte* data;
-    char name[256];
+    //char name[256];
 
     //
     // still selected on current thumbnail?
@@ -3621,15 +4137,15 @@ static dboolean M_SetThumbnail(int which)
         thumbnail = 0;
     }
 
-    dsprintf(name, SAVEGAMENAME"%d.dsg", which);
+    // sprintf(name, SAVEGAMENAME"%d.dsg", which);
 
-    data = Z_Malloc((128 * 128) * 3, PU_STATIC, 0);
+    data = Z_Malloc(SAVEGAMETBSIZE, PU_STATIC, 0);
 
     //
     // poke into savegame file and fetch
     // thumbnail, date and stats
     //
-    if(!P_QuickReadSaveHeader(name, thumbnail_date, (int*)data,
+    if(!P_QuickReadSaveHeader(P_GetSaveGameName(which), thumbnail_date, (int*)data,
         &thumbnail_skill, &thumbnail_map))
     {
         Z_Free(data);
@@ -3765,10 +4281,10 @@ static void M_DrawSaveGameFrontend(menu_t* def)
 
         M_DrawSmbText(def->x + 444, def->y + 244, MENUCOLORWHITE, thumbnail_date);
 
-        dsprintf(string, "Skill: %s", NewGameMenu[thumbnail_skill].name);
+        sprintf(string, "Skill: %s", NewGameMenu[thumbnail_skill].name);
         M_DrawSmbText(def->x + 444, def->y + 268, MENUCOLORWHITE, string);
 
-        dsprintf(string, "Map: %s", P_GetMapInfo(thumbnail_map)->mapname);
+        sprintf(string, "Map: %s", P_GetMapInfo(thumbnail_map)->mapname);
         M_DrawSmbText(def->x + 444, def->y + 292, MENUCOLORWHITE, string);
 
         R_GLSetOrthoScale(def->scale);
@@ -3902,7 +4418,7 @@ void M_DrawXInputButton(int x, int y, int button)
         );
 
     dglTriangle(0, 1, 2);
-    dglTriangle(1, 2, 3);
+    dglTriangle(3, 2, 1);
     dglDrawGeometry(4, vtx);
     
     R_GLDisable2D();
@@ -3964,6 +4480,8 @@ static int M_GetXInputMenuKey(event_t *ev)
 // M_Responder
 //
 
+static dboolean shiftdown = false;
+
 dboolean M_Responder(event_t* ev)
 {
     int ch;
@@ -3972,7 +4490,7 @@ dboolean M_Responder(event_t* ev)
     
     ch = -1;
     
-    if(menufadefunc || !allowmenu)
+    if(menufadefunc || !allowmenu || demoplayback)
         return false;
     
     
@@ -4051,53 +4569,83 @@ dboolean M_Responder(event_t* ev)
         else if(ev->type == ev_keydown)
         {
             ch = ev->data1;
+
+            if(ch == KEY_SHIFT)
+                shiftdown = true;
         }
         else if(ev->type == ev_keyup)
+        {
             thermowait = 0;
+            if(ev->data1 == KEY_SHIFT)
+            {
+                ch = ev->data1;
+                shiftdown = false;
+            }
+        }
     }
     
     if(ch == -1)
         return false;
     
     
-    // Save Game string input
-    if (saveStringEnter)
+    // save game / player name string input
+    if(inputEnter)
     {
         switch(ch)
         {
         case KEY_BACKSPACE:
-            if (saveCharIndex > 0)
+            if(inputCharIndex > 0)
             {
-                saveCharIndex--;
-                savegamestrings[saveSlot][saveCharIndex] = 0;
+                inputCharIndex--;
+                inputString[inputCharIndex] = 0;
             }
             break;
             
         case KEY_ESCAPE:
-            saveStringEnter = 0;
-            dstrcpy(&savegamestrings[saveSlot][0],saveOldString);
+            inputEnter = false;
+            dstrcpy(inputString, oldInputString);
             break;
             
         case KEY_ENTER:
-            saveStringEnter = 0;
-            if (savegamestrings[saveSlot][0])
-                M_DoSave(saveSlot);
+            inputEnter = false;
+            if(currentMenu == &NetworkDef)
+            {
+                CON_CvarSet(m_playername.name, inputString);
+                if(netgame)
+                    NET_SV_UpdateCvars(&m_playername);
+            }
+            else
+            {
+                dstrcpy(savegamestrings[saveSlot], inputString);
+                if(savegamestrings[saveSlot][0])
+                    M_DoSave(saveSlot);
+            }
             break;
             
         default:
-            ch = toupper(ch);
-            if (ch != 32)
-                if (ch-ST_FONTSTART < 0 || ch-ST_FONTSTART >= ST_FONTSIZE)
+
+            if(inputCharIndex >= inputMax)
+                return true;
+
+            if(shiftdown)
+                ch = toupper(ch);
+
+            if(ch != 32)
+            {
+                if(ch - ST_FONTSTART < 0 || ch - ST_FONTSTART >= ('z' - ST_FONTSTART + 1))
                     break;
-                if (ch >= 32 && ch <= 127 &&
-                    saveCharIndex < MENUSAVESTRINGSIZE-1 &&
-                    M_StringWidth(savegamestrings[saveSlot]) <
-                    (MENUSAVESTRINGSIZE-2)*8)
+            }
+
+            if(ch >= 32 && ch <= 127)
+            {
+                if(inputCharIndex < (MENUSTRINGSIZE - 1) &&
+                    M_StringWidth(inputString) < (MENUSTRINGSIZE - 2) * 8)
                 {
-                    savegamestrings[saveSlot][saveCharIndex++] = ch;
-                    savegamestrings[saveSlot][saveCharIndex] = 0;
+                    inputString[inputCharIndex++] = ch;
+                    inputString[inputCharIndex] = 0;
                 }
-                break;
+            }
+            break;
         }
         return true;
     }
@@ -4138,7 +4686,7 @@ dboolean M_Responder(event_t* ev)
         // Pop-up menu?
         if (!menuactive)
         {
-            if (ch == KEY_ESCAPE && gamemap != 33 && !st_chatOn)
+            if (ch == KEY_ESCAPE && !st_chatOn)
             {
                 M_StartControlPanel ();
                 return true;
@@ -4282,8 +4830,7 @@ dboolean M_Responder(event_t* ev)
                         }
                         else
                         {
-                            menufadefunc = M_MenuFadeOut;
-                            alphaprevmenu = false;
+                            currentMenu->menuitems[itemOn].routine(itemOn);
                         }
                         
                         S_StartSound(NULL, sfx_pistol);
@@ -4360,6 +4907,7 @@ void M_StartControlPanel(void)
     
     menuactive = 1;
     menufadefunc = NULL;
+    nextmenu = NULL;
     currentMenu = !usergame ? &MainDef : &PauseDef;
     itemOn = currentMenu->lastOn;
 
@@ -4514,7 +5062,7 @@ static void M_DrawMenuSkull(int x, int y)
         );
 
     dglTriangle(0, 1, 2);
-    dglTriangle(1, 2, 3);
+    dglTriangle(3, 2, 1);
     dglDrawGeometry(4, vtx);
     
     R_GLDisable2D();
@@ -4796,6 +5344,7 @@ void M_ClearMenus (void)
         return;
 
     menufadefunc = NULL;
+    nextmenu = NULL;
     menualphacolor = 0xff;
     menuactive = 0;
 
@@ -4809,8 +5358,9 @@ void M_ClearMenus (void)
 
 void M_SetupNextMenu(menu_t *menudef)
 {
-    currentMenu = menudef;
-    itemOn = currentMenu->lastOn;
+    menufadefunc = M_MenuFadeOut;
+    alphaprevmenu = false;
+    nextmenu = menudef;
 }
 
 
@@ -4827,6 +5377,7 @@ void M_MenuFadeIn(void)
         menualphacolor = 0xff;
         alphaprevmenu = false;
         menufadefunc = NULL;
+        nextmenu = NULL;
     }
 }
 
@@ -4844,7 +5395,10 @@ void M_MenuFadeOut(void)
         menualphacolor = 0;
         
         if(alphaprevmenu == false)
-            currentMenu->menuitems[itemOn].routine(itemOn);
+        {
+            currentMenu = nextmenu;
+            itemOn = currentMenu->lastOn;
+        }
         else 
         {
             currentMenu = currentMenu->prevMenu;
@@ -4859,6 +5413,8 @@ void M_MenuFadeOut(void)
 //
 // M_Ticker
 //
+
+CVAR_EXTERNAL(p_features);
 
 void M_Ticker (void)
 {
@@ -4903,6 +5459,12 @@ void M_Ticker (void)
         currentMenu->menuitems[options_mouse].status = xgamepad.connected ? -3 : 1;
 #endif
 
+    //
+    // hide anisotropic option if not supported on video card
+    //
+    if(!has_GL_EXT_texture_filter_anisotropic)
+        VideoMenu[anisotropic].status = -3;
+
     // auto-adjust itemOn and page offset if the first menu item is being used as a header
     if(currentMenu->menuitems[0].status == -1 &&
         currentMenu->menuitems[0].name != "")
@@ -4915,14 +5477,6 @@ void M_Ticker (void)
         if(itemOn <= 0)
             itemOn = 1;
     }
-
-    //
-    // clamp menu fade cvar values
-    //
-    if(m_menufadetime.value < 0)
-        CON_CvarSetValue(m_menufadetime.name, 0);
-    if(m_menufadetime.value > 256)
-        CON_CvarSetValue(m_menufadetime.name, 256);
     
     if(menufadefunc)
         menufadefunc();
@@ -4975,6 +5529,7 @@ void M_Init(void)
     skullAnimCounter = 4;
     quickSaveSlot = -1;
     menufadefunc = NULL;
+    nextmenu = NULL;
     
     for(i = 0; i < NUM_CONTROL_ITEMS; i++)
     {
@@ -5023,6 +5578,18 @@ void M_Init(void)
     M_InitShiftXForm();
 }
 
+//
+// M_RegisterCvars
+//
 
+void M_RegisterCvars(void)
+{
+    CON_CvarRegister(&m_regionblood);
+    CON_CvarRegister(&m_menufadetime);
+
+#if 0
+    CON_CvarRegister(&m_menumouse);
+#endif
+}
 
 

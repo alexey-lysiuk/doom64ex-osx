@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: s_sound.c 976 2011-12-10 21:03:10Z svkaiser $
+// $Id: s_sound.c 1089 2012-03-17 05:37:23Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,15 +15,15 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 976 $
-// $Date: 2011-12-10 23:03:10 +0200 (сб, 10 гру 2011) $
+// $Revision: 1089 $
+// $Date: 2012-03-17 07:37:23 +0200 (сб, 17 бер 2012) $
 //
 //
 // DESCRIPTION: In-game Sound behavior
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
-static const char rcsid[] = "$Id: s_sound.c 976 2011-12-10 21:03:10Z svkaiser $";
+static const char rcsid[] = "$Id: s_sound.c 1089 2012-03-17 05:37:23Z svkaiser $";
 #endif
 
 #include <stdio.h>
@@ -44,6 +44,7 @@ static const char rcsid[] = "$Id: s_sound.c 976 2011-12-10 21:03:10Z svkaiser $"
 #include "m_misc.h"
 #include "p_setup.h"
 #include "i_audio.h"
+#include "con_console.h"
 
 // Adjustable by menu.
 #define NORM_VOLUME     127
@@ -70,6 +71,10 @@ static const char rcsid[] = "$Id: s_sound.c 976 2011-12-10 21:03:10Z svkaiser $"
 static dboolean nosound = false;
 static dboolean nomusic = false;
 static int lastmusic = 0;
+
+CVAR_CMD(s_sfxvol, 80)  { if(cvar->value < 0.0f) return; S_SetSoundVolume(cvar->value); }
+CVAR_CMD(s_musvol, 80)  { if(cvar->value < 0.0f) return; S_SetMusicVolume(cvar->value); }
+CVAR_CMD(s_gain, 1)     { if(cvar->value < 0.0f) return; S_SetGainOutput(cvar->value);  }
 
 //
 // Internals.
@@ -98,6 +103,7 @@ void S_Init(void)
 
     S_SetMusicVolume(s_musvol.value);
     S_SetSoundVolume(s_sfxvol.value);
+    S_SetGainOutput(s_gain.value);
 }
 
 //
@@ -116,6 +122,15 @@ void S_SetSoundVolume(float volume)
 void S_SetMusicVolume(float volume)
 {
     I_SetMusicVolume(volume);
+}
+
+//
+// S_SetGainOutput
+//
+
+void S_SetGainOutput(float db)
+{
+    I_SetGain(db);
 }
 
 //
@@ -360,6 +375,21 @@ int S_AdjustSoundParams(fixed_t x, fixed_t y, int* vol, int* sep)
 }
 
 
+//
+// S_RegisterCvars
+//
+
+CVAR_EXTERNAL(s_soundfont);
+CVAR_EXTERNAL(s_driver);
+
+void S_RegisterCvars(void)
+{
+    CON_CvarRegister(&s_sfxvol);
+    CON_CvarRegister(&s_musvol);
+    CON_CvarRegister(&s_gain);
+    CON_CvarRegister(&s_soundfont);
+    CON_CvarRegister(&s_driver);
+}
 
 
 

@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
-// $Id: p_saveg.h 866 2011-06-10 20:21:38Z svkaiser $
+// $Id: p_saveg.h 1087 2012-03-14 05:40:46Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -29,8 +29,10 @@
 #endif
 
 #define SAVEGAMESIZE    0x60000
+#define SAVEGAMETBSIZE  0xC000
 #define SAVESTRINGSIZE  16
 
+char *P_GetSaveGameName(int num);
 dboolean P_WriteSaveGame(char* description, int slot);
 dboolean P_ReadSaveGame(char* name);
 dboolean P_QuickReadSaveHeader(char* name, char* date, int* thumbnail, int* skill, int* map);

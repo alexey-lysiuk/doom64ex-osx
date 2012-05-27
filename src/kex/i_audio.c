@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: i_audio.c 925 2011-08-14 19:37:08Z svkaiser $
+// $Id: i_audio.c 1089 2012-03-17 05:37:23Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 925 $
-// $Date: 2011-08-14 22:37:08 +0300 (нд, 14 сер 2011) $
+// $Revision: 1089 $
+// $Date: 2012-03-17 07:37:23 +0200 (сб, 17 бер 2012) $
 //
 //
 // DESCRIPTION: Low-level audio API. Incorporates a sequencer system to
@@ -27,12 +27,18 @@
 //-----------------------------------------------------------------------------
 #ifdef RCSID
 static const char
-rcsid[] = "$Id: i_audio.c 925 2011-08-14 19:37:08Z svkaiser $";
+rcsid[] = "$Id: i_audio.c 1089 2012-03-17 05:37:23Z svkaiser $";
 #endif
 
 
 #include <stdlib.h>
 #include <stdio.h>
+
+#ifndef _WIN32
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
 
 #include "SDL.h"
 #include "fluidsynth.h"
@@ -44,12 +50,56 @@ rcsid[] = "$Id: i_audio.c 925 2011-08-14 19:37:08Z svkaiser $";
 #include "w_wad.h"
 #include "z_zone.h"
 #include "i_swap.h"
+#include "con_console.h"    // for cvars
+
+// 20120203 villsa - cvar for soundfont location
+CVAR(s_soundfont, DOOMSND.SF2);
+
+// 20120203 villsa - cvar for audio driver
+#ifdef _WIN32
+CVAR_CMD(s_driver, dsound)
+#else
+CVAR_CMD(s_driver, alsa)
+#endif
+{
+    char* driver = cvar->string;
+
+    // this is absolutely horrible
+    if(!dstrcmp(cvar->defvalue, "default"))
+        cvar->defvalue = DEFAULT_FLUID_DRIVER;
+
+    // same as above
+    if(!dstrcmp(driver, "default"))
+    {
+        CON_CvarSet(cvar->name, DEFAULT_FLUID_DRIVER);
+        return;
+    }
+
+    if( !dstrcmp(driver, "jack")        ||
+        !dstrcmp(driver, "alsa")        ||
+        !dstrcmp(driver, "oss")         ||
+        !dstrcmp(driver, "pulseaudio")  ||
+        !dstrcmp(driver, "coreaudio")   ||
+        !dstrcmp(driver, "dsound")      ||
+        !dstrcmp(driver, "portaudio")   ||
+        !dstrcmp(driver, "sndman")      ||
+        !dstrcmp(driver, "dart")        ||
+        !dstrcmp(driver, "file")
+        ) return;
+
+    CON_Warnf("Warning: Invalid driver name\n");
+    CON_Warnf("Valid driver names: jack, alsa, oss, pulseaudio, coreaudio, dsound, portaudio, sndman, dart, file\n");
+    CON_CvarSet(cvar->name, DEFAULT_FLUID_DRIVER);
+}
 
 //
 // I don't fully understand the use for these
 // so I may be introducing some issues here...
 // 
 static SDL_mutex *mutex = NULL;
+
+// 20120205 villsa - bool to determine if sequencer is ready or not
+static dboolean seqready = false;
 
 //
 // DEFINES
@@ -170,6 +220,7 @@ typedef enum
     SEQ_SIGNAL_PAUSE,
     SEQ_SIGNAL_RESUME,
     SEQ_SIGNAL_STOPALL,
+    SEQ_SIGNAL_SETGAIN,         // signal the sequencer to update output gain
     MAXSIGNALTYPES
 } seqsignal_e;
 
@@ -187,7 +238,7 @@ typedef struct
     fluid_settings_t*       settings;
     fluid_synth_t*          synth;
     fluid_audio_driver_t*   driver;
-    dword                   sfont_id;
+    int                     sfont_id; // 20120112 bkw: needs to be signed
     SDL_Thread*             thread;
 
     dword                   voices;
@@ -206,6 +257,9 @@ typedef struct
     // wait (while loop) until the audio thread signals itself
     // to be ready again
     seqsignal_e             signal;
+
+    // 20120316 villsa - gain property (tweakable)
+    float                   gain;
 } doomseq_t;
 
 static doomseq_t doomseq;   // doom sequencer
@@ -242,9 +296,9 @@ static void I_UnlockMutex(void)
 // all sounds that are played
 //
 
-static void I_SetSynthGain(doomseq_t* seq, float gain)
+static void I_SetSynthGain(doomseq_t* seq)
 {
-    fluid_synth_set_gain(seq->synth, gain);
+    fluid_synth_set_gain(seq->synth, seq->gain);
 }
 
 //
@@ -808,6 +862,20 @@ static int I_SignalResume(doomseq_t* seq)
     return 1;
 }
 
+//
+// I_SignalUpdateGain
+//
+
+static int I_SignalUpdateGain(doomseq_t* seq)
+{
+    I_LockMutex();
+    I_SetSynthGain(seq);
+    I_UnlockMutex();
+
+    I_SetSeqStatus(seq, SEQ_SIGNAL_READY);
+    return 1;
+}
+
 static const signalhandler seqsignallist[MAXSIGNALTYPES] =
 {
     I_SignalIdle,
@@ -817,6 +885,7 @@ static const signalhandler seqsignallist[MAXSIGNALTYPES] =
     I_SignalPause,
     I_SignalResume,
     I_SignalStopAll,
+    I_SignalUpdateGain
 };
 
 //
@@ -1135,12 +1204,10 @@ void I_InitSequencer(void)
     //
     // init mutex
     //
-
     mutex = SDL_CreateMutex();
-
     if(mutex == NULL)
     {
-        I_Printf("I_InitSequencer: failed to create mutex");
+        CON_Warnf("I_InitSequencer: failed to create mutex");
         return;
     }
 
@@ -1149,70 +1216,107 @@ void I_InitSequencer(void)
     //
     // init sequencer thread
     //
-
     doomseq.thread = SDL_CreateThread(I_PlayerHandler, &doomseq);
-
     if(doomseq.thread == NULL)
     {
-        I_Printf("I_InitSequencer: failed to create audio thread");
+        CON_Warnf("I_InitSequencer: failed to create audio thread");
         return;
     }
 
     //
-    // init settings and synth
+    // init settings
     //
-
-    doomseq.settings    = new_fluid_settings();
-
+    doomseq.settings = new_fluid_settings();
     I_ConfigSequencer(&doomseq, "synth.midi-channels", 0x10 + MIDI_CHANNELS);
     I_ConfigSequencer(&doomseq, "synth.polyphony", 256);
 
-    doomseq.synth = new_fluid_synth(doomseq.settings);
+    // 20120105 bkw: On Linux, always use alsa (fluidsynth default is to use
+    // JACK, if it's compiled in. We don't want to start jackd for a game).
+    fluid_settings_setstr(doomseq.settings, "audio.driver", s_driver.string);
 
+    //
+    // init synth
+    //
+    doomseq.synth = new_fluid_synth(doomseq.settings);
     if(doomseq.synth == NULL)
     {
-        I_Printf("I_InitSequencer: failed to create synthesizer");
+        CON_Warnf("I_InitSequencer: failed to create synthesizer");
         return;
     }
 
     //
     // init audio driver
     //
-
-    doomseq.driver = new_fluid_audio_driver(
-        doomseq.settings, doomseq.synth);
-
+    doomseq.driver = new_fluid_audio_driver(doomseq.settings, doomseq.synth);
     if(doomseq.driver == NULL)
     {
-        I_Printf("I_InitSequencer: failed to create audio driver");
+        CON_Warnf("I_InitSequencer: failed to create audio driver");
         return;
     }
 
     //
     // load soundfont
     //
-
+#ifdef _WIN32
     doomseq.sfont_id = fluid_synth_sfload(
-        doomseq.synth, "DOOMSND.SF2", 1);
+        doomseq.synth, s_soundfont.string, 1);
+#else
+    // 20120111 bkw: look in the same places as doom64.wad. Someday this needs
+    // to be a config file setting and not hard-coded.
+    // 20120203 villsa - done :)
+    {
+        struct stat buf;
+        char *sfpath;
+        
+        // 20120126 bkw: stat the files instead of trying to fluid_synth_sfload
+        // each one, to avoid "fluidsynth: cant't load soundfont" messages.
+        if(!stat("DOOMSND.SF2", &buf))
+            sfpath = "DOOMSND.SF2";
+        else if(!stat("/usr/local/share/games/doom64/DOOMSND.SF2", &buf))
+            sfpath = "/usr/local/share/games/doom64/DOOMSND.SF2";
+        else if(!stat("/usr/share/games/doom64/DOOMSND.SF2", &buf))
+            sfpath = "/usr/share/games/doom64/DOOMSND.SF2";
+        else
+            sfpath = s_soundfont.string;
+
+        I_Printf("Found SoundFont %s\n", sfpath);
+        doomseq.sfont_id = fluid_synth_sfload(doomseq.synth, sfpath, 1);
+    }
+#endif
 
     //
     // set state
     //
+    doomseq.gain = 1.0f;
 
     I_SetSeqStatus(&doomseq, SEQ_SIGNAL_READY);
-    I_SetSynthGain(&doomseq, 1.0f);
+    I_SetSynthGain(&doomseq);
     I_SetReverb(&doomseq, 0.65f, 0.0f, 2.0f, 1.0f);
 
     //
     // if something went terribly wrong, then shutdown everything
     //
-    if(!I_RegisterSongs(&doomseq) || doomseq.sfont_id == -1)
+    if(!I_RegisterSongs(&doomseq))
     {
+        CON_Warnf("I_InitSequencer: Failed to register songs\n");
+        I_ShutdownSequencer(&doomseq);
+        return;
+    }
+
+    //
+    // where's the soundfont file? not found then shutdown everything
+    //
+    if(doomseq.sfont_id == -1)
+    {
+        CON_Warnf("I_InitSequencer: Failed to find soundfont file\n");
         I_ShutdownSequencer(&doomseq);
         return;
     }
 
     I_ClearPlaylist();
+
+    // 20120205 villsa - sequencer is now ready
+    seqready = true;
 }
 
 //
@@ -1283,14 +1387,7 @@ void I_ShutdownSound(void)
 
 void I_SetMusicVolume(float volume)
 {
-    float vol = volume;
-    float v = vol;
-
-    vol *= 9; vol -= v;
-    vol *= 8; vol -= v;
-    vol *= 2;
-
-    doomseq.musicvolume = ((vol / 100.0f));
+    doomseq.musicvolume = (volume * 1.125f);
 }
 
 //
@@ -1299,14 +1396,7 @@ void I_SetMusicVolume(float volume)
 
 void I_SetSoundVolume(float volume)
 {
-    float vol = volume;
-    float v = vol;
-
-    vol *= 7; vol += v;
-    vol *= 7; vol += v;
-    vol *= 2;
-
-    doomseq.soundvolume = ((vol / 100.0f));
+    doomseq.soundvolume = (volume * 0.925f);
 }
 
 //
@@ -1315,6 +1405,9 @@ void I_SetSoundVolume(float volume)
 
 void I_ResetSound(void)
 {
+    if(!seqready)
+        return;
+
     I_SetSeqStatus(&doomseq, SEQ_SIGNAL_RESET);
     I_WaitOnSignal(&doomseq);
 }
@@ -1325,6 +1418,9 @@ void I_ResetSound(void)
 
 void I_PauseSound(void)
 {
+    if(!seqready)
+        return;
+
     I_SetSeqStatus(&doomseq, SEQ_SIGNAL_PAUSE);
     I_WaitOnSignal(&doomseq);
 }
@@ -1335,7 +1431,25 @@ void I_PauseSound(void)
 
 void I_ResumeSound(void)
 {
+    if(!seqready)
+        return;
+
     I_SetSeqStatus(&doomseq, SEQ_SIGNAL_RESUME);
+    I_WaitOnSignal(&doomseq);
+}
+
+//
+// I_SetGain
+//
+
+void I_SetGain(float db)
+{
+    if(!seqready)
+        return;
+
+    doomseq.gain = db;
+
+    I_SetSeqStatus(&doomseq, SEQ_SIGNAL_SETGAIN);
     I_WaitOnSignal(&doomseq);
 }
 
@@ -1348,6 +1462,9 @@ void I_StartMusic(int mus_id)
     song_t* song;
     channel_t* chan;
     int i;
+
+    if(!seqready)
+        return;
 
     I_LockMutex();
 
@@ -1375,6 +1492,9 @@ void I_StopSound(sndsrc_t* origin, int sfx_id)
     channel_t* c;
     int i;
 
+    if(!seqready)
+        return;
+
     I_LockMutex();
 
     song = &doomseq.songs[sfx_id];
@@ -1398,6 +1518,9 @@ void I_StartSound(int sfx_id, sndsrc_t* origin, int volume, int pan, int reverb)
     song_t* song;
     channel_t* chan;
     int i;
+
+    if(!seqready)
+        return;
 
     if(doomseq.nsongs <= 0)
         return;

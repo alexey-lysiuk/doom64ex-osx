@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: p_maputl.c 1027 2012-01-07 22:31:29Z svkaiser $
+// $Id: p_maputl.c 1091 2012-03-17 23:58:49Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -24,7 +24,7 @@
 //-----------------------------------------------------------------------------
 #ifdef RCSID
 static const char
-rcsid[] = "$Id: p_maputl.c 1027 2012-01-07 22:31:29Z svkaiser $";
+rcsid[] = "$Id: p_maputl.c 1091 2012-03-17 23:58:49Z svkaiser $";
 #endif
 
 
@@ -37,7 +37,6 @@ rcsid[] = "$Id: p_maputl.c 1027 2012-01-07 22:31:29Z svkaiser $";
 #include "r_local.h"
 #include "doomstat.h"
 #include "z_zone.h"
-#include "m_math.h"
 
 
 //
@@ -191,6 +190,29 @@ P_MakeDivline
 }
 
 //
+// P_GetIntersectPoint
+//
+
+void P_GetIntersectPoint(fixed_t *s1, fixed_t *s2, fixed_t *x, fixed_t *y)
+{
+	float a1 = F2D3D(s1[3]) - F2D3D(s1[1]);
+	float b1 = F2D3D(s1[0]) - F2D3D(s1[2]);
+	float c1 = F2D3D(s1[2]) * F2D3D(s1[1]) - F2D3D(s1[0]) * F2D3D(s1[3]);
+   
+	float a2 = F2D3D(s2[3]) - F2D3D(s2[1]);
+	float b2 = F2D3D(s2[0]) - F2D3D(s2[2]);
+	float c2 = F2D3D(s2[2]) * F2D3D(s2[1]) - F2D3D(s2[0]) * F2D3D(s2[3]);
+
+	float d = a1 * b2 - a2 * b1;
+
+	if(d == 0.0)	// nothing can be done here..
+		return;
+
+	*x = INT2F((fixed_t)(float)((b1 * c2 - b2 * c1) / d));
+	*y = INT2F((fixed_t)(float)((a2 * c1 - a1 * c2) / d));
+}
+
+//
 // P_InterceptVector
 // Returns the fractional intercept point
 // along the first divline.
@@ -270,13 +292,9 @@ fixed_t lowfloor;
 sector_t *openfrontsector;
 sector_t *openbacksector;
 
-void P_LineOpening(line_t *linedef, fixed_t x, fixed_t y, fixed_t refx, fixed_t refy)
+void P_LineOpening(line_t *linedef)
 {
-    fixed_t fc, bc;
-    fixed_t ff, bf;
-    dboolean usefront;
-
-	if(linedef->sidenum[1] == -1)      // single sided line
+	if (linedef->sidenum[1] == NO_SIDE_INDEX)   // single sided line
 	{
 		openrange = 0;
 		return;
@@ -285,45 +303,21 @@ void P_LineOpening(line_t *linedef, fixed_t x, fixed_t y, fixed_t refx, fixed_t 
 	openfrontsector = linedef->frontsector;
 	openbacksector = linedef->backsector;
 
-    fc = M_PointToZ(&openfrontsector->ceilingplane, x, y);
-    ff = M_PointToZ(&openfrontsector->floorplane, x, y);
-    bc = M_PointToZ(&openbacksector->ceilingplane, x, y);
-    bf = M_PointToZ(&openbacksector->floorplane, x, y);
-
-	if(fc < bc)
-		opentop = fc;
+	if(openfrontsector->ceilingheight < openbacksector->ceilingheight)
+		opentop = openfrontsector->ceilingheight;
 	else
-		opentop = bc;
+		opentop = openbacksector->ceilingheight;
 
-    // fudge a bit for actors that are moving across lines
-    // bordering a slope/non-slope that meet on the floor. Note
-    // that imprecisions in the plane equation mean there is a
-    // good chance that even if a slope and non-slope look like
-    // they line up, they won't be perfectly aligned.
-
-    if(refx == MININT || D_abs (ff - bf) > 256)
-        usefront = (ff > bf);
-    else
-    {
-        if((openfrontsector->floorplane.a | openfrontsector->floorplane.b) == 0)
-            usefront = true;
-        else if((openbacksector->floorplane.a | openfrontsector->floorplane.b) == 0)
-            usefront = false;
-        else
-            usefront = !P_PointOnLineSide(refx, refy, linedef);
-    }
-
-    if(usefront)
-    {
-        openbottom = ff;
-        lowfloor = bf;
-    }
-    else
-    {
-        openbottom = bf;
-        lowfloor = ff;
-    }
-
+	if(openfrontsector->floorheight > openbacksector->floorheight)
+	{
+		openbottom = openfrontsector->floorheight;
+		lowfloor = openbacksector->floorheight;
+	}
+	else
+	{
+		openbottom = openbacksector->floorheight;
+		lowfloor = openfrontsector->floorheight;
+	}
 	openrange = opentop - openbottom;
 }
 

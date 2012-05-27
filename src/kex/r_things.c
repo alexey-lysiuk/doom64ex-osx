@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: r_things.c 981 2011-12-22 22:13:41Z svkaiser $
+// $Id: r_things.c 1067 2012-03-02 02:17:26Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,14 +15,14 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 981 $
-// $Date: 2011-12-23 00:13:41 +0200 (пт, 23 гру 2011) $
+// $Revision: 1067 $
+// $Date: 2012-03-02 04:17:26 +0200 (пт, 02 бер 2012) $
 //
 // DESCRIPTION: Thing/Sprite rendering code
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
-static const char rcsid[] = "$Id: r_things.c 981 2011-12-22 22:13:41Z svkaiser $";
+static const char rcsid[] = "$Id: r_things.c 1067 2012-03-02 02:17:26Z svkaiser $";
 #endif
 
 #include "r_lights.h"
@@ -52,6 +52,12 @@ char*           spritename;
 
 static visspritelist_t *SpriteList = NULL;
 static visspritelist_t *NextSprite = NULL;
+
+CVAR_EXTERNAL(m_regionblood);
+CVAR_EXTERNAL(st_flashoverlay);
+CVAR_EXTERNAL(i_interpolateframes);
+CVAR_EXTERNAL(r_texturecombiner);
+CVAR_EXTERNAL(r_rendersprites);
 
 //
 // R_InstallSpriteLump
@@ -640,12 +646,8 @@ void R_DrawPSprite(pspdef_t *psp, sector_t* sector, player_t *player)
     
     R_GLEnable2D(0);
     R_GLSetupVertex(v, x, y, width, height, u1, u2, v1, v2, color);
-
-    dglActiveTexture(GL_TEXTURE0_ARB);
-    if(r_fillmode.value)
-        dglEnable(GL_TEXTURE_2D);
-    else
-        dglDisable(GL_TEXTURE_2D);
+    R_SetTextureUnit(0, true);
+    R_GLCheckFillMode();
 
     //
     // setup texture environment for effects
@@ -660,28 +662,38 @@ void R_DrawPSprite(pspdef_t *psp, sector_t* sector, player_t *player)
 
         if(!nolights)
         {
-            dglActiveTexture(GL_TEXTURE1_ARB);
-            dglEnable(GL_TEXTURE_2D);
+            R_UpdateEnvTexture(WHITE);
+            R_SetTextureUnit(1, true);
             dglTexCombModulate(GL_PREVIOUS, GL_PRIMARY_COLOR);
         }
 
         if(st_flashoverlay.value <= 0)
         {
-            dglActiveTexture(GL_TEXTURE2_ARB);
-            dglEnable(GL_TEXTURE_2D);
+            R_SetTextureUnit(2, true);
             dglTexCombColor(GL_PREVIOUS, flashcolor, GL_ADD);
         }
 
         dglTexCombReplaceAlpha(GL_TEXTURE0_ARB);
-        dglActiveTexture(GL_TEXTURE0_ARB);
+
+        R_SetTextureUnit(0, true);
     }
     else
-        dglTexCombReplace();
+    {
+        int l = (sector->lightlevel >> 1);
+
+        R_SetTextureUnit(1, true);
+        R_SetTextureMode(GL_ADD);
+        R_UpdateEnvTexture(D_RGBA(l, l, l, 0xff));
+        R_SetTextureUnit(0, true);
+
+        if(nolights)
+            R_SetTextureMode(GL_REPLACE);
+    }
     
     // render
     dglSetVertex(v);
     dglTriangle(0, 1, 2);
-    dglTriangle(1, 2, 3);
+    dglTriangle(3, 2, 1);
     dglDrawGeometry(4, v);
     
     R_GLDisable2D();
@@ -747,7 +759,6 @@ void R_DrawThingBBox(void)
     DRAWBBOXPOLY(b1, BOXTOP, z1); \
     dglEnd()
 
-    dglDisable(GL_FOG);
     dglDisable(GL_TEXTURE_2D);
     dglDepthRange(0.0f, 0.0f);
 
@@ -790,7 +801,6 @@ void R_DrawThingBBox(void)
 
     dglDepthRange(0.0f, 1.0f);
     dglPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-    dglEnable(GL_FOG);
     dglEnable(GL_TEXTURE_2D);
     R_GLToggleBlend(0);
 }

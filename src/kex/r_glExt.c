@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: r_glExt.c 867 2011-06-11 04:45:57Z svkaiser $
+// $Id: r_glExt.c 1077 2012-03-05 18:26:15Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,14 +15,14 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 867 $
-// $Date: 2011-06-11 07:45:57 +0300 (сб, 11 чер 2011) $
+// $Revision: 1077 $
+// $Date: 2012-03-05 20:26:15 +0200 (пн, 05 бер 2012) $
 //
 // DESCRIPTION: OpenGL extensions
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
-static const char rcsid[] = "$Id: r_glExt.c 867 2011-06-11 04:45:57Z svkaiser $";
+static const char rcsid[] = "$Id: r_glExt.c 1077 2012-03-05 18:26:15Z svkaiser $";
 #endif
 
 #include "SDL.h"
@@ -37,27 +37,21 @@ static const char rcsid[] = "$Id: r_glExt.c 867 2011-06-11 04:45:57Z svkaiser $"
 
 // ======================== OGL Extensions ===================================
 
-PFNGLMULTITEXCOORD2FARBPROC         glExtMultiTexCoord2fARB         = NULL;
-PFNGLMULTITEXCOORD2FVARBPROC        glExtMultiTexCoord2fvARB        = NULL;
-PFNGLACTIVETEXTUREARBPROC           glExtActiveTextureARB           = NULL;
-PFNGLCLIENTACTIVETEXTUREARBPROC     glExtClientActiveTextureARB     = NULL;
-PFNGLLOCKARRAYSEXTPROC              glExtLockArrays                 = NULL;
-PFNGLUNLOCKARRAYSEXTPROC            glExtUnlockArrays               = NULL;
-PFNGLMULTIDRAWARRAYSEXTPROC         glExtMultiDrawArrays            = NULL;
-PFNGLFOGCOORDFEXTPROC               glExtFogCoordf                  = NULL;
-PFNGLFOGCOORDPOINTEREXTPROC         glExtFogCoordPointer            = NULL;
-PFNGLBINDBUFFERARBPROC              glExtBindBufferARB              = NULL;
-PFNGLDELETEBUFFERSARBPROC           glExtDeleteBuffersARB           = NULL;
-PFNGLGENBUFFERSARBPROC              glExtGenBuffersARB              = NULL;
-PFNGLBUFFERDATAARBPROC              glExtBufferDataARB              = NULL;
-PFNGLMAPBUFFERARBPROC               glExtMapBufferARB               = NULL;
-PFNGLUNMAPBUFFERARBPROC             glExtUnmapBufferARB             = NULL;
+GL_ARB_multitexture_Define();
+GL_EXT_compiled_vertex_array_Define();
+//GL_EXT_multi_draw_arrays_Define();
+//GL_EXT_fog_coord_Define();
+//GL_ARB_vertex_buffer_object_Define();
+GL_ARB_texture_non_power_of_two_Define();
+GL_ARB_texture_env_combine_Define();
+GL_EXT_texture_env_combine_Define();
+GL_EXT_texture_filter_anisotropic_Define();
 
 //
 // R_GLCheckExtension
 //
 
-dboolean R_GLCheckExtension(const char *ext, dboolean required)
+dboolean R_GLCheckExtension(const char *ext)
 {
     if(R_GLCheckExt(ext))
     {
@@ -65,12 +59,7 @@ dboolean R_GLCheckExtension(const char *ext, dboolean required)
         return true;
     }
     else
-    {
-        if(required)
-            I_Error("R_GLCheckExtension: missing extension %s is required", ext);
-        else
-            CON_Printf(YELLOW, "GL Extension: %s = false\n", ext);
-    }
+        CON_Printf(YELLOW, "GL Extension: %s = false\n", ext);
     
     return false;
 }
@@ -79,12 +68,15 @@ dboolean R_GLCheckExtension(const char *ext, dboolean required)
 // R_GLRegisterProc
 //
 
-void* R_GLRegisterProc(const char *address, dboolean required)
+void* R_GLRegisterProc(const char *address)
 {
     void *proc = SDL_GL_GetProcAddress(address);
     
-    if(!proc && required)
-        I_Error("R_GLRegisterProc: Failed to get proc address: %s", address);
+    if(!proc)
+    {
+        CON_Warnf("R_GLRegisterProc: Failed to get proc address: %s", address);
+        return NULL;
+    }
     
     return proc;
 }
@@ -95,35 +87,15 @@ void* R_GLRegisterProc(const char *address, dboolean required)
 
 void R_GLInitExtensions(void)
 {
-    R_GLCheckExtension("GL_ARB_multitexture", true);
-    R_GLCheckExtension("GL_EXT_multi_draw_arrays", false);
-    R_GLCheckExtension("GL_ARB_vertex_buffer_object", false);
-    R_GLCheckExtension("GL_EXT_fog_coord", false);
-    R_GLCheckExtension("GL_ARB_texture_non_power_of_two", false);
-    R_GLCheckExtension("GL_ARB_vertex_program", false);
-    R_GLCheckExtension("GL_ARB_fragment_program", false);
-
-    if(!R_GLCheckExtension("GL_ARB_texture_env_add", false))
-        R_GLCheckExtension("GL_EXT_texture_env_add", true);
-
-    if(!R_GLCheckExtension("GL_ARB_texture_env_combine", false))
-        R_GLCheckExtension("GL_EXT_texture_env_combine", true);
-
-    glExtMultiTexCoord2fARB         = R_GLRegisterProc("glMultiTexCoord2fARB", true);
-    glExtMultiTexCoord2fvARB        = R_GLRegisterProc("glMultiTexCoord2fvARB", true);
-    glExtActiveTextureARB           = R_GLRegisterProc("glActiveTextureARB", true);
-    glExtClientActiveTextureARB     = R_GLRegisterProc("glClientActiveTextureARB", true);
-    glExtLockArrays                 = R_GLRegisterProc("glLockArraysEXT", false);
-    glExtUnlockArrays               = R_GLRegisterProc("glUnlockArraysEXT", false);
-    glExtMultiDrawArrays            = R_GLRegisterProc("glMultiDrawArraysEXT", false);
-    glExtFogCoordf                  = R_GLRegisterProc("glFogCoordfEXT", false);
-    glExtFogCoordPointer            = R_GLRegisterProc("glFogCoordPointerEXT", false);
-    glExtBindBufferARB              = R_GLRegisterProc("glBindBufferARB", false);
-    glExtDeleteBuffersARB           = R_GLRegisterProc("glDeleteBuffersARB", false);
-    glExtGenBuffersARB              = R_GLRegisterProc("glGenBuffersARB", false);
-    glExtBufferDataARB              = R_GLRegisterProc("glBufferDataARB", false);
-    glExtMapBufferARB               = R_GLRegisterProc("glMapBufferARB", false);
-    glExtUnmapBufferARB             = R_GLRegisterProc("glUnmapBufferARB", false);
+    GL_ARB_multitexture_Init();
+    GL_EXT_compiled_vertex_array_Init();
+    //GL_EXT_multi_draw_arrays_Init();
+    //GL_EXT_fog_coord_Init();
+    //GL_ARB_vertex_buffer_object_Init();
+    GL_ARB_texture_non_power_of_two_Init();
+    GL_ARB_texture_env_combine_Init();
+    GL_EXT_texture_env_combine_Init();
+    GL_EXT_texture_filter_anisotropic_Init();
 }
 
 //

@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: m_misc.c 981 2011-12-22 22:13:41Z svkaiser $
+// $Id: m_misc.c 1087 2012-03-14 05:40:46Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -16,8 +16,8 @@
 //
 //
 // $Author: svkaiser $
-// $Revision: 981 $
-// $Date: 2011-12-23 00:13:41 +0200 (пт, 23 гру 2011) $
+// $Revision: 1087 $
+// $Date: 2012-03-14 07:40:46 +0200 (ср, 14 бер 2012) $
 //
 //
 // DESCRIPTION:
@@ -29,7 +29,7 @@
 //-----------------------------------------------------------------------------
 #ifdef RCSID
 static const char
-rcsid[] = "$Id: m_misc.c 981 2011-12-22 22:13:41Z svkaiser $";
+rcsid[] = "$Id: m_misc.c 1087 2012-03-14 05:40:46Z svkaiser $";
 #endif
 
 #ifdef _WIN32
@@ -42,25 +42,13 @@ rcsid[] = "$Id: m_misc.c 981 2011-12-22 22:13:41Z svkaiser $";
 #include <ctype.h>
 #include <errno.h>
 
-#include "doomdef.h"
-#include "w_wad.h"
-#include "i_system.h"
-#include "v_sdl.h"
-#include "am_map.h"
 #include "doomstat.h"
-#include "d_englsh.h"
-#include "r_local.h"
 #include "m_misc.h"
-#include "g_controls.h"
-#include "g_actions.h"
-#include "r_texture.h"
 #include "z_zone.h"
-#include "g_settings.h"
 #include "g_local.h"
 #include "st_stuff.h"
 #include "i_png.h"
-
-#include "Ext/ChocolateDoom/net_client.h"
+#include "p_saveg.h"
 
 int		myargc;
 char**	myargv;
@@ -283,7 +271,7 @@ void M_SaveDefaults(void)
 {
     FILE		*fh;
     
-    fh=fopen(ConfigFileName, "wt");
+    fh=fopen(G_GetConfigFileName(), "wt");
     if (fh)
     {
         G_OutputBindings(fh);
@@ -333,7 +321,7 @@ void M_ScreenShot(void)
     if((video_height % 2))	// height must be power of 2
         return;
     
-    buff = R_GLGetScreen(video_width, video_height);
+    buff = R_GLGetScreen(0, 0, video_width, video_height);
     size = 0;
     
     // Get PNG image
@@ -357,17 +345,36 @@ int M_CacheThumbNail(byte** data)
 {
     byte* buff;
     byte* tbn;
+    int x;
+    int width;
+    const float ratio = (4.0f / 3.0f);
 
-    buff = R_GLGetScreen(video_width, video_height);
-    tbn = Z_Calloc((128 * 128) * 3, PU_STATIC, 0);
+    // 20120313 villsa - fix for widescreen resolutions
+    if(!dfcmp(((float)ViewWidth / (float)ViewHeight), ratio))
+    {
+        float fitwidth = ViewHeight * ratio;
+        float fitx = (ViewWidth - fitwidth) / 2.0f;
 
-    gluScaleImage(GL_RGB, video_width, video_height,
+        // clip widescreen thumbnails into 4:3 ratio
+        x = (int)fitx;
+        width = (int)fitwidth;
+    }
+    else
+    {
+        x = 0;
+        width = video_width;
+    }
+
+    buff = R_GLGetScreen(x, 0, width, video_height);
+    tbn = Z_Calloc(SAVEGAMETBSIZE, PU_STATIC, 0);
+
+    gluScaleImage(GL_RGB, width, video_height,
         GL_UNSIGNED_BYTE, buff, 128, 128, GL_UNSIGNED_BYTE, tbn);
     
     Z_Free(buff);
 
     *data = tbn;
-    return (128 * 128) * 3;
+    return SAVEGAMETBSIZE;
 }
 
 //
@@ -483,7 +490,8 @@ int M_DrawText(int x, int y, rcolor color, float scale, dboolean wrap, const cha
         x += ST_FONTWHSIZE;
     }
     
-    dglDrawGeometry(vi, vtxstring);
+    if(vi)
+        dglDrawGeometry(vi, vtxstring);
 
     R_GLDisable2D();
     
@@ -798,8 +806,8 @@ int M_DrawSmbText(int x, int y, rcolor color, const char* string)
 
             dglSetVertexColor(vtxstring + vi, color, 4);
 
-            dglTriangle(vi + 0, vi + 1, vi + 2);
-            dglTriangle(vi + 0, vi + 2, vi + 3);
+            dglTriangle(vi + 2, vi + 1, vi + 0);
+            dglTriangle(vi + 3, vi + 2, vi + 0);
 
             if(devparm) vertCount += 4;
             
@@ -807,7 +815,8 @@ int M_DrawSmbText(int x, int y, rcolor color, const char* string)
         }
     }
 
-    dglDrawGeometry(vi, vtxstring);
+    if(vi)
+        dglDrawGeometry(vi, vtxstring);
     
     R_GLDisable2D();
     R_GLToggleBlend(0);

@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: m_cheat.c 835 2011-02-02 06:44:56Z svkaiser $
+// $Id: m_cheat.c 1048 2012-02-13 04:08:26Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 835 $
-// $Date: 2011-02-02 08:44:56 +0200 (ср, 02 лют 2011) $
+// $Revision: 1048 $
+// $Date: 2012-02-13 06:08:26 +0200 (пн, 13 лют 2012) $
 //
 //
 // DESCRIPTION:
@@ -26,7 +26,7 @@
 
 #ifdef RCSID
 static const char
-rcsid[] = "$Id: m_cheat.c 835 2011-02-02 06:44:56Z svkaiser $";
+rcsid[] = "$Id: m_cheat.c 1048 2012-02-13 04:08:26Z svkaiser $";
 #endif
 
 #include <stdlib.h>
@@ -162,6 +162,7 @@ static void M_CheatBerserk(player_t* player, char dat[4])
     player->message = GOTBERSERK;
 }
 
+CVAR_EXTERNAL(sv_skill);
 static void M_CheatWarp(player_t* player, char dat[4])
 {
     int map;
@@ -391,7 +392,7 @@ void M_ParseNetCheat(int player, int type, char *buff)
 
 void M_CheatProcess(player_t* plyr, event_t* ev)
 {
-    if(netgame && !sv_allowcheats.value)
+    if(netgame && !(gameflags & GF_ALLOWCHEATS))
         return;
     
     // if a user keypress...

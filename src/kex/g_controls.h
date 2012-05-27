@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: g_controls.h 810 2010-12-21 05:56:08Z svkaiser $
+// $Id: g_controls.h 1031 2012-01-15 04:55:14Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -69,6 +69,6 @@ typedef struct
 #define PCF_GAMEPAD     0x40
 
 extern playercontrols_t	Controls;
-extern char *ConfigFileName;
+extern char *G_GetConfigFileName(void);
 
 #endif

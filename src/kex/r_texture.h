@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: r_texture.h 875 2011-07-04 23:37:26Z svkaiser $
+// $Id: r_texture.h 1062 2012-02-26 22:09:44Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -55,9 +55,10 @@ extern float*               spriteoffset;
 extern float*               spritetopoffset;
 extern word*                spriteheight;
 
-void        R_BindDummyTexture(void);
 void        R_InitTextures(void);
 void        R_UnloadTexture(dtexture* texture);
+void        R_SetTextureUnit(int unit, dboolean enable);
+void        R_SetTextureMode(int mode);
 void        R_CheckTextureSizeLimits(void);
 void        R_BindWorldTexture(int texnum, int *width, int *height);
 void        R_BindSpriteTexture(int spritenum, int pal);
@@ -65,6 +66,9 @@ int         R_BindGfxTexture(const char* name, dboolean alpha);
 int         R_PadTextureDims(int size);
 void        R_SetNewPalette(int id, byte palID);
 void        R_DumpTextures(void);
+void        R_BindDummyTexture(void);
+void        R_UpdateEnvTexture(rcolor color);
+void        R_BindEnvTexture(void);
 dtexture    R_ScreenToTexture(void);
 
 #endif

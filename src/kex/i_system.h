@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: i_system.h 886 2011-07-31 08:02:07Z svkaiser $
+// $Id: i_system.h 1043 2012-02-03 20:26:29Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -90,6 +90,8 @@ void I_BeginRead(void);
 void I_Error (char *error, ...);
 void I_Printf(char *msg, ...);
 char *I_DoomExeDir(void);
+
+void I_RegisterCvars(void);
 
 extern FILE	*DebugFile;
 extern dboolean	DigiJoy;

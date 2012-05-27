@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: r_vertices.c 1030 2012-01-08 21:36:28Z svkaiser $
+// $Id: r_vertices.c 1085 2012-03-11 04:47:16Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,15 +15,15 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 1030 $
-// $Date: 2012-01-08 23:36:28 +0200 (нд, 08 січ 2012) $
+// $Revision: 1085 $
+// $Date: 2012-03-11 06:47:16 +0200 (нд, 11 бер 2012) $
 //
 // DESCRIPTION: Vertex draw lists.
 // Stores geometry info produced by R_RenderBSPNode into a list for optimal rendering
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
-static const char rcsid[] = "$Id: r_vertices.c 1030 2012-01-08 21:36:28Z svkaiser $";
+static const char rcsid[] = "$Id: r_vertices.c 1085 2012-03-11 04:47:16Z svkaiser $";
 #endif
 
 #include "doomdef.h"
@@ -36,11 +36,12 @@ static const char rcsid[] = "$Id: r_vertices.c 1030 2012-01-08 21:36:28Z svkaise
 #include "i_system.h"
 #include "z_zone.h"
 #include "p_local.h"
-#include "m_math.h"
 
 static float envcolor[4] = { 0, 0, 0, 0 };
 
-vtx_t drawVertex[MAXDLDRAWCOUNT];
+CVAR_EXTERNAL(i_interpolateframes);
+CVAR_EXTERNAL(r_texturecombiner);
+
 drawlist_t drawlist[NUMDRAWLISTS];
 
 dboolean R_GenerateSpritePlane(visspritelist_t* vissprite, vtx_t* vertex);
@@ -219,7 +220,7 @@ dboolean DL_ProcessWalls(vtxlist_t* vl, int* drawcount)
         return false;
 
     dglTriangle(*drawcount + 0, *drawcount + 1, *drawcount + 2);
-    dglTriangle(*drawcount + 1, *drawcount + 2, *drawcount + 3);
+    dglTriangle(*drawcount + 3, *drawcount + 2, *drawcount + 1);
 
     *drawcount += 4;
 
@@ -272,38 +273,16 @@ dboolean DL_ProcessLeafs(vtxlist_t* vl, int* drawcount)
         if(vl->flags & DLF_CEILING)
         {
             if(i_interpolateframes.value)
-            {
-                plane_t plane;
-
-                plane.a     = sector->ceilingplane.a;
-                plane.b     = sector->ceilingplane.b;
-                plane.c     = sector->ceilingplane.c;
-                plane.nc    = sector->ceilingplane.nc;
-                plane.d     = sector->frame_z2[1];
-
-                v->z = F2D3D(M_PointToZ(&plane, leaf->vertex->x, leaf->vertex->y));
-            }
+                v->z = F2D3D(sector->frame_z2[1]);
             else
-                v->z = F2D3D(M_PointToZ(&sector->ceilingplane,
-                leaf->vertex->x, leaf->vertex->y));
+                v->z = F2D3D(sector->ceilingheight);
         }
         else
         {
             if(i_interpolateframes.value)
-            {
-                plane_t plane;
-
-                plane.a     = sector->floorplane.a;
-                plane.b     = sector->floorplane.b;
-                plane.c     = sector->floorplane.c;
-                plane.nc    = sector->floorplane.nc;
-                plane.d     = sector->frame_z1[1];
-
-                v->z = F2D3D(M_PointToZ(&plane, leaf->vertex->x, leaf->vertex->y));
-            }
+                v->z = F2D3D(sector->frame_z1[1]);
             else
-                v->z = F2D3D(M_PointToZ(&sector->floorplane,
-                leaf->vertex->x, leaf->vertex->y));
+                v->z = F2D3D(sector->floorheight);
         }
         
         v->tu = F2D3D((leaf->vertex->x >> 6) - tx);
@@ -367,8 +346,10 @@ dboolean DL_ProcessSprites(vtxlist_t* vl, int* drawcount)
     if(!vl->drawfunc(vis, &drawVertex[*drawcount]))
         return false;
 
+    R_GLEnableCulling(!(mobj->flags & MF_RENDERLASER));
+
     dglTriangle(*drawcount + 0, *drawcount + 1, *drawcount + 2);
-    dglTriangle(*drawcount + 1, *drawcount + 2, *drawcount + 3);
+    dglTriangle(*drawcount + 3, *drawcount + 2, *drawcount + 1);
 
     *drawcount += 4;
 
@@ -405,7 +386,7 @@ void DL_ProcessDrawList(int tag, dboolean (*procfunc)(vtxlist_t*, int*))
         int palette = 0;
 
         // horrible hack...
-        if(tag == DLT_WALL || tag == DLT_TWALL)
+        if(tag == DLT_WALL)
             prevsector = NULL;
 
         if(tag != DLT_SPRITE)
@@ -458,7 +439,7 @@ void DL_ProcessDrawList(int tag, dboolean (*procfunc)(vtxlist_t*, int*))
             }
             
             // non sprite textures must repeat or mirrored-repeat
-            if(tag == DLT_WALL || tag == DLT_TWALL)
+            if(tag == DLT_WALL)
             {
                 dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,
                     head->flags & DLF_MIRRORS ? GL_MIRRORED_REPEAT : GL_REPEAT);
@@ -466,8 +447,17 @@ void DL_ProcessDrawList(int tag, dboolean (*procfunc)(vtxlist_t*, int*))
                     head->flags & DLF_MIRRORT ? GL_MIRRORED_REPEAT : GL_REPEAT);
             }
 
-            envcolor[0] = envcolor[1] = envcolor[2] = ((float)head->glowvalue / 255.0f);
-            dglTexEnvfv(GL_TEXTURE_ENV, GL_TEXTURE_ENV_COLOR, envcolor);
+            if(r_texturecombiner.value > 0)
+            {
+                envcolor[0] = envcolor[1] = envcolor[2] = ((float)head->glowvalue / 255.0f);
+                dglTexEnvfv(GL_TEXTURE_ENV, GL_TEXTURE_ENV_COLOR, envcolor);
+            }
+            else
+            {
+                int l = (head->glowvalue >> 1);
+
+                R_UpdateEnvTexture(D_RGBA(l, l, l, 0xff));
+            }
 
             dglDrawGeometry(drawcount, drawVertex);
             
@@ -488,11 +478,7 @@ void DL_BeginDrawList(dboolean t, dboolean a)
 {
     dglSetVertex(drawVertex);
 
-    dglActiveTexture(GL_TEXTURE0_ARB);
-    if(t)
-        dglEnable(GL_TEXTURE_2D);
-    else
-        dglDisable(GL_TEXTURE_2D);
+    R_SetTextureUnit(0, t);
 
     if(a)
         dglTexCombColorf(GL_TEXTURE0_ARB, envcolor, GL_ADD);

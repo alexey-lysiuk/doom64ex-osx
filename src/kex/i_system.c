@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: i_system.c 925 2011-08-14 19:37:08Z svkaiser $
+// $Id: i_system.c 1077 2012-03-05 18:26:15Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 925 $
-// $Date: 2011-08-14 22:37:08 +0300 (нд, 14 сер 2011) $
+// $Revision: 1077 $
+// $Date: 2012-03-05 20:26:15 +0200 (пн, 05 бер 2012) $
 //
 //
 // DESCRIPTION: System Interface
@@ -24,7 +24,7 @@
 //-----------------------------------------------------------------------------
 #ifdef RCSID
 static const char
-rcsid[] = "$Id: i_system.c 925 2011-08-14 19:37:08Z svkaiser $";
+rcsid[] = "$Id: i_system.c 1077 2012-03-05 18:26:15Z svkaiser $";
 #endif
 
 
@@ -49,6 +49,11 @@ rcsid[] = "$Id: i_system.c 925 2011-08-14 19:37:08Z svkaiser $";
 #include "i_system.h"
 #include "i_audio.h"
 
+#ifdef _WIN32
+#include "i_xinput.h"
+#endif
+
+CVAR(i_interpolateframes, 0);
 
 #ifdef USESYSCONSOLE
 #include <windows.h>
@@ -472,9 +477,6 @@ void I_Error(char* string, ...)
 {
     char buff[1024];
     va_list	va;
-    
-    if(usingGL)
-        R_GLClearFrame(0xFF000000);
 
     I_ShutdownSound();
 
@@ -490,8 +492,17 @@ void I_Error(char* string, ...)
 
     if(usingGL)
     {
-        M_DrawText(0, 0, WHITE, 1, 1, "Error - %s\n", buff);
-        V_ShutdownWait();
+        while(1)
+        {
+            R_GLClearFrame(0xFF000000);
+            M_DrawText(0, 0, WHITE, 1, 1, "Error - %s\n", buff);
+            R_GLFinish();
+
+            if(V_ShutdownWait())
+                break;
+
+            I_Sleep(1);
+        }
     }
     else
         V_Shutdown();
@@ -619,5 +630,29 @@ void I_StartTic(void)
     V_StartTic();
 }
 
+//
+// I_RegisterCvars
+//
 
+#ifdef _USE_XINPUT
+CVAR_EXTERNAL(i_rsticksensitivity);
+CVAR_EXTERNAL(i_rstickthreshold);
+CVAR_EXTERNAL(i_xinputscheme);
+#endif
+
+CVAR_EXTERNAL(i_gamma);
+CVAR_EXTERNAL(i_brightness);
+
+void I_RegisterCvars(void)
+{
+#ifdef _USE_XINPUT
+    CON_CvarRegister(&i_rsticksensitivity);
+    CON_CvarRegister(&i_rstickthreshold);
+    CON_CvarRegister(&i_xinputscheme);
+#endif
+
+    CON_CvarRegister(&i_gamma);
+    CON_CvarRegister(&i_brightness);
+    CON_CvarRegister(&i_interpolateframes);
+}
 

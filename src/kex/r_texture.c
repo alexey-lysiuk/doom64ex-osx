@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: r_texture.c 947 2011-08-24 01:25:17Z svkaiser $
+// $Id: r_texture.c 1090 2012-03-17 21:11:19Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,14 +15,14 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 947 $
-// $Date: 2011-08-24 04:25:17 +0300 (ср, 24 сер 2011) $
+// $Revision: 1090 $
+// $Date: 2012-03-17 23:11:19 +0200 (сб, 17 бер 2012) $
 //
 // DESCRIPTION: Texture handling
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
-static const char rcsid[] = "$Id: r_texture.c 947 2011-08-24 01:25:17Z svkaiser $";
+static const char rcsid[] = "$Id: r_texture.c 1090 2012-03-17 21:11:19Z svkaiser $";
 #endif
 
 #include "doomstat.h"
@@ -75,6 +75,9 @@ float*      spriteoffset;
 float*      spritetopoffset;
 word*       spriteheight;
 word*       spritecount;
+
+CVAR_EXTERNAL(r_texnonpowresize);
+CVAR_EXTERNAL(r_fillmode);
 
 //
 // R_InitWorldTextures
@@ -130,6 +133,9 @@ void R_BindWorldTexture(int texnum, int *width, int *height)
     byte *png;
     int w;
     int h;
+
+    if(r_fillmode.value <= 0)
+        return;
     
     // get translation index
     texnum = texturetranslation[texnum];
@@ -264,7 +270,7 @@ int R_BindGfxTexture(const char* name, dboolean alpha)
     png = I_PNGReadData(lump, false, true, alpha, &width, &height, NULL, 0);
     
     // check for non-power of two textures
-    npot = R_GLCheckExt("GL_ARB_texture_non_power_of_two");
+    npot = has_GL_ARB_texture_non_power_of_two;
 
     if(!npot && r_texnonpowresize.value <= 0)
         CON_CvarSetValue(r_texnonpowresize.name, 1.0f);
@@ -415,6 +421,9 @@ void R_BindSpriteTexture(int spritenum, int pal)
     int h;
     int wp;
     int hp;
+
+    if(r_fillmode.value <= 0)
+        return;
     
     if((spritenum == cursprite) && (pal == curtrans))
         return;
@@ -439,7 +448,7 @@ void R_BindSpriteTexture(int spritenum, int pal)
     png = I_PNGReadData(s_start + spritenum, false, true, true, &w, &h, NULL, pal);
     
     // check for non-power of two textures
-    npot = R_GLCheckExt("GL_ARB_texture_non_power_of_two");
+    npot = has_GL_ARB_texture_non_power_of_two;
 
     if(!npot && r_texnonpowresize.value <= 0)
         CON_CvarSetValue(r_texnonpowresize.name, 1.0f);
@@ -555,19 +564,19 @@ static dtexture dummytexture = 0;
 
 void R_BindDummyTexture(void)
 {
-    if(!dummytexture)
+    if(dummytexture == 0)
     {
         //
         // build dummy texture
         //
 
-        byte rgb[12];   // 2x2 RGB texture
+        byte rgb[48];   // 4x4 RGB texture
 
-        dmemset(rgb, 0xff, 12);
+        dmemset(rgb, 0xff, 48);
 
         dglGenTextures(1, &dummytexture);
         dglBindTexture(GL_TEXTURE_2D, dummytexture);
-        dglTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, 2, 2, 0, GL_RGB, GL_UNSIGNED_BYTE, rgb);
+        dglTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, 4, 4, 0, GL_RGB, GL_UNSIGNED_BYTE, rgb);
         dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     
@@ -576,6 +585,89 @@ void R_BindDummyTexture(void)
     }
     else
         dglBindTexture(GL_TEXTURE_2D, dummytexture);
+}
+
+//
+// R_BindEnvTexture
+//
+
+static dtexture envtexture = 0;
+
+void R_BindEnvTexture(void)
+{
+    rcolor rgb[16];
+
+    if(r_fillmode.value <= 0)
+        return;
+
+    dmemset(rgb, 0xff, sizeof(rcolor) * 16);
+
+    if(envtexture == 0)
+    {
+        dglGenTextures(1, &envtexture);
+        dglBindTexture(GL_TEXTURE_2D, envtexture);
+        dglTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 4, 4, 0, GL_RGBA, GL_UNSIGNED_BYTE, (byte*)rgb);
+        dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    
+        R_GLCheckFillMode();
+        R_GLSetFilter();
+    }
+    else
+        dglBindTexture(GL_TEXTURE_2D, envtexture);
+}
+
+//
+// R_UpdateEnvTexture
+//
+
+static rcolor lastenvcolor = 0;
+
+void R_UpdateEnvTexture(rcolor color)
+{
+    rcolor env;
+    rcolor rgb[16];
+    byte *c;
+    int i;
+
+    if(!has_GL_ARB_multitexture)
+        return;
+
+    if(r_fillmode.value <= 0)
+        return;
+
+    if(lastenvcolor == color)
+        return;
+
+    dglActiveTextureARB(GL_TEXTURE1_ARB);
+
+    env             = color;
+    lastenvcolor    = color;
+    c               = (byte*)rgb;
+
+    dmemset(rgb, 0, sizeof(rcolor) * 16);
+
+    for(i = 0; i < 16; i++)
+    {
+        *c++ = (byte)((env >> 0)  & 0xff);
+        *c++ = (byte)((env >> 8)  & 0xff);
+        *c++ = (byte)((env >> 16) & 0xff);
+        *c++ = (byte)((env >> 24) & 0xff);
+    }
+
+    dglTexSubImage2D(
+        GL_TEXTURE_2D,
+        0,
+        0,
+        0,
+        4,
+        4,
+        GL_RGBA,
+        GL_UNSIGNED_BYTE,
+        (byte*)rgb
+        );
+
+    dglActiveTextureARB(GL_TEXTURE0_ARB);
 }
 
 //
@@ -588,6 +680,72 @@ void R_UnloadTexture(dtexture* texture)
     {
         dglDeleteTextures(1, texture);
         *texture = 0;
+    }
+}
+
+//
+// R_SetTextureUnit
+//
+
+static int curunit = -1;
+static dboolean unitenabled[4];
+
+void R_SetTextureUnit(int unit, dboolean enable)
+{
+    if(!has_GL_ARB_multitexture)
+        return;
+
+    if(r_fillmode.value <= 0)
+        return;
+
+    if(unit > 3)
+        return;
+
+    if(curunit == unit)
+        return;
+
+    curunit = unit;
+
+    dglActiveTextureARB(GL_TEXTURE0_ARB + unit);
+
+    if(enable && !unitenabled[unit])
+    {
+        dglEnable(GL_TEXTURE_2D);
+        unitenabled[unit] = true;
+    }
+    else if(!enable && unitenabled[unit])
+    {
+        dglDisable(GL_TEXTURE_2D);
+        unitenabled[unit] = false;
+    }
+}
+
+//
+// R_SetTextureMode
+//
+
+static int prevmode[4];
+
+void R_SetTextureMode(int mode)
+{
+    if(prevmode[curunit] == mode)
+        return;
+
+    prevmode[curunit] = mode;
+
+    dglTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, mode);
+}
+
+CVAR_CMD(r_texturecombiner, 1)
+{
+    int i;
+
+    curunit = -1;
+
+    for(i = 0; i < 4; i++)
+    {
+        unitenabled[i] = 0;
+        prevmode[i] = 0;
     }
 }
 
@@ -706,28 +864,21 @@ void R_PrecacheLevel(void)
         if(texturepresent[i])
         {
             R_BindWorldTexture(i, 0, 0);
-
-            // texture isn't exactly loaded into memory
-            // until something is drawn, so draw something..
-            dglBegin(GL_TRIANGLES);
-                dglVertex2f(0, 0);
-                dglVertex2f(0, 0);
-                dglVertex2f(0, 0);
-            dglEnd();
         }
     }
 
-    dglActiveTexture(GL_TEXTURE1_ARB);
-    R_BindDummyTexture();
+    if(has_GL_ARB_multitexture)
+    {
+        R_SetTextureUnit(1, true);
+        R_BindEnvTexture();
 
-    dglActiveTexture(GL_TEXTURE2_ARB);
-    R_BindDummyTexture();
+        R_SetTextureUnit(2, true);
+        R_BindDummyTexture();
 
-    dglActiveTexture(GL_TEXTURE3_ARB);
-    R_BindDummyTexture();
-
-    dglActiveTexture(GL_TEXTURE4_ARB);
-    R_BindDummyTexture();
+        R_SetTextureUnit(3, true);
+        R_BindDummyTexture();
+    }
 
     R_GLResetCombiners();
 }
+

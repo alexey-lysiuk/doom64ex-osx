@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: p_switch.c 773 2010-09-25 04:30:34Z svkaiser $
+// $Id: p_switch.c 1039 2012-01-23 00:36:40Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -16,8 +16,8 @@
 //
 //
 // $Author: svkaiser $
-// $Revision: 773 $
-// $Date: 2010-09-25 07:30:34 +0300 (сб, 25 вер 2010) $
+// $Revision: 1039 $
+// $Date: 2012-01-23 02:36:40 +0200 (пн, 23 січ 2012) $
 //
 //
 // DESCRIPTION:
@@ -26,7 +26,7 @@
 //-----------------------------------------------------------------------------
 #ifdef RCSID
 static const char
-rcsid[] = "$Id: p_switch.c 773 2010-09-25 04:30:34Z svkaiser $";
+rcsid[] = "$Id: p_switch.c 1039 2012-01-23 00:36:40Z svkaiser $";
 #endif
 
 
@@ -72,11 +72,7 @@ void P_StartButton(line_t* line, bwhere_e w, int texture, int time)
             buttonlist[i].btimer = time;
             
             if(SWITCHMASK(line->flags))
-            {
                 buttonlist[i].soundorg = (mobj_t *)&line->frontsector->soundorg;
-                buttonlist[i].soundorg->x = (line->v1->x + line->v2->x) / 2;
-                buttonlist[i].soundorg->y = (line->v1->y + line->v2->y) / 2;
-            }
             
             return;
         }

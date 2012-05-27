@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: v_sdl.c 976 2011-12-10 21:03:10Z svkaiser $
+// $Id: v_sdl.c 1077 2012-03-05 18:26:15Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 976 $
-// $Date: 2011-12-10 23:03:10 +0200 (сб, 10 гру 2011) $
+// $Revision: 1077 $
+// $Date: 2012-03-05 20:26:15 +0200 (пн, 05 бер 2012) $
 //
 //
 // DESCRIPTION:
@@ -24,7 +24,7 @@
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
-static const char rcsid[] = "$Id: v_sdl.c 976 2011-12-10 21:03:10Z svkaiser $";
+static const char rcsid[] = "$Id: v_sdl.c 1077 2012-03-05 18:26:15Z svkaiser $";
 #endif
 
 #include <stdlib.h>
@@ -46,6 +46,18 @@ static const char rcsid[] = "$Id: v_sdl.c 976 2011-12-10 21:03:10Z svkaiser $";
 #include "i_xinput.h"
 #endif
 
+CVAR(v_msensitivityx, 5);
+CVAR(v_msensitivityy, 5);
+CVAR(v_macceleration, 0);
+CVAR(v_mlook, 0);
+CVAR(v_mlookinvert, 0);
+CVAR(v_width, 640);
+CVAR(v_height, 480);
+CVAR(v_windowed, 1);
+CVAR(v_vsync, 1);
+CVAR(v_depthsize, 24);
+CVAR(v_buffersize, 32);
+
 static void V_GetEvent(SDL_Event *Event);
 static void V_ReadMouse(void);
 void V_UpdateGrab(void);
@@ -65,65 +77,61 @@ dboolean window_focused;
 
 void V_InitScreen(void)
 {
-	int		newwidth;
+    int		newwidth;
     int		newheight;
-	int		p;
-
-	InWindow = (int)v_windowed.value;
-	video_width = (int)v_width.value;
-	video_height = (int)v_height.value;
-
-	if(M_CheckParm("-window"))		InWindow=true;
+    int		p;
+    
+    InWindow = (int)v_windowed.value;
+    video_width = (int)v_width.value;
+    video_height = (int)v_height.value;
+    
+    if(M_CheckParm("-window"))		InWindow=true;
     if(M_CheckParm("-fullscreen"))	InWindow=false;
-
-	newwidth = newheight = 0;
-
-	 p = M_CheckParm("-width");
+    
+    newwidth = newheight = 0;
+    
+    p = M_CheckParm("-width");
     if(p && p < myargc - 1)
-		newwidth = datoi(myargv[p+1]);
-
+        newwidth = datoi(myargv[p+1]);
+    
     p = M_CheckParm("-height");
     if(p && p < myargc - 1)
-		newheight = datoi(myargv[p+1]);
-
+        newheight = datoi(myargv[p+1]);
+    
     if(newwidth && newheight)
     {
-		video_width = newwidth;
-		video_height = newheight;
+        video_width = newwidth;
+        video_height = newheight;
         CON_CvarSetValue(v_width.name, (float)video_width);
         CON_CvarSetValue(v_height.name, (float)video_height);
     }
-
-	usingGL = false;
+    
+    usingGL = false;
 }
 
 //
 // V_ShutdownWait
 //
 
-void V_ShutdownWait(void)
+int V_ShutdownWait(void)
 {
-	while(1)
-	{
-		static SDL_Event event;
-
-		while(SDL_PollEvent(&event))
-		{
-			if(event.type == SDL_QUIT || 
-				(event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE))
-			{
-				V_Shutdown();
+    static SDL_Event event;
+        
+    while(SDL_PollEvent(&event))
+    {
+        if(event.type == SDL_QUIT || 
+            (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE))
+        {
+            V_Shutdown();
 #ifndef USESYSCONSOLE
-				exit(0);
+            exit(0);
 #else
-                return;
+            return 1;
 #endif
-			}
-		}
+        }
+    }
 
-        I_Sleep(100);
-        R_GLFinish();
-	}
+    return 0;
 }
 
 //
@@ -132,7 +140,7 @@ void V_ShutdownWait(void)
 
 void V_Shutdown(void)
 {
-	SDL_Quit();
+    SDL_Quit();
 }
 
 //
@@ -143,17 +151,17 @@ void V_Shutdown(void)
 void V_NetWaitScreen(void)
 {
     uint32	flags = 0;
-
+    
     V_InitScreen();
     flags |= SDL_SWSURFACE;
-
-	if (!(screen = SDL_SetVideoMode(320, 240, 0, flags)))
-	{
-		V_Shutdown();
-		exit(1);
-	}
-
-	SDL_FillRect(screen, NULL, SDL_MapRGB(screen->format, 0, 0, 0));
+    
+    if (!(screen = SDL_SetVideoMode(320, 240, 0, flags)))
+    {
+        V_Shutdown();
+        exit(1);
+    }
+    
+    SDL_FillRect(screen, NULL, SDL_MapRGB(screen->format, 0, 0, 0));
 }
 
 //
@@ -162,17 +170,17 @@ void V_NetWaitScreen(void)
 
 void V_InitGL(void)
 {
-	uint32	flags = 0;
-
+    uint32	flags = 0;
+    
     V_InitScreen();
-
+    
     if(v_depthsize.value != 8 &&
         v_depthsize.value != 16 &&
         v_depthsize.value != 24)
     {
         CON_CvarSetValue(v_depthsize.name, 24);
     }
-
+    
     if(v_buffersize.value != 8 &&
         v_buffersize.value != 16 &&
         v_buffersize.value != 24
@@ -180,8 +188,8 @@ void V_InitGL(void)
     {
         CON_CvarSetValue(v_buffersize.name, 32);
     }
-
-	SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 0);
+    
+    SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 0);
     SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 0);
     SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 0);
     SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 0);
@@ -194,19 +202,19 @@ void V_InitGL(void)
     SDL_GL_SetAttribute(SDL_GL_BUFFER_SIZE, (int)v_buffersize.value);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, (int)v_depthsize.value);
     SDL_GL_SetAttribute(SDL_GL_SWAP_CONTROL, (int)v_vsync.value);
-
-	flags |= SDL_OPENGL;
-
-	if(!InWindow)
-		flags |= SDL_FULLSCREEN;
-
-	if (SDL_SetVideoMode(video_width, video_height, SDL_BPP, flags) == NULL)
-		I_Error("V_Init: Failed to set opengl");
-
-	R_GLInitialize();
-
-	usingGL = true;
-
+    
+    flags |= SDL_OPENGL;
+    
+    if(!InWindow)
+        flags |= SDL_FULLSCREEN;
+    
+    if (SDL_SetVideoMode(video_width, video_height, SDL_BPP, flags) == NULL)
+        I_Error("V_Init: Failed to set opengl");
+    
+    R_GLInitialize();
+    
+    usingGL = true;
+    
 #ifdef USESYSCONSOLE
     I_ShowSysConsole(false);
 #endif
@@ -219,25 +227,25 @@ void V_InitGL(void)
 void V_Init(void)
 {
     char title[256];
-
-	uint32 f = SDL_INIT_VIDEO;
-
+    
+    uint32 f = SDL_INIT_VIDEO;
+    
 #ifdef _DEBUG
-	f |= SDL_INIT_NOPARACHUTE;
+    f |= SDL_INIT_NOPARACHUTE;
 #endif
-
-	putenv("SDL_VIDEO_CENTERED=1");
-
-	if(SDL_Init(f) < 0)
-	{
-		printf("ERROR - Failed to initialize SDL");
-		exit(1);
-	}
-
+    
+    putenv("SDL_VIDEO_CENTERED=1");
+    
+    if(SDL_Init(f) < 0)
+    {
+        printf("ERROR - Failed to initialize SDL");
+        exit(1);
+    }
+    
     sprintf(title, "Doom64 - Version Date: %s", version_date);
-	SDL_WM_SetCaption(title, "Doom64");
-
-	V_InitInputs();
+    SDL_WM_SetCaption(title, "Doom64");
+    
+    V_InitInputs();
 }
 
 //
@@ -246,16 +254,16 @@ void V_Init(void)
 
 void V_StartTic (void)
 {
-	SDL_Event Event;
-
-	while(SDL_PollEvent(&Event))
-		V_GetEvent(&Event);
-
+    SDL_Event Event;
+    
+    while(SDL_PollEvent(&Event))
+        V_GetEvent(&Event);
+    
 #ifdef _USE_XINPUT
     I_XInputPollEvent();
 #endif
-
-	V_ReadMouse();
+    
+    V_ReadMouse();
 }
 
 //
@@ -264,8 +272,8 @@ void V_StartTic (void)
 
 void V_FinishUpdate(void)
 {
-	V_UpdateGrab();
-	R_GLFinish();
+    V_UpdateGrab();
+    R_GLFinish();
 }
 
 //================================================================================
@@ -288,69 +296,69 @@ dboolean	MouseMode;//false=microsoft, true=mouse systems
 
 static int V_TranslateKey(SDL_keysym* key)
 {
-	int rc = 0;
-	
-	switch (key->sym)
-	{
-	case SDLK_LEFT:			rc = KEY_LEFTARROW;			break;
-	case SDLK_RIGHT:		rc = KEY_RIGHTARROW;		break;
-	case SDLK_DOWN:			rc = KEY_DOWNARROW;			break;
-	case SDLK_UP:			rc = KEY_UPARROW;			break;
-	case SDLK_ESCAPE:		rc = KEY_ESCAPE;			break;
-	case SDLK_RETURN:		rc = KEY_ENTER;				break;
-	case SDLK_TAB:			rc = KEY_TAB;				break;
-	case SDLK_F1:			rc = KEY_F1;				break;
-	case SDLK_F2:			rc = KEY_F2;				break;
-	case SDLK_F3:			rc = KEY_F3;				break;
-	case SDLK_F4:			rc = KEY_F4;				break;
-	case SDLK_F5:			rc = KEY_F5;				break;
-	case SDLK_F6:			rc = KEY_F6;				break;
-	case SDLK_F7:			rc = KEY_F7;				break;
-	case SDLK_F8:			rc = KEY_F8;				break;
-	case SDLK_F9:			rc = KEY_F9;				break;
-	case SDLK_F10:			rc = KEY_F10;				break;
-	case SDLK_F11:			rc = KEY_F11;				break;
-	case SDLK_F12:			rc = KEY_F12;				break;
-	case SDLK_BACKSPACE:	rc = KEY_BACKSPACE;			break;
-	case SDLK_DELETE:		rc = KEY_DEL;				break;
-	case SDLK_INSERT:		rc = KEY_INSERT;			break;
-	case SDLK_PAGEUP:		rc = KEY_PAGEUP;			break;
-	case SDLK_PAGEDOWN:		rc = KEY_PAGEDOWN;			break;
-	case SDLK_HOME:			rc = KEY_HOME;				break;
-	case SDLK_END:			rc = KEY_END;				break;
-	case SDLK_PAUSE:		rc = KEY_PAUSE;				break;
-	case SDLK_EQUALS:		rc = KEY_EQUALS;			break;
-	case SDLK_MINUS:		rc = KEY_MINUS;				break;
-	case SDLK_KP0:			rc = KEY_KEYPAD0;			break;
-	case SDLK_KP1:			rc = KEY_KEYPAD1;			break;
-	case SDLK_KP2:			rc = KEY_KEYPAD2;			break;
-	case SDLK_KP3:			rc = KEY_KEYPAD3;			break;
-	case SDLK_KP4:			rc = KEY_KEYPAD4;			break;
-	case SDLK_KP5:			rc = KEY_KEYPAD5;			break;
-	case SDLK_KP6:			rc = KEY_KEYPAD6;			break;
-	case SDLK_KP7:			rc = KEY_KEYPAD7;			break;
-	case SDLK_KP8:			rc = KEY_KEYPAD8;			break;
-	case SDLK_KP9:			rc = KEY_KEYPAD9;			break;
-	case SDLK_KP_PLUS:		rc = KEY_KEYPADPLUS;		break;
-	case SDLK_KP_MINUS:		rc = KEY_KEYPADMINUS;		break;
-	case SDLK_KP_DIVIDE:	rc = KEY_KEYPADDIVIDE;		break;
-	case SDLK_KP_MULTIPLY:	rc = KEY_KEYPADMULTIPLY;	break;
-	case SDLK_KP_ENTER:		rc = KEY_KEYPADENTER;		break;
-	case SDLK_KP_PERIOD:	rc = KEY_KEYPADPERIOD;		break;
-	case SDLK_LSHIFT:
-	case SDLK_RSHIFT:		rc = KEY_RSHIFT;			break;
-	case SDLK_LCTRL:
-	case SDLK_RCTRL:		rc = KEY_RCTRL;				break;
-	case SDLK_LALT:
-	case SDLK_LMETA:
-	case SDLK_RALT:
-	case SDLK_RMETA:		rc = KEY_RALT;				break;
-	case SDLK_CAPSLOCK:		rc = KEY_CAPS;				break;
-	default:				rc = key->sym;				break;
-	}
-
-  return rc;
-
+    int rc = 0;
+    
+    switch (key->sym)
+    {
+    case SDLK_LEFT:			rc = KEY_LEFTARROW;			break;
+    case SDLK_RIGHT:		rc = KEY_RIGHTARROW;		break;
+    case SDLK_DOWN:			rc = KEY_DOWNARROW;			break;
+    case SDLK_UP:			rc = KEY_UPARROW;			break;
+    case SDLK_ESCAPE:		rc = KEY_ESCAPE;			break;
+    case SDLK_RETURN:		rc = KEY_ENTER;				break;
+    case SDLK_TAB:			rc = KEY_TAB;				break;
+    case SDLK_F1:			rc = KEY_F1;				break;
+    case SDLK_F2:			rc = KEY_F2;				break;
+    case SDLK_F3:			rc = KEY_F3;				break;
+    case SDLK_F4:			rc = KEY_F4;				break;
+    case SDLK_F5:			rc = KEY_F5;				break;
+    case SDLK_F6:			rc = KEY_F6;				break;
+    case SDLK_F7:			rc = KEY_F7;				break;
+    case SDLK_F8:			rc = KEY_F8;				break;
+    case SDLK_F9:			rc = KEY_F9;				break;
+    case SDLK_F10:			rc = KEY_F10;				break;
+    case SDLK_F11:			rc = KEY_F11;				break;
+    case SDLK_F12:			rc = KEY_F12;				break;
+    case SDLK_BACKSPACE:	rc = KEY_BACKSPACE;			break;
+    case SDLK_DELETE:		rc = KEY_DEL;				break;
+    case SDLK_INSERT:		rc = KEY_INSERT;			break;
+    case SDLK_PAGEUP:		rc = KEY_PAGEUP;			break;
+    case SDLK_PAGEDOWN:		rc = KEY_PAGEDOWN;			break;
+    case SDLK_HOME:			rc = KEY_HOME;				break;
+    case SDLK_END:			rc = KEY_END;				break;
+    case SDLK_PAUSE:		rc = KEY_PAUSE;				break;
+    case SDLK_EQUALS:		rc = KEY_EQUALS;			break;
+    case SDLK_MINUS:		rc = KEY_MINUS;				break;
+    case SDLK_KP0:			rc = KEY_KEYPAD0;			break;
+    case SDLK_KP1:			rc = KEY_KEYPAD1;			break;
+    case SDLK_KP2:			rc = KEY_KEYPAD2;			break;
+    case SDLK_KP3:			rc = KEY_KEYPAD3;			break;
+    case SDLK_KP4:			rc = KEY_KEYPAD4;			break;
+    case SDLK_KP5:			rc = KEY_KEYPAD5;			break;
+    case SDLK_KP6:			rc = KEY_KEYPAD6;			break;
+    case SDLK_KP7:			rc = KEY_KEYPAD7;			break;
+    case SDLK_KP8:			rc = KEY_KEYPAD8;			break;
+    case SDLK_KP9:			rc = KEY_KEYPAD9;			break;
+    case SDLK_KP_PLUS:		rc = KEY_KEYPADPLUS;		break;
+    case SDLK_KP_MINUS:		rc = KEY_KEYPADMINUS;		break;
+    case SDLK_KP_DIVIDE:	rc = KEY_KEYPADDIVIDE;		break;
+    case SDLK_KP_MULTIPLY:	rc = KEY_KEYPADMULTIPLY;	break;
+    case SDLK_KP_ENTER:		rc = KEY_KEYPADENTER;		break;
+    case SDLK_KP_PERIOD:	rc = KEY_KEYPADPERIOD;		break;
+    case SDLK_LSHIFT:
+    case SDLK_RSHIFT:		rc = KEY_RSHIFT;			break;
+    case SDLK_LCTRL:
+    case SDLK_RCTRL:		rc = KEY_RCTRL;				break;
+    case SDLK_LALT:
+    case SDLK_LMETA:
+    case SDLK_RALT:
+    case SDLK_RMETA:		rc = KEY_RALT;				break;
+    case SDLK_CAPSLOCK:		rc = KEY_CAPS;				break;
+    default:				rc = key->sym;				break;
+    }
+    
+    return rc;
+    
 }
 
 //
@@ -359,10 +367,10 @@ static int V_TranslateKey(SDL_keysym* key)
 
 static int V_SDLtoDoomMouseState(Uint8 buttonstate)
 {
-	return 0
-      | (buttonstate & SDL_BUTTON(SDL_BUTTON_LEFT)      ? 1 : 0)
-      | (buttonstate & SDL_BUTTON(SDL_BUTTON_MIDDLE)    ? 2 : 0)
-      | (buttonstate & SDL_BUTTON(SDL_BUTTON_RIGHT)     ? 4 : 0);
+    return 0
+        | (buttonstate & SDL_BUTTON(SDL_BUTTON_LEFT)      ? 1 : 0)
+        | (buttonstate & SDL_BUTTON(SDL_BUTTON_MIDDLE)    ? 2 : 0)
+        | (buttonstate & SDL_BUTTON(SDL_BUTTON_RIGHT)     ? 4 : 0);
 }
 
 //
@@ -371,12 +379,12 @@ static int V_SDLtoDoomMouseState(Uint8 buttonstate)
 
 static void V_UpdateFocus(void)
 {
-	Uint8 state;
-	state = SDL_GetAppState();
-
-	// We should have input (keyboard) focus and be visible 
-	// (not minimised)
-	window_focused = (state & SDL_APPINPUTFOCUS) && (state & SDL_APPACTIVE);
+    Uint8 state;
+    state = SDL_GetAppState();
+    
+    // We should have input (keyboard) focus and be visible 
+    // (not minimised)
+    window_focused = (state & SDL_APPINPUTFOCUS) && (state & SDL_APPACTIVE);
 }
 
 // V_CenterMouse
@@ -385,12 +393,12 @@ static void V_UpdateFocus(void)
 
 static void V_CenterMouse(void)
 {
-	// Warp the the screen center
-	SDL_WarpMouse((unsigned short)(video_width/2), (unsigned short)(video_height/2));
-
-	// Clear any relative movement caused by warping
-	SDL_PumpEvents();
-	SDL_GetRelativeMouseState(NULL, NULL);
+    // Warp the the screen center
+    SDL_WarpMouse((unsigned short)(video_width/2), (unsigned short)(video_height/2));
+    
+    // Clear any relative movement caused by warping
+    SDL_PumpEvents();
+    SDL_GetRelativeMouseState(NULL, NULL);
 }
 
 //
@@ -399,19 +407,27 @@ static void V_CenterMouse(void)
 
 static dboolean V_MouseShouldBeGrabbed()
 {
-	// if the window doesnt have focus, never grab it
-	if(!window_focused)
-		return false;
-
-	if(!InWindow)
-		return true;
-
-	// when menu is active or game is paused, release the mouse 
-	if(menuactive || paused)
-		return false;
-
-	// only grab mouse when playing levels (but not demos)
-	return (gamestate == GS_LEVEL) && !demoplayback;
+#ifndef _WIN32
+    // 20120105 bkw: Always grab the mouse in fullscreen mode
+    if(!InWindow)
+        return true;
+#endif
+    
+    // if the window doesnt have focus, never grab it
+    if(!window_focused)
+        return false;
+    
+#ifdef _WIN32
+    if(!InWindow)
+        return true;
+#endif
+    
+    // when menu is active or game is paused, release the mouse 
+    if(menuactive || paused)
+        return false;
+    
+    // only grab mouse when playing levels (but not demos)
+    return (gamestate == GS_LEVEL) && !demoplayback;
 }
 
 //
@@ -420,22 +436,25 @@ static dboolean V_MouseShouldBeGrabbed()
 
 static void V_ReadMouse(void)
 {
-	int x, y;
-	event_t ev;
-
-	SDL_GetRelativeMouseState(&x, &y);
-
-	if(x != 0 || y != 0) 
-	{
-		ev.type = ev_mouse;
-		ev.data1 = V_SDLtoDoomMouseState(SDL_GetMouseState(NULL, NULL));
-		ev.data2 = x << 5;
-		ev.data3 = (-y) << 5;
-		D_PostEvent(&ev);
-	}
-
-	if(V_MouseShouldBeGrabbed())
-		V_CenterMouse();
+    int x, y;
+    event_t ev;
+    
+    SDL_GetRelativeMouseState(&x, &y);
+    
+    // 20120105 bkw: Update the mouse even if the pointer hasn't been
+    // moved. Otherwise, we can't shoot while standing still!
+    
+    // if(x != 0 || y != 0) 
+    // {
+    ev.type = ev_mouse;
+    ev.data1 = V_SDLtoDoomMouseState(SDL_GetMouseState(NULL, NULL));
+    ev.data2 = x << 5;
+    ev.data3 = (-y) << 5;
+    D_PostEvent(&ev);
+    // }
+    
+    if(V_MouseShouldBeGrabbed())
+        V_CenterMouse();
 }
 
 //
@@ -444,7 +463,7 @@ static void V_ReadMouse(void)
 
 void V_MouseAccelChange(void)
 {
-	mouse_accelfactor = v_macceleration.value / 200.0f + 1.0f;
+    mouse_accelfactor = v_macceleration.value / 200.0f + 1.0f;
 }
 
 //
@@ -453,13 +472,13 @@ void V_MouseAccelChange(void)
 
 int V_MouseAccel(int val)
 {
-	if(!v_macceleration.value)
-		return val;
-	
-	if(val < 0)
-		return -V_MouseAccel(-val);
-	
-	return (int)(pow((double)val, (double)mouse_accelfactor));
+    if(!v_macceleration.value)
+        return val;
+    
+    if(val < 0)
+        return -V_MouseAccel(-val);
+    
+    return (int)(pow((double)val, (double)mouse_accelfactor));
 }
 
 //
@@ -468,9 +487,9 @@ int V_MouseAccel(int val)
 
 static void V_ActivateMouse(void)
 {
-	SDL_SetCursor(cursors[1]);
-	SDL_WM_GrabInput(SDL_GRAB_ON);
-	SDL_ShowCursor(1);
+    SDL_SetCursor(cursors[1]);
+    SDL_WM_GrabInput(SDL_GRAB_ON);
+    SDL_ShowCursor(1);
 }
 
 //
@@ -479,9 +498,9 @@ static void V_ActivateMouse(void)
 
 static void V_DeactivateMouse(void)
 {
-	SDL_SetCursor(cursors[0]);
-	SDL_WM_GrabInput(SDL_GRAB_OFF);
-	SDL_ShowCursor(1);
+    SDL_SetCursor(cursors[0]);
+    SDL_WM_GrabInput(SDL_GRAB_OFF);
+    SDL_ShowCursor(1);
 }
 
 //
@@ -490,21 +509,21 @@ static void V_DeactivateMouse(void)
 
 void V_UpdateGrab(void)
 {
-	static dboolean currently_grabbed = false;
-	dboolean grab;
-	
-	grab = V_MouseShouldBeGrabbed();
-	if (grab && !currently_grabbed)
-	{
-		V_ActivateMouse();
-	}
-
-	if (!grab && currently_grabbed)
-	{
-		V_DeactivateMouse();
-	}
-	
-	currently_grabbed = grab;
+    static dboolean currently_grabbed = false;
+    dboolean grab;
+    
+    grab = V_MouseShouldBeGrabbed();
+    if (grab && !currently_grabbed)
+    {
+        V_ActivateMouse();
+    }
+    
+    if (!grab && currently_grabbed)
+    {
+        V_DeactivateMouse();
+    }
+    
+    currently_grabbed = grab;
 }
 
 //
@@ -513,29 +532,29 @@ void V_UpdateGrab(void)
 
 static void V_GetEvent(SDL_Event *Event)
 {
-	event_t event;
+    event_t event;
     uint32 mwheeluptic = 0, mwheeldowntic = 0;
     uint32 tic = gametic;
-
-	switch(Event->type)
-	{
-	case SDL_KEYDOWN:
-		event.type = ev_keydown;
-		event.data1 = V_TranslateKey(&Event->key.keysym);
-		D_PostEvent(&event);
-		break;
-	
-	case SDL_KEYUP:
-		event.type = ev_keyup;
-		event.data1 = V_TranslateKey(&Event->key.keysym);
-		D_PostEvent(&event);
-		break;
-
-	case SDL_MOUSEBUTTONDOWN:
-	case SDL_MOUSEBUTTONUP:
-		if(!window_focused)
-			break;
-
+    
+    switch(Event->type)
+    {
+    case SDL_KEYDOWN:
+        event.type = ev_keydown;
+        event.data1 = V_TranslateKey(&Event->key.keysym);
+        D_PostEvent(&event);
+        break;
+        
+    case SDL_KEYUP:
+        event.type = ev_keyup;
+        event.data1 = V_TranslateKey(&Event->key.keysym);
+        D_PostEvent(&event);
+        break;
+        
+    case SDL_MOUSEBUTTONDOWN:
+    case SDL_MOUSEBUTTONUP:
+        if(!window_focused)
+            break;
+        
         if(Event->button.button == SDL_BUTTON_WHEELUP)
         {
             event.type = ev_keydown;
@@ -551,26 +570,26 @@ static void V_GetEvent(SDL_Event *Event)
         else
         {
             event.type = ev_mouse;
-		    event.data1 = V_SDLtoDoomMouseState(SDL_GetMouseState(NULL, NULL));
+            event.data1 = V_SDLtoDoomMouseState(SDL_GetMouseState(NULL, NULL));
         }
-
+        
         event.data2 = event.data3 = 0;
         D_PostEvent(&event);
-		break;
-
-	case SDL_ACTIVEEVENT:
-	case SDL_VIDEOEXPOSE:
-		V_UpdateFocus();
-		break;
-	
-	case SDL_QUIT:
-		I_Quit();
-		break;
-
-	default:
-		break;
-	}
-
+        break;
+        
+    case SDL_ACTIVEEVENT:
+    case SDL_VIDEOEXPOSE:
+        V_UpdateFocus();
+        break;
+        
+    case SDL_QUIT:
+        I_Quit();
+        break;
+        
+    default:
+        break;
+    }
+    
     if(mwheeluptic && mwheeluptic + 1 < tic)
     {
         event.type = ev_keyup;
@@ -578,7 +597,7 @@ static void V_GetEvent(SDL_Event *Event)
         D_PostEvent(&event);
         mwheeluptic = 0;
     }
-
+    
     if(mwheeldowntic && mwheeldowntic + 1 < tic)
     {
         event.type = ev_keyup;
@@ -594,16 +613,36 @@ static void V_GetEvent(SDL_Event *Event)
 
 void V_InitInputs(void)
 {
-	Uint8 data[1] = { 0x00 };
+    Uint8 data[1] = { 0x00 };
+    
+    SDL_PumpEvents();
+    cursors[0] = SDL_GetCursor();
+    cursors[1] = SDL_CreateCursor(data, data, 8, 1, 0, 0);
+    
+    UseMouse[0] = 1;
+    UseMouse[1] = 2;
+    
+    V_CenterMouse();
+    V_MouseAccelChange();
+}
 
-	SDL_PumpEvents();
-	cursors[0] = SDL_GetCursor();
-	cursors[1] = SDL_CreateCursor(data, data, 8, 1, 0, 0);
 
-	UseMouse[0] = 1;
-	UseMouse[1] = 2;
+//
+// V_RegisterCvars
+//
 
-	V_CenterMouse();
-	V_MouseAccelChange();
+void V_RegisterCvars(void)
+{
+    CON_CvarRegister(&v_msensitivityx);
+    CON_CvarRegister(&v_msensitivityy);
+    CON_CvarRegister(&v_macceleration);
+    CON_CvarRegister(&v_mlook);
+    CON_CvarRegister(&v_mlookinvert);
+    CON_CvarRegister(&v_width);
+    CON_CvarRegister(&v_height);
+    CON_CvarRegister(&v_windowed);
+    CON_CvarRegister(&v_vsync);
+    CON_CvarRegister(&v_depthsize);
+    CON_CvarRegister(&v_buffersize);
 }
 

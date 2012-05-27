@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: i_audio.h 901 2011-08-06 01:14:11Z svkaiser $
+// $Id: i_audio.h 1089 2012-03-17 05:37:23Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -19,6 +19,16 @@
 
 #ifndef __I_AUDIO_H__
 #define __I_AUDIO_H__
+
+// 20120107 bkw: Linux users can change the default FluidSynth backend here:
+#ifndef _WIN32
+#define DEFAULT_FLUID_DRIVER "alsa"
+
+// 20120203 villsa: add default for windows
+#else
+#define DEFAULT_FLUID_DRIVER "dsound"
+
+#endif
 
 typedef struct
 {
@@ -40,6 +50,7 @@ void I_SetSoundVolume(float volume);
 void I_ResetSound(void);
 void I_PauseSound(void);
 void I_ResumeSound(void);
+void I_SetGain(float db);
 void I_StopSound(sndsrc_t* origin, int sfx_id);
 void I_StartMusic(int mus_id);
 void I_StartSound(int sfx_id, sndsrc_t* origin, int volume, int pan, int reverb);

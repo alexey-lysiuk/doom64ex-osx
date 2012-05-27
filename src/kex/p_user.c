@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: p_user.c 1027 2012-01-07 22:31:29Z svkaiser $
+// $Id: p_user.c 1048 2012-02-13 04:08:26Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 1027 $
-// $Date: 2012-01-08 00:31:29 +0200 (нд, 08 січ 2012) $
+// $Revision: 1048 $
+// $Date: 2012-02-13 06:08:26 +0200 (пн, 13 лют 2012) $
 //
 //
 // DESCRIPTION:
@@ -28,7 +28,7 @@
 
 #ifdef RCSID
 static const char
-rcsid[] = "$Id: p_user.c 1027 2012-01-07 22:31:29Z svkaiser $";
+rcsid[] = "$Id: p_user.c 1048 2012-02-13 04:08:26Z svkaiser $";
 #endif
 
 
@@ -45,8 +45,6 @@ rcsid[] = "$Id: p_user.c 1027 2012-01-07 22:31:29Z svkaiser $";
 #include "sounds.h"
 #include "r_local.h"
 #include "st_stuff.h"
-#include "m_math.h"
-
 
 //
 // Movement.
@@ -55,7 +53,6 @@ rcsid[] = "$Id: p_user.c 1027 2012-01-07 22:31:29Z svkaiser $";
 // 16 pixels of bob
 #define MAXBOB          0x100000
 #define MAXLOOKPITCH    0x3effffff
-#define EXTRAPITCHFRAC  0x1600000
 #define MAXMOCKTIME     1800
 #define MAXJUMP         (8*FRACUNIT)
 
@@ -285,46 +282,10 @@ void P_MovePlayer(player_t* player)
 {
     ticcmd_t*   cmd;
     int         mpitch;
-    int         extrapitch;
     
     cmd = &player->cmd;
     
     player->mo->angle += INT2F(cmd->angleturn);
-
-    extrapitch = 0;
-
-    //
-    // [kex] adjust pitch when standing on sloped surfaces
-    //
-    if(p_alignpitch.value)
-    {
-        fixed_t z;
-        plane_t* plane = &player->mo->subsector->sector->floorplane;
-
-        z = M_PointToZ(plane, player->mo->x, player->mo->y);
-
-        // steep surfaces will not align pitch
-        if((player->mo->z <= (z + 32*FRACUNIT)) && plane->c < -(dcos(ANG45)))
-            extrapitch = (int)M_AlignPitchToPlane(plane, player->mo->angle, 0.35f);
-    }
-
-    //
-    // [kex] calibrate extrapitch
-    //
-    if(player->extrapitch < extrapitch)
-    {
-        player->extrapitch += EXTRAPITCHFRAC;
-
-        if(player->extrapitch > extrapitch)
-            player->extrapitch = extrapitch;
-    }
-    else if(player->extrapitch > extrapitch)
-    {
-        player->extrapitch -= EXTRAPITCHFRAC;
-
-        if(player->extrapitch < extrapitch)
-            player->extrapitch = extrapitch;
-    }
     
     if(cmd->buttons2 & BT2_CENTER)
         player->mo->pitch = 0;
@@ -457,107 +418,19 @@ void P_DeathThink(player_t* player)
 }
 
 //
-// P_AdvanceWeapon
-//
-
-extern void A_Lower(player_t* player, pspdef_t* psp);
-
-void P_AdvanceWeapon(player_t *player, dboolean direction)
-{
-    weapontype_t    newweapon;
-    ammotype_t      ammo;
-    int             count;
-    pspdef_t*       psp;
-    
-    psp = &player->psprites[ps_weapon];
-    if(psp->state->action.acp1 == (actionf_p1)A_Lower)
-        player->readyweapon = player->pendingweapon;
-    
-    newweapon=player->readyweapon;
-    while(1)
-    {
-        count = 1;
-        switch(newweapon)
-        {
-        case wp_fist:
-        case wp_chainsaw:
-            newweapon = direction ? wp_pistol : wp_laser;
-            break;
-        case wp_pistol:
-            if(!direction)
-            {
-                if (player->weaponowned[wp_chainsaw])
-                    newweapon = wp_chainsaw;
-                else
-                    newweapon = wp_fist;
-            }
-            else
-                newweapon = wp_shotgun;
-            break;
-        case wp_shotgun:
-            newweapon=direction?wp_supershotgun:wp_pistol;
-            count=2;
-            break;
-        case wp_supershotgun:
-            newweapon=direction?wp_chaingun:wp_shotgun;
-            break;
-        case wp_chaingun:
-            newweapon=direction?wp_missile:wp_supershotgun;
-            break;
-        case wp_missile:
-            newweapon=direction?wp_plasma:wp_chaingun;
-            break;
-        case wp_plasma:
-            newweapon=direction?wp_bfg:wp_missile;
-            break;
-        case wp_bfg:
-            newweapon=direction?wp_laser:wp_plasma;
-            break;
-        case wp_laser:
-            if(!direction)
-                newweapon = wp_bfg;
-            else
-            {
-                if (player->weaponowned[wp_chainsaw])
-                    newweapon=wp_chainsaw;
-                else
-                    newweapon=wp_fist;
-            }
-            break;
-        }
-        
-        if(newweapon == player->readyweapon)
-            return;
-        
-        if(!player->weaponowned[newweapon])
-            continue;
-        
-        ammo = weaponinfo[newweapon].ammo;
-        if((ammo != am_noammo) && (player->ammo[ammo] < count))
-            continue;
-        
-        player->pendingweapon=newweapon;
-        return;
-    }
-}
-
-//
 // P_PlayerXYMovment
 //
 
 void P_PlayerXYMovment(mobj_t* mo)
 {
-    fixed_t x = mo->momx;
-    fixed_t y = mo->momy;
+    fixed_t x = mo->momx + mo->x;
+    fixed_t y = mo->momy + mo->y;
 
     if(mo->player->cheats & CF_SPECTATOR)
         return;
 
-    if(P_CheckSlopeWalk(mo, &x, &y))
-        mo->z = M_PointToZ(&mo->subsector->sector->floorplane, mo->x + x, mo->y + y);
-
     // try to slide along a blocked move
-    if(!P_TryMove(mo, mo->x + x, mo->y + y))
+    if(!P_TryMove(mo, x, y))
         P_SlideMove(mo);
 
     if(mo->z > mo->floorz && (!(mo->blockflag & BF_MOBJSTAND)))
@@ -752,35 +625,62 @@ void P_PlayerThink(player_t* player)
     
     if (cmd->buttons & BT_CHANGE)
     {
-        // The actual changing of the weapon is done
-        //  when the weapon psprite can do it
-        //  (read: not in the middle of an attack).
-        if(cmd->buttons2 & BT2_NEXTWEAP)
-            P_AdvanceWeapon(player, true);
-        else if(cmd->buttons2 & BT2_PREVWEAP)
-            P_AdvanceWeapon(player, false);
-        else
+        if(!(cmd->buttons2 & (BT2_NEXTWEAP|BT2_PREVWEAP)))
         {
-            newweapon = (cmd->buttons&BT_WEAPONMASK)>>BT_WEAPONSHIFT;
-            
+            newweapon = (cmd->buttons & BT_WEAPONMASK) >> BT_WEAPONSHIFT;
+        
             if(newweapon == wp_fist
                 && player->weaponowned[wp_chainsaw]
                 && (player->readyweapon != wp_chainsaw))
             {
                 newweapon = wp_chainsaw;
             }
-            
+        
             if (newweapon == wp_shotgun
                 && player->weaponowned[wp_supershotgun]
                 && player->readyweapon != wp_supershotgun)
             {
                 newweapon = wp_supershotgun;
             }
-            
+        
             if (player->weaponowned[newweapon] && newweapon != player->readyweapon)
             {
                 player->pendingweapon = newweapon;
             }
+        }
+        else    // 20120211 villsa - new weapon cycle logic
+        {
+            dboolean direction;
+            int weapon;
+
+            newweapon = player->pendingweapon;
+
+            if(newweapon == wp_nochange)
+                newweapon = player->readyweapon;
+
+            direction = (cmd->buttons2 & BT2_NEXTWEAP) ? true : false;
+            weapon = newweapon;
+
+            while(1)
+            {
+                weapon += direction ? 1 : -1;
+
+                if(weapon < wp_chainsaw)
+                    weapon = (NUMWEAPONS - 1);
+
+                if(weapon >= NUMWEAPONS)
+                    weapon = wp_chainsaw;
+
+                if(player->weaponowned[weapon])
+                {
+                    newweapon = weapon;
+                    break;
+                }
+            }
+
+            player->pendingweapon = newweapon;
+
+            ST_DisplayPendingWeapon();
         }
     }
     
@@ -822,10 +722,13 @@ void P_PlayerThink(player_t* player)
         player->powers[pw_infrared]--;
     else
     {
-        if(infraredFactor)
+        if(&players[displayplayer] == player)
         {
-            infraredFactor -= 4;
-            R_RefreshBrightness();
+            if(infraredFactor)
+            {
+                infraredFactor -= 4;
+                R_RefreshBrightness();
+            }
         }
     }
     
@@ -852,8 +755,7 @@ void P_PlayerThink(player_t* player)
         player->recoilpitch = 0;
 
     // [kex] check cvar for autoaim
-    if(&players[consoleplayer] == player)
-        player->autoaim = (p_autoaim.value >= 1);
+    player->autoaim = (gameflags & GF_ALLOWAUTOAIM);
 }
 
 

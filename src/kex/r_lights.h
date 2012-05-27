@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: r_lights.h 838 2011-02-14 04:48:08Z svkaiser $
+// $Id: r_lights.h 1059 2012-02-24 04:34:01Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //

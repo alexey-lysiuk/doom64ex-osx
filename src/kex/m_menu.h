@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: m_menu.h 190 2008-10-10 02:38:05Z svkaiser $
+// $Id: m_menu.h 1043 2012-02-03 20:26:29Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -53,6 +53,8 @@ void M_Init (void);
 // Called by intro code to force menu up upon a keypress,
 // does nothing if menu is already up.
 void M_StartControlPanel (void);
+
+void M_RegisterCvars(void);
 
 
 

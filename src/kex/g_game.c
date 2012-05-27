@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: g_game.c 1027 2012-01-07 22:31:29Z svkaiser $
+// $Id: g_game.c 1085 2012-03-11 04:47:16Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -25,7 +25,7 @@
 
 #ifdef RCSID
 static const char
-rcsid[] = "$Id: g_game.c 1027 2012-01-07 22:31:29Z svkaiser $";
+rcsid[] = "$Id: g_game.c 1085 2012-03-11 04:47:16Z svkaiser $";
 #endif
 
 #include <stdlib.h>
@@ -73,34 +73,30 @@ void        G_DoLoadGame(void);
 void        G_SetFastParms(int fast_pending);
 
 
-gameaction_t    gameaction = 0;
-gamestate_t     gamestate = 0;
-skill_t         gameskill = 0;
+gameaction_t    gameaction      = 0;
+gamestate_t     gamestate       = 0;
+skill_t         gameskill       = 0;
 dboolean        respawnmonsters = false;
 dboolean        respawnspecials = false;
-int             gamemap = 0;
-int             nextmap = 0;
+int             gamemap         = 0;
+int             nextmap         = 0;
+dboolean        paused          = false;
+dboolean        sendpause       = false;    // send a pause event next tic
+dboolean        sendsave        = false;    // send a save event next tic
+dboolean        usergame        = false;    // ok to save / end game
+dboolean        timingdemo      = false;    // if true, exit with report on completion
+int             starttime       = 0;        // for comparative timing purposes
+int             deathmatch      = false;    // only if started as net death
+dboolean        netcheat        = false;
+dboolean        netkill         = false;
+dboolean        netgame         = false;    // only true if packets are broadcast
+int             gametic         = 0;
 
-dboolean        paused = false;
-dboolean        sendpause = false;          // send a pause event next tic
-dboolean        sendsave = false;           // send a save event next tic
-dboolean        usergame = false;           // ok to save / end game
-
-dboolean        timingdemo = false;         // if true, exit with report on completion
-dboolean        nodrawers = false;          // for comparative timing purposes
-dboolean        noblit = false;             // for comparative timing purposes
-int             starttime = 0;              // for comparative timing purposes
-
-int             deathmatch = false;         // only if started as net death
-dboolean        netcheat = false;
-dboolean        netkill = false;
-dboolean        netgame = false;            // only true if packets are broadcast
 dboolean        playeringame[MAXPLAYERS];
 player_t        players[MAXPLAYERS];
 
 int             consoleplayer;              // player taking events and displaying
 int             displayplayer;              // view being displayed
-int             gametic = 0;
 
 static dboolean savenow = false;
 
@@ -108,24 +104,23 @@ static dboolean savenow = false;
 int             totalkills, totalitems, totalsecret;
 
 char            demoname[32];
-dboolean        demorecording=false;
-dboolean        demoplayback=false;
-dboolean        netdemo=false;
+dboolean        demorecording   = false;
+dboolean        demoplayback    = false;
+dboolean        netdemo         = false;
 byte*           demobuffer;
 byte*           demo_p;
 byte*           demoend;
-dboolean        singledemo=false;           // quit after playing a demo from cmdline
-
-dboolean        precache = true;            // if true, load all graphics at start
+dboolean        singledemo      = false;    // quit after playing a demo from cmdline
+dboolean        precache        = true;     // if true, load all graphics at start
 
 byte            consistancy[MAXPLAYERS][BACKUPTICS];
 
 #define MAXPLMOVE       (forwardmove[1])
 #define TURBOTHRESHOLD  0x32
 
-fixed_t     forwardmove[2] =    { 0x1c, 0x2c };
-fixed_t     sidemove[2] =       { 0x1c, 0x2c };
-fixed_t     angleturn[20] =     { 0x32, 0x32, 0x53, 0x53, 0x64, 0x74, 0x85, 0x96, 0x96, 0xA6,
+fixed_t     forwardmove[2]  =   { 0x1c, 0x2c };
+fixed_t     sidemove[2]     =   { 0x1c, 0x2c };
+fixed_t     angleturn[20]   =   { 0x32, 0x32, 0x53, 0x53, 0x64, 0x74, 0x85, 0x96, 0x96, 0xA6,
                                   0x85, 0x85, 0x96, 0xA6, 0xA6, 0xC8, 0xC8, 0xD8, 0xD8, 0xE9
                                 };
 
@@ -143,7 +138,66 @@ playercontrols_t    Controls;
 
 mobj_t*     bodyque[BODYQUESIZE];
 int         bodyqueslot;
-void*       statcopy=NULL;				// for statistics driver
+
+byte forcecollision = 0;
+byte forcejump = 0;
+
+
+NETCVAR(sv_nomonsters, 0);
+NETCVAR(sv_fastmonsters, 0);
+NETCVAR(sv_respawnitems, 0);
+NETCVAR(sv_respawn, 0);
+NETCVAR(sv_skill, 2);
+
+NETCVAR_CMD(sv_damagescale, 1)
+{
+    damagescale = (int)cvar->value;
+}
+
+NETCVAR_CMD(sv_healthscale, 1)
+{
+    healthscale = (int)cvar->value;
+}
+
+NETCVAR_PARAM(sv_lockmonsters,  0,  gameflags,      GF_LOCKMONSTERS);
+NETCVAR_PARAM(sv_allowcheats,   0,  gameflags,      GF_ALLOWCHEATS);
+NETCVAR_PARAM(sv_friendlyfire,  0,  gameflags,      GF_FRIENDLYFIRE);
+NETCVAR_PARAM(sv_keepitems,     0,  gameflags,      GF_KEEPITEMS);
+NETCVAR_PARAM(p_allowjump,      0,  gameflags,      GF_ALLOWJUMP);
+NETCVAR_PARAM(p_autoaim,        1,  gameflags,      GF_ALLOWAUTOAIM);
+NETCVAR_PARAM(compat_collision, 1,  compatflags,    COMPATF_COLLISION);
+NETCVAR_PARAM(compat_mobjpass,  1,  compatflags,    COMPATF_MOBJPASS);
+NETCVAR_PARAM(compat_limitpain, 1,  compatflags,    COMPATF_LIMITPAIN);
+
+CVAR_EXTERNAL(v_mlook);
+CVAR_EXTERNAL(v_mlookinvert);
+CVAR_EXTERNAL(p_autorun);
+CVAR_EXTERNAL(p_fdoubleclick);
+CVAR_EXTERNAL(p_sdoubleclick);
+
+//
+// G_RegisterCvars
+//
+
+void G_RegisterCvars(void)
+{
+    CON_CvarRegister(&p_allowjump);
+    CON_CvarRegister(&p_autoaim);
+    CON_CvarRegister(&sv_nomonsters);
+    CON_CvarRegister(&sv_fastmonsters);
+    CON_CvarRegister(&sv_respawnitems);
+    CON_CvarRegister(&sv_lockmonsters);
+    CON_CvarRegister(&sv_respawn);
+    CON_CvarRegister(&sv_skill);
+    CON_CvarRegister(&sv_damagescale);
+    CON_CvarRegister(&sv_healthscale);
+    CON_CvarRegister(&sv_allowcheats);
+    CON_CvarRegister(&sv_friendlyfire);
+    CON_CvarRegister(&sv_keepitems);
+    CON_CvarRegister(&compat_collision);
+    CON_CvarRegister(&compat_mobjpass);
+    CON_CvarRegister(&compat_limitpain);
+}
 
 
 //
@@ -265,10 +319,13 @@ void G_BuildTiccmd(ticcmd_t* cmd)
         pc->flags &= ~(PCF_FDCLICK2|PCF_SDCLICK2);
     }
     
-    if((int)p_allowjump.value)
+    if(forcejump != 2)
     {
-        if(pc->key[PCKEY_JUMP])
-            cmd->buttons2 |= BT2_JUMP;
+        if(gameflags & GF_ALLOWJUMP || forcejump)
+        {
+            if(pc->key[PCKEY_JUMP])
+                cmd->buttons2 |= BT2_JUMP;
+        }
     }
     
     if(pc->flags & PCF_NEXTWEAPON)
@@ -405,6 +462,7 @@ void G_ClearInput(void)
 void G_DoLoadLevel (void)
 {
     int i;
+    mapdef_t* map;
     
     for(i = 0; i < MAXPLAYERS; i++)
     {
@@ -415,11 +473,19 @@ void G_DoLoadLevel (void)
     }
 
     // update settings from server cvar
-    gameskill   = (int)sv_skill.value;
-    respawnparm = (int)sv_respawn.value;
-    respawnitem = (int)sv_respawnitems.value;
-    fastparm    = (int)sv_fastmonsters.value;
-    nomonsters  = (int)sv_nomonsters.value;
+    if(!netgame)
+    {
+        gameskill   = (int)sv_skill.value;
+        respawnparm = (int)sv_respawn.value;
+        respawnitem = (int)sv_respawnitems.value;
+        fastparm    = (int)sv_fastmonsters.value;
+        nomonsters  = (int)sv_nomonsters.value;
+    }
+
+    map = P_GetMapInfo(gamemap);
+
+    forcecollision  = map->oldcollision;
+    forcejump       = map->allowjump;
 
     // This was quite messy with SPECIAL and commented parts.
     // Supposedly hacks to make the latest edition work.
@@ -432,7 +498,7 @@ void G_DoLoadLevel (void)
     else
         respawnmonsters = false;
     
-    if(gameskill == sk_nightmare || respawnitem)
+    if(respawnitem)
         respawnspecials = true;
     else
         respawnspecials = false;
@@ -441,7 +507,6 @@ void G_DoLoadLevel (void)
     displayplayer = consoleplayer;		// view the guy you are playing
     starttime = I_GetTime();
     gameaction = ga_nothing;
-    Z_CheckHeap();
     
     // clear cmd building stuff
     G_ClearInput();
@@ -701,7 +766,6 @@ void G_PlayerReborn(int player)
     p->weaponowned[wp_pistol] = true;
     p->ammo[am_clip] = 50;
     p->recoilpitch = 0;
-    p->extrapitch = 0;
     
     for(i = 0; i < NUMAMMO; i++)
         p->maxammo[i] = maxammo[i];
@@ -713,7 +777,7 @@ void G_PlayerReborn(int player)
         for(i = 0; i < NUMCARDS; i++)
             players[player].cards[i] = cards[i];
 
-        if(sv_keepitems.value)
+        if(gameflags & GF_KEEPITEMS)
         {
             p->backpack = backpack;
 
@@ -1260,18 +1324,25 @@ void G_PlayDemo(const char* name)
 {
     int i;
     int p;
+    char filename[256];
 
     gameaction = ga_nothing;
 
     p = M_CheckParm ("-playdemo");
     if(p && p < myargc-1)
     {
-        if(M_ReadFile(myargv[p+1], &demobuffer) == -1)
+        // 20120107 bkw: add .lmp extension if missing.
+        if(strchr(myargv[p+1], '.'))
+            strcpy(filename, myargv[p+1]);
+        else
+            sprintf(filename, "%s.lmp", myargv[p+1]);
+        
+        if(M_ReadFile(filename, &demobuffer) == -1)
         {
             gameaction = ga_exitdemo;
             return;
         }
-
+        
         demo_p = demobuffer;
     }
     else
@@ -1281,7 +1352,7 @@ void G_PlayDemo(const char* name)
             gameaction = ga_exitdemo;
             return;
         }
-
+        
         demobuffer = demo_p = W_CacheLumpName(name, PU_STATIC);
     }
 

@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: g_settings.h 430 2009-03-30 05:35:13Z svkaiser $
+// $Id: g_settings.h 1031 2012-01-15 04:55:14Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -21,5 +21,6 @@
 
 void G_LoadSettings(void);
 void G_ExecuteFile(char *name);
+char *G_GetConfigFileName(void);
 
 #endif

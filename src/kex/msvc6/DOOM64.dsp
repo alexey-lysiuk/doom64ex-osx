@@ -58,7 +58,7 @@ LINK32=link.exe
 WkspDir=.
 SOURCE="$(InputPath)"
 PostBuild_Desc=Generate Revision String
-PostBuild_Cmds="C:\Program Files\TortoiseSVN\bin\SubWCRev.exe" $(WkspDir) $(WkspDir)\revconfig.txt $(WkspDir)\..\version.h
+PostBuild_Cmds="C:\Program Files\TortoiseSVN\bin\SubWCRev.exe" $(WkspDir)\..\ $(WkspDir)\..\revconfig.txt $(WkspDir)\..\version.h
 # End Special Build Tool
 
 !ELSEIF  "$(CFG)" == "DOOM64 - Win32 Debug"
@@ -202,10 +202,6 @@ SOURCE=.\..\m_fixed.c
 # Begin Source File
 
 SOURCE=.\..\m_keys.c
-# End Source File
-# Begin Source File
-
-SOURCE=..\m_math.c
 # End Source File
 # Begin Source File
 
@@ -650,10 +646,6 @@ SOURCE=.\..\m_fixed.h
 # Begin Source File
 
 SOURCE=.\..\m_keys.h
-# End Source File
-# Begin Source File
-
-SOURCE=..\m_math.h
 # End Source File
 # Begin Source File
 

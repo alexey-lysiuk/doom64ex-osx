@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: p_setup.c 1027 2012-01-07 22:31:29Z svkaiser $
+// $Id: p_setup.c 1091 2012-03-17 23:58:49Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 1027 $
-// $Date: 2012-01-08 00:31:29 +0200 (нд, 08 січ 2012) $
+// $Revision: 1091 $
+// $Date: 2012-03-18 01:58:49 +0200 (нд, 18 бер 2012) $
 //
 //
 // DESCRIPTION:
@@ -26,7 +26,7 @@
 //-----------------------------------------------------------------------------
 #ifdef RCSID
 static const char
-rcsid[] = "$Id: p_setup.c 1027 2012-01-07 22:31:29Z svkaiser $";
+rcsid[] = "$Id: p_setup.c 1091 2012-03-17 23:58:49Z svkaiser $";
 #endif
 
 #include <math.h>
@@ -52,7 +52,6 @@ rcsid[] = "$Id: p_setup.c 1027 2012-01-07 22:31:29Z svkaiser $";
 #include "m_random.h"
 #include "z_zone.h"
 #include "sc_main.h"
-#include "m_math.h"
 
 void P_SpawnMapThing(mapthing_t *mthing);
 
@@ -83,10 +82,23 @@ macroinfo_t         macros;
 //
 // [kex] mapinfo stuff
 //
+
 int                 nummapdef;
 mapdef_t*           mapdefs;
 int                 numclusterdef;
 clusterdef_t*       clusterdefs;
+
+//
+// [kex] cvars
+//
+
+CVAR(p_features, 0);
+CVAR(p_autorun, 0);
+CVAR(p_fdoubleclick, 0);
+CVAR(p_sdoubleclick, 0);
+CVAR(p_usecontext, 0);
+CVAR(p_damageindicator, 0);
+CVAR(p_regionmode, 0);
 
 //
 // [kex] sky definition stuff
@@ -143,8 +155,8 @@ static void P_InitTextureHashTable(void)
     int i;
     int t = W_GetNumForName("T_START") + 1;
 
-    texturehashlist[0]  = Z_Calloc(numtextures * sizeof(word), PU_STATIC, NULL);
-    texturehashlist[1]  = Z_Calloc(numtextures * sizeof(word), PU_STATIC, NULL);
+    texturehashlist[0]  = Z_Alloca(numtextures * sizeof(word));
+    texturehashlist[1]  = Z_Alloca(numtextures * sizeof(word));
 
     for(i = 0; i < numtextures; i++)
     {
@@ -223,11 +235,11 @@ void P_LoadSegs(int lump)
 
     for(i = 0; i < numsegs; i++, li++, ml++)
     {
-        li->v1 = &vertexes[SHORT(ml->v1)];
-        li->v2 = &vertexes[SHORT(ml->v2)];
+        li->v1 = &vertexes[(word)SHORT(ml->v1)];
+        li->v2 = &vertexes[(word)SHORT(ml->v2)];
         li->angle = INT2F(SHORT(ml->angle));
         li->offset = INT2F(SHORT(ml->offset));
-        linedef = SHORT(ml->linedef);
+        linedef = (word)SHORT(ml->linedef);
         ldef = &lines[linedef];
         li->linedef = ldef;
         side = SHORT(ml->side);
@@ -267,8 +279,8 @@ void P_LoadSubsectors(int lump)
     
     for (i=0 ; i<numsubsectors ; i++, ss++, ms++)
     {
-        ss->numlines = SHORT(ms->numsegs);
-        ss->firstline = SHORT(ms->firstseg);
+        ss->numlines = (word)SHORT(ms->numsegs);
+        ss->firstline = (word)SHORT(ms->firstseg);
         ss->leaf = 0;
         ss->numleafs = 0;
     }
@@ -475,7 +487,7 @@ void P_LoadLeafs(int lump)
         while(((byte*)src - (byte*)mlf) < length)
         {
             count++;
-            size += SHORT(*src);
+            size += (word)SHORT(*src);
             next = (*src << 2) + 2;
             src += (next >> 1);
         }
@@ -496,7 +508,7 @@ void P_LoadLeafs(int lump)
     
     for(i = 0; i < numleafs; i++, ss++)
     {
-        ss->numleafs = SHORT(*mlf++);
+        ss->numleafs = (word)SHORT(*mlf++);
         ss->leaf = (lf - leafs);
         
         if(ss->numleafs)
@@ -506,7 +518,7 @@ void P_LoadLeafs(int lump)
             
             for(j = 0; j < ss->numleafs; j++, lf++)
             {
-                vertex = SHORT(*mlf++);
+                vertex = (word)SHORT(*mlf++);
                 if(vertex > numvertexes)
                     I_Error("P_LoadLeafs: vertex out of range: %i - %i\n", vertex, numvertexes);
                 
@@ -525,7 +537,7 @@ void P_LoadLeafs(int lump)
                             CON_Warnf("P_LoadLeafs: seg out of range: %i - %i\n", seg, numsegs);
                     }
                     
-                    lf->seg = &segs[seg];
+                    lf->seg = &segs[(word)seg];
                 }
             }
         }
@@ -542,6 +554,9 @@ void P_LoadThings(int lump)
     int             j;
     mapthing_t*     mt;
     int             numthings;
+    dboolean        p2start = false;
+    dboolean        p3start = false;
+    dboolean        p4start = false;
     
     bodyqueslot = 0;
     dmemset(playerstarts,0,sizeof(playerstarts));
@@ -554,6 +569,16 @@ void P_LoadThings(int lump)
     {
         if(SHORT(mt[i].options) & MTF_SPAWN)
             j++;
+
+        // 20120122 villsa - check if co-op starts exist
+        if(SHORT(mt[i].type) == 2)
+            p2start = true;
+
+        if(SHORT(mt[i].type) == 3)
+            p3start = true;
+
+        if(SHORT(mt[i].type) == 4)
+            p4start = true;
     }
 
     spawnlist = Z_Malloc(sizeof(mapthing_t) * j, PU_LEVEL, 0);
@@ -570,26 +595,37 @@ void P_LoadThings(int lump)
         
         P_SpawnMapThing(mt);
         
-        // Hack to force-spawn co-op player starts on top of player 1
+        // [kex] Hack to force-spawn co-op player starts on top of player 1
+        // 20120122 villsa - updated to spawn co-op players away from
+        // player 1 by radius
         if(netgame && mt->type == 1)
         {
             short x = mt->x;
             short y = mt->y;
 
-            mt->type = 2;
-            mt->x = x + 16;
-            mt->y = y + 16;
-            P_SpawnMapThing(mt);
+            if(!p2start)
+            {
+                mt->type = 2;
+                mt->x = x;
+                mt->y = y;
+                P_SpawnMapThing(mt);
+            }
 
-            mt->type = 3;
-            mt->x = x - 16;
-            mt->y = y + 16;
-            P_SpawnMapThing(mt);
+            if(!p3start)
+            {
+                mt->type = 3;
+                mt->x = x;
+                mt->y = y;
+                P_SpawnMapThing(mt);
+            }
 
-            mt->type = 4;
-            mt->x = x - 16;
-            mt->y = y - 16;
-            P_SpawnMapThing(mt);
+            if(!p4start)
+            {
+                mt->type = 4;
+                mt->x = x;
+                mt->y = y;
+                P_SpawnMapThing(mt);
+            }
         }
     }
 }
@@ -619,8 +655,8 @@ void P_LoadLineDefs(int lump)
         ld->flags = mld->flags;
         ld->special = mld->special;
         ld->tag = SHORT(mld->tag);
-        v1 = ld->v1 = &vertexes[SHORT(mld->v1)];
-        v2 = ld->v2 = &vertexes[SHORT(mld->v2)];
+        v1 = ld->v1 = &vertexes[(word)SHORT(mld->v1)];
+        v2 = ld->v2 = &vertexes[(word)SHORT(mld->v2)];
         ld->dx = v2->x - v1->x;
         ld->dy = v2->y - v1->y;
         
@@ -664,15 +700,15 @@ void P_LoadLineDefs(int lump)
             ld->bbox[BOXTOP] = v1->y;
         }
         
-        ld->sidenum[0] = SHORT(mld->sidenum[0]);
-        ld->sidenum[1] = SHORT(mld->sidenum[1]);
+        ld->sidenum[0] = (word)SHORT(mld->sidenum[0]);
+        ld->sidenum[1] = (word)SHORT(mld->sidenum[1]);
         
-        if (ld->sidenum[0] != -1)
+        if (ld->sidenum[0] != NO_SIDE_INDEX)
             ld->frontsector = sides[ld->sidenum[0]].sector;
         else
             ld->frontsector = 0;
         
-        if (ld->sidenum[1] != -1)
+        if (ld->sidenum[1] != NO_SIDE_INDEX)
             ld->backsector = sides[ld->sidenum[1]].sector;
         else
             ld->backsector = 0;
@@ -911,9 +947,6 @@ void P_GroupLines (void)
         }
         if (linebuffer - sector->lines != sector->linecount)
             I_Error ("P_GroupLines: miscounted");
-
-        if(sector->linecount <= 2)
-            CON_Warnf("P_GroupLines: Sector #%i has only %i linedefs\n", sector - sectors, sector->linecount);
         
         // set the degenmobj_t to the middle of the bounding box
         sector->soundorg.x = (bbox[BOXRIGHT]+bbox[BOXLEFT])/2;
@@ -971,199 +1004,30 @@ void P_SetupSky(void)
 }
 
 //
-// P_PlaneAlign
-//
-// Aligns the floor or ceiling of a sector to the corresponding plane
-// on the other side of the reference line. (By definition, line must be
-// two-sided.)
-//
-// Adapted from Zdoom for Doom64EX
-//
-
-void P_PlaneAlign(sector_t* sector, line_t* line, dboolean floor, dboolean side)
-{
-    int bestdist;
-    int i;
-    line_t** rover;
-    sector_t* lsec;
-    vertex_t* selvert;
-    plane_t* plane;
-    fixed_t srcheight;
-    fixed_t destheight;
-    float p1[3];
-    float p2[3];
-    float c[3];
-
-    if(line->backsector == NULL)
-        return;
-
-    selvert = (*sector->lines)->v1;
-    bestdist = 0;
-
-    // Find furthest vertex from the reference line. It, along with the two ends
-    // of the line will define the plane.
-    for(i = 0, rover = sector->lines; i < sector->linecount * 2; i++)
-    {
-        int dist;
-        vertex_t* v;
-        int px1;
-        int px2;
-        int py1;
-        int py2;
-
-        // Do calculations with only the upper bits, because the lower ones
-        // are all zero, and we would overflow for a lot of distances if we
-        // kept them around.
-
-        if(i & 1)
-            v = (*rover++)->v2;
-        else
-            v = (*rover)->v1;
-
-        px1 = ((line->v1->x - v->x) >> FRACBITS);
-        py1 = ((line->v1->y - v->y) >> FRACBITS);
-        px2 = (line->dx >> FRACBITS);   // v2->x - v1->x
-        py2 = (line->dy >> FRACBITS);   // v2->y - v1->y
-
-        dist = D_abs(py1 * px2 - px1 * py2);
-
-        if(dist > bestdist)
-        {
-            bestdist = dist;
-            selvert = v;
-        }
-    }
-
-    if(!side)
-        lsec = line->backsector;
-    else
-        lsec = line->frontsector;
-
-    if(floor)
-    {
-        plane = &sector->floorplane;
-        srcheight = sector->floorheight;
-        destheight = lsec->floorheight;
-    }
-    else
-    {
-        plane = &sector->ceilingplane;
-        srcheight = sector->ceilingheight;
-        destheight = lsec->ceilingheight;
-    }
-
-    //
-    // calculate normals for plane
-    //
-    p1[0] = F2D3D(line->dx);    // v2->x - v1->x
-    p1[1] = F2D3D(line->dy);    // v2->y - v1->y
-    p1[2] = 0;
-    p2[0] = F2D3D(selvert->x - line->v1->x);
-    p2[1] = F2D3D(selvert->y - line->v1->y);
-	p2[2] = F2D3D(srcheight - destheight);
-
-    M_CrossProduct(c, p1, p2);
-    M_Normalize3(c);
-
-    plane->a    = D3D2F(c[0]);
-    plane->b    = D3D2F(c[1]);
-    plane->c    = D3D2F(c[2]);
-    plane->nc   = D3D2F(1.0f / c[2]);   // set normalized version of plane->c
-    plane->d    = -M_DotProduct(plane->a, plane->b, plane->c,
-        line->v1->x, line->v1->y, destheight);
-
-    if(side)
-    {
-        plane->a    = -plane->a;
-        plane->b    = -plane->b;
-        plane->c    = -plane->c;
-        plane->nc   = -plane->nc;
-        plane->d    = -plane->d;
-    }
-}
-
-//
 // P_SetupPlanes
 //
 
 void P_SetupPlanes(void)
 {
     int i;
-    line_t* line;
     sector_t* sector;
 
-    //
-    // setup default plane normals
-    //
     for(i = 0; i < numsectors; i++)
     {
         sector = &sectors[i];
 
-        sector->floorplane.a    = 0;
-        sector->floorplane.b    = 0;
-        sector->floorplane.c    = FRACUNIT;
-        sector->floorplane.nc   = FRACUNIT;
-        sector->floorplane.d    = -sector->floorheight;
+        if(sector->linecount <= 2)
+            continue;
 
-        sector->ceilingplane.a  = 0;
-        sector->ceilingplane.b  = 0;
-        sector->ceilingplane.c  = -FRACUNIT;
-        sector->ceilingplane.nc = -FRACUNIT;
-        sector->ceilingplane.d  = sector->ceilingheight;
-    }
+        sector->floorplane.a = 0;
+        sector->floorplane.b = 0;
+        sector->floorplane.c = FRACUNIT;
+        sector->floorplane.d = -sector->floorheight;
 
-    //
-    // setup slope plane normals
-    //
-    for(i = 0; i < numlines; i++)
-    {
-        line = &lines[i];
-
-        if(SPECIALMASK(line->special) == 181)
-        {
-            dboolean side;
-
-            line->special &= ~SPECIALMASK(line->special);
-
-            if(line->backsector != NULL)
-            {
-                if(line->special & MLU_USE)
-                {
-                    line->special &= ~MLU_USE;
-                    if(line->special & MLU_SHOOT)
-                    {
-                        side = true;
-                        sector = line->backsector;
-                        line->special &= ~MLU_SHOOT;
-                    }
-                    else
-                    {
-                        side = false;
-                        sector = line->frontsector;
-                    }
-
-                    P_PlaneAlign(sector, line, 1, side);
-                }
-
-                if(line->special & MLU_CROSS)
-                {
-                    line->special &= ~MLU_CROSS;
-                    if(line->special & MLU_REPEAT)
-                    {
-                        side = true;
-                        sector = line->backsector;
-                        line->special &= ~MLU_REPEAT;
-                    }
-                    else
-                    {
-                        side = false;
-                        sector = line->frontsector;
-                    }
-
-                    P_PlaneAlign(sector, line, 0, side);
-                }
-            }
-        }
+        sector->ceilingplane.a = 0;
+        sector->ceilingplane.b = 0;
+        sector->ceilingplane.c = -FRACUNIT;
+        sector->ceilingplane.d = sector->ceilingheight;
     }
 }
 
@@ -1219,12 +1083,8 @@ void P_SetupLevel(int map, int playermask, skill_t skill)
     P_LoadReject(ML_REJECT);
     P_LoadLights(ML_LIGHTS);
     P_GroupLines();
-    P_SetupPlanes();
     P_LoadThings(ML_THINGS);
     W_FreeMapLump();
-
-    Z_Free(texturehashlist[0]);
-    Z_Free(texturehashlist[1]);
     
     dmemset(taglist, 0, sizeof(int) * MAXQUEUELIST);
     taglistidx = 0;
@@ -1232,6 +1092,7 @@ void P_SetupLevel(int map, int playermask, skill_t skill)
     // set up world state
     P_SpawnSpecials();
     P_SetupSky();
+    P_SetupPlanes();
 
     // if deathmatch, randomly spawn the active players
     if(deathmatch)
@@ -1259,6 +1120,8 @@ void P_SetupLevel(int map, int playermask, skill_t skill)
     // preload graphics
     R_PrecacheLevel();
     R_SetupLevel();
+
+    Z_CheckHeap();
     
     if(devparm)
         CON_Printf(WHITE, "P_SetupLevel: Used memory: %d kb\n", Z_FreeMemory() >> 10);
@@ -1270,24 +1133,24 @@ void P_SetupLevel(int map, int playermask, skill_t skill)
 
 static scdatatable_t mapdatatable[] =
 {
-    {   "CLASSTYPE",            (int)&((mapdef_t*)0)->type,                 'i' },
-    {   "LEVELNUM",             (int)&((mapdef_t*)0)->mapid,                'i' },
-    {   "CLUSTER",              (int)&((mapdef_t*)0)->cluster,              'i' },
-    {   "EXITDELAY",            (int)&((mapdef_t*)0)->exitdelay,            'i' },
-    {   "NOINTERMISSION",       (int)&((mapdef_t*)0)->nointermission,       'b' },
-    {   "CLEARCHEATS",          (int)&((mapdef_t*)0)->clearchts,            'b' },
-    {   "CONTINUEMUSICONEXIT",  (int)&((mapdef_t*)0)->contmusexit,          'b' },
-    {   "FORCEGODMODE",         (int)&((mapdef_t*)0)->forcegodmode,         'b' },
+    {   "CLASSTYPE",            (int64)&((mapdef_t*)0)->type,                 'i' },
+    {   "LEVELNUM",             (int64)&((mapdef_t*)0)->mapid,                'i' },
+    {   "CLUSTER",              (int64)&((mapdef_t*)0)->cluster,              'i' },
+    {   "EXITDELAY",            (int64)&((mapdef_t*)0)->exitdelay,            'i' },
+    {   "NOINTERMISSION",       (int64)&((mapdef_t*)0)->nointermission,       'b' },
+    {   "CLEARCHEATS",          (int64)&((mapdef_t*)0)->clearchts,            'b' },
+    {   "CONTINUEMUSICONEXIT",  (int64)&((mapdef_t*)0)->contmusexit,          'b' },
+    {   "FORCEGODMODE",         (int64)&((mapdef_t*)0)->forcegodmode,         'b' },
     {   NULL,                   0,                                          0   }
 };
 
 static scdatatable_t clusterdatatable[] =
 {
-    {   "PIC",                  (int)&((clusterdef_t*)0)->pic,              'S' },
-    {   "NOINTERMISSION",       (int)&((clusterdef_t*)0)->nointermission,   'b' },
-    {   "SCROLLTEXTEND",        (int)&((clusterdef_t*)0)->scrolltextend,    'b' },
-    {   "PIC_X",                (int)&((clusterdef_t*)0)->pic_x,            'i' },
-    {   "PIC_Y",                (int)&((clusterdef_t*)0)->pic_y,            'i' },
+    {   "PIC",                  (int64)&((clusterdef_t*)0)->pic,              'S' },
+    {   "NOINTERMISSION",       (int64)&((clusterdef_t*)0)->nointermission,   'b' },
+    {   "SCROLLTEXTEND",        (int64)&((clusterdef_t*)0)->scrolltextend,    'b' },
+    {   "PIC_X",                (int64)&((clusterdef_t*)0)->pic_x,            'i' },
+    {   "PIC_Y",                (int64)&((clusterdef_t*)0)->pic_y,            'i' },
     {   NULL,                   0,                                          0   }
 };
 
@@ -1341,7 +1204,6 @@ static void P_InitMapInfo(void)
 
                 if(!sc_parser.setdata(&mapdef, mapdatatable))
                 {
-                    cvar_t* cvar;
                     dboolean ok = false;
 
                     //
@@ -1370,20 +1232,23 @@ static void P_InitMapInfo(void)
                         else
                             mapdef.music = (lump - ds_start);
                     }
-                    else
+                    else if(!dstricmp(sc_parser.token, "COMPAT_COLLISION"))
                     {
-                        //
-                        // check for forced cvars
-                        //
-                        for(cvar = cvarcap; cvar; cvar = cvar->next)
-                        {
-                            if(!dstricmp(cvar->name, sc_parser.token))
-                            {
-                                CON_CvarSetValue(cvar->name, datof(sc_parser.getstring()));
-                                ok = true;
-                                break;
-                            }
-                        }
+                        if(datoi(sc_parser.getstring()) == 1)
+                            mapdef.oldcollision = 1;
+                        else if(datoi(sc_parser.getstring()) == 0)
+                            mapdef.oldcollision = 2;
+
+                        ok = true;
+                    }
+                    else if(!dstricmp(sc_parser.token, "ALLOWJUMP"))
+                    {
+                        if(datoi(sc_parser.getstring()) == 1)
+                            mapdef.allowjump = 1;
+                        else if(datoi(sc_parser.getstring()) == 0)
+                            mapdef.allowjump = 2;
+
+                        ok = true;
                     }
 
                     if(!ok)
@@ -1521,13 +1386,13 @@ clusterdef_t* P_GetCluster(int map)
 
 static scdatatable_t skydatatable[] =
 {
-    {   "PIC",          (int)&((skydef_t*)0)->pic,          'S' },
-    {   "BACKPIC",      (int)&((skydef_t*)0)->backdrop,     'S' },
-    {   "FOGFACTOR",    (int)&((skydef_t*)0)->fognear,      'i' },
-    {   "FOGCOLOR",     (int)&((skydef_t*)0)->fogcolor,     'c' },
-    {   "BASECOLOR",    (int)&((skydef_t*)0)->skycolor[2],  'c' },
-    {   "HIGHCOLOR",    (int)&((skydef_t*)0)->skycolor[0],  'c' },
-    {   "LOWCOLOR",     (int)&((skydef_t*)0)->skycolor[1],  'c' },
+    {   "PIC",          (int64)&((skydef_t*)0)->pic,          'S' },
+    {   "BACKPIC",      (int64)&((skydef_t*)0)->backdrop,     'S' },
+    {   "FOGFACTOR",    (int64)&((skydef_t*)0)->fognear,      'i' },
+    {   "FOGCOLOR",     (int64)&((skydef_t*)0)->fogcolor,     'c' },
+    {   "BASECOLOR",    (int64)&((skydef_t*)0)->skycolor[2],  'c' },
+    {   "HIGHCOLOR",    (int64)&((skydef_t*)0)->skycolor[0],  'c' },
+    {   "LOWCOLOR",     (int64)&((skydef_t*)0)->skycolor[1],  'c' },
     {   NULL,           0,                                  0   }
 };
 
@@ -1612,5 +1477,20 @@ void P_Init(void)
     R_InitSprites(sprnames);
     P_InitMapInfo();
     P_InitSkyDef();
+}
+
+//
+// P_RegisterCvars
+//
+
+void P_RegisterCvars(void)
+{
+    CON_CvarRegister(&p_features);
+    CON_CvarRegister(&p_autorun);
+    CON_CvarRegister(&p_fdoubleclick);
+    CON_CvarRegister(&p_sdoubleclick);
+    CON_CvarRegister(&p_usecontext);
+    CON_CvarRegister(&p_damageindicator);
+    CON_CvarRegister(&p_regionmode);
 }
 

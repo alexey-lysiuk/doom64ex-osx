@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: p_enemy.c 1027 2012-01-07 22:31:29Z svkaiser $
+// $Id: p_enemy.c 1048 2012-02-13 04:08:26Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 1027 $
-// $Date: 2012-01-08 00:31:29 +0200 (нд, 08 січ 2012) $
+// $Revision: 1048 $
+// $Date: 2012-02-13 06:08:26 +0200 (пн, 13 лют 2012) $
 //
 //
 // DESCRIPTION:
@@ -27,7 +27,7 @@
 //-----------------------------------------------------------------------------
 #ifdef RCSID
 static const char
-rcsid[] = "$Id: p_enemy.c 1027 2012-01-07 22:31:29Z svkaiser $";
+rcsid[] = "$Id: p_enemy.c 1048 2012-02-13 04:08:26Z svkaiser $";
 #endif
 
 #include <stdlib.h>
@@ -46,7 +46,6 @@ rcsid[] = "$Id: p_enemy.c 1027 2012-01-07 22:31:29Z svkaiser $";
 #include "tables.h"
 #include "info.h"
 #include "z_zone.h"
-#include "m_math.h"
 
 
 typedef enum
@@ -106,9 +105,9 @@ mobj_t* soundtarget;
 
 void P_RecursiveSound(sector_t* sec, int soundblocks)
 {
-    int         i;
-    line_t*     check;
-    sector_t*   other;
+    int		i;
+    line_t*	check;
+    sector_t*	other;
     
     // wake up all monsters in this sector
     if(sec->validcount == validcount && sec->soundtraversed <= soundblocks+1)
@@ -121,38 +120,19 @@ void P_RecursiveSound(sector_t* sec, int soundblocks)
     
     for(i = 0; i < sec->linecount; i++)
     {
-        plane_t* pf1;
-        plane_t* pc1;
-        plane_t* pf2;
-        plane_t* pc2;
-
         check = sec->lines[i];
         if(!(check->flags & ML_TWOSIDED))
             continue;
+        
+        P_LineOpening(check);
+        
+        if(openrange <= 0)
+            continue;	// closed door
         
         if(sides[check->sidenum[0] ].sector == sec)
             other = sides[check->sidenum[1]].sector;
         else
             other = sides[check->sidenum[0]].sector;
-
-        pf1 = &sec->floorplane;
-        pc1 = &sec->ceilingplane;
-        pf2 = &other->floorplane;
-        pc2 = &other->ceilingplane;
-
-        // check for closed door
-		if((M_PointToZ(pf1, check->v1->x, check->v1->y) >=
-            M_PointToZ(pc2, check->v1->x, check->v1->y) &&
-            M_PointToZ(pf1, check->v2->x, check->v2->y) >=
-            M_PointToZ(pc2, check->v2->x, check->v2->y))
-            ||
-            (M_PointToZ(pf2, check->v1->x, check->v1->y) >=
-            M_PointToZ(pc1, check->v1->x, check->v1->y) &&
-            M_PointToZ(pf2, check->v2->x, check->v2->y) >=
-            M_PointToZ(pc1, check->v2->x, check->v2->y)))
-		{
-			continue;
-		}
         
         if(check->flags & ML_SOUNDBLOCK)
         {
@@ -973,12 +953,12 @@ void A_PosAttack(mobj_t* actor)
     A_FaceTarget(actor);
 
     angle = actor->angle;
-    slope = P_AimLineAttack(actor, angle, 0, 0, MISSILERANGE);
+    slope = P_AimLineAttack(actor, angle, 0, MISSILERANGE);
 
     angle += P_RandomShift(20);
     hitdice = (P_Random() & 7);
     damage = ((hitdice<<2) - hitdice) + 3;
-    P_LineAttack(actor, angle, actor->pitch, MISSILERANGE, slope, damage);
+    P_LineAttack(actor, angle, MISSILERANGE, slope, damage);
 }
 
 //
@@ -999,13 +979,13 @@ void A_SPosAttack(mobj_t* actor)
     S_StartSound(actor, sfx_shotgun);
     A_FaceTarget(actor);
     bangle = actor->angle;
-    slope = P_AimLineAttack (actor, bangle, 0, 0, MISSILERANGE);
+    slope = P_AimLineAttack (actor, bangle, 0, MISSILERANGE);
     
     for(i = 0; i < 3; i++)
     {
         angle = bangle + P_RandomShift(20);
         damage = ((P_Random() % 5) * 3) + 3;
-        P_LineAttack(actor, angle, actor->pitch, MISSILERANGE, slope, damage);
+        P_LineAttack(actor, angle, MISSILERANGE, slope, damage);
     }
 }
 
@@ -1027,12 +1007,12 @@ void A_PlayAttack(mobj_t* actor)
     A_FaceTarget(actor);
 
     angle = actor->angle;
-    slope = P_AimLineAttack (actor, angle, 0, 0, MISSILERANGE);
+    slope = P_AimLineAttack (actor, angle, 0, MISSILERANGE);
 
     angle += P_RandomShift(20);
     hitdice = (P_Random()%5);
     damage = ((hitdice << 2) - hitdice) + 3;
-    P_LineAttack(actor, angle, actor->pitch, MISSILERANGE, slope, damage);
+    P_LineAttack(actor, angle, MISSILERANGE, slope, damage);
 }
 
 //
@@ -1610,9 +1590,12 @@ void A_PainShootSkull(mobj_t* actor, angle_t angle)
             count++;
     }
 
+    //
     // if there are all ready 17 skulls on the level,
     // don't spit another one
-    if(count > 0x11)
+    // 20120212 villsa - new compatibility flag to disable limit
+    //
+    if(compatflags & COMPATF_LIMITPAIN && count > 0x11)
         return;
 
 

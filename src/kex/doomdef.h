@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: doomdef.h 947 2011-08-24 01:25:17Z svkaiser $
+// $Id: doomdef.h 1048 2012-02-13 04:08:26Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -265,6 +265,29 @@ typedef enum
     STRTICS     = (3*TICRATE)
     
 } powerduration_t;
+
+// 20120209 villsa - game flags
+enum
+{
+    GF_NOMONSTERS       = (1 << 0),
+    GF_FASTMONSTERS     = (1 << 1),
+    GF_RESPAWNMONSTERS  = (1 << 2),
+    GF_RESPAWNPICKUPS   = (1 << 3),
+    GF_ALLOWJUMP        = (1 << 4),
+    GF_ALLOWAUTOAIM     = (1 << 5),
+    GF_LOCKMONSTERS     = (1 << 6),
+    GF_ALLOWCHEATS      = (1 << 7),
+    GF_FRIENDLYFIRE     = (1 << 8),
+    GF_KEEPITEMS        = (1 << 9),
+};
+
+// 20120209 villsa - compatibility flags
+enum
+{
+    COMPATF_COLLISION   = (1 << 0),     // don't use maxradius for mobj position checks
+    COMPATF_MOBJPASS    = (1 << 1),     // allow mobjs to stand on top one another
+    COMPATF_LIMITPAIN   = (1 << 2),     // pain elemental limited to 17 lost souls?
+};
 
 extern dboolean windowpause;
 

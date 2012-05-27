@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: r_wipe.c 978 2011-12-21 02:06:07Z svkaiser $
+// $Id: r_wipe.c 1068 2012-03-03 04:48:45Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,14 +15,14 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 978 $
-// $Date: 2011-12-21 04:06:07 +0200 (ср, 21 гру 2011) $
+// $Revision: 1068 $
+// $Date: 2012-03-03 06:48:45 +0200 (сб, 03 бер 2012) $
 //
 // DESCRIPTION: Endlevel wipe FX.
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
-static const char rcsid[] = "$Id: r_wipe.c 978 2011-12-21 02:06:07Z svkaiser $";
+static const char rcsid[] = "$Id: r_wipe.c 1068 2012-03-03 04:48:45Z svkaiser $";
 #endif
 
 #include "doomdef.h"
@@ -45,13 +45,10 @@ static int wipeFadeAlpha        = 0;
 // WIPE_DisplayScreen
 //
 
-static void WIPE_DisplayScreen(vtx_t* v, rcolor argb)
+static void WIPE_RefreshDelay(void)
 {
     int starttime = I_GetTime();
     int tics = 0;
-
-    dglSetVertexColor(v, argb, 4);
-    R_GLRenderVertex(v, 1);
 
     do
     {
@@ -62,11 +59,6 @@ static void WIPE_DisplayScreen(vtx_t* v, rcolor argb)
         I_Sleep(1);
     }
     while(!tics);
-
-    //
-    // make sure to refresh buffers
-    //
-    R_GLFinish();
 }
 
 //
@@ -80,6 +72,7 @@ void WIPE_FadeScreen(int fadetics)
     float left, right, top, bottom;
 
     allowmenu = false;
+
     wipeFadeAlpha = 0xff;
     wipeMeltTexture = R_ScreenToTexture();
 
@@ -116,6 +109,8 @@ void WIPE_FadeScreen(int fadetics)
     //
     while(wipeFadeAlpha > 0)
     {
+        rcolor color;
+
         //
         // clear frame
         //
@@ -127,13 +122,14 @@ void WIPE_FadeScreen(int fadetics)
         //
         // display screen overlay
         //
-        WIPE_DisplayScreen(v,
-            D_RGBA(
-            wipeFadeAlpha,
-            wipeFadeAlpha,
-            wipeFadeAlpha,
-            0xff)
-            );
+        color = D_RGBA(wipeFadeAlpha, wipeFadeAlpha, wipeFadeAlpha, 0xff);
+
+        dglSetVertexColor(v, color, 4);
+        R_GLRenderVertex(v, 1);
+
+        R_GLFinish();
+
+        WIPE_RefreshDelay();
 
         wipeFadeAlpha -= fadetics;
     }
@@ -152,28 +148,17 @@ void WIPE_MeltScreen(void)
 {
     int padw, padh;
     vtx_t v[4];
+    vtx_t v2[4];
     float left, right, top, bottom;
-    float blend[4];
     int i = 0;
-    int refreshtic;
 
     M_ClearMenus();
     allowmenu = false;
-    wipeMeltTexture = R_ScreenToTexture();
 
-    //
-    // setup texture color environment (abgr)
-    //
-    blend[0] = 0.25f;
-    blend[1] = blend[2] = 0.0f;
-    blend[3] = 255.0f;
+    wipeMeltTexture = R_ScreenToTexture();
 
     padw = R_PadTextureDims(video_width);
     padh = R_PadTextureDims(video_height);
-
-    //
-    // don't clear the frame, otherwise the effect won't be good
-    //
     
     R_GLToggleBlend(1);
     dglEnable(GL_TEXTURE_2D);
@@ -198,41 +183,22 @@ void WIPE_MeltScreen(void)
     v[0].tv = v[1].tv = (float)video_height / (float)padh;
     v[2].tv = v[3].tv = 0.0f;
 
+    dmemcpy(v2, v, sizeof(vtx_t) * 4);
+
     dglBindTexture(GL_TEXTURE_2D, wipeMeltTexture);
-
-    //
-    // nasty hack for fullscreen mode due to issues with refresh rate...
-    // pause for a bit by displaying screen for half of a tic
-    // then continue
-    //
-    refreshtic = I_GetTime();
-
-    for(i = refreshtic; i < refreshtic + (TICRATE / 2); i++)
-        WIPE_DisplayScreen(v, D_RGBA(0xff, 0xff, 0xff, 0xff));
-
-    //
-    // setup texture environment
-    //
-    dglTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE_ARB);
-    dglTexEnvf(GL_TEXTURE_ENV, GL_COMBINE_RGB, GL_ADD);
-    dglTexEnvf(GL_TEXTURE_ENV, GL_SOURCE0_RGB, GL_TEXTURE0_ARB);
-    dglTexEnvf(GL_TEXTURE_ENV, GL_OPERAND0_RGB, GL_SRC_COLOR);
-    dglTexEnvf(GL_TEXTURE_ENV, GL_SOURCE1_RGB, GL_CONSTANT);
-    dglTexEnvf(GL_TEXTURE_ENV, GL_OPERAND1_RGB, GL_SRC_COLOR);
+    R_SetTextureMode(GL_ADD);
 
     for(i = 0; i < 160; i += 2)
     {
         int j;
-        //
-        // update environment color
-        //
-        dglTexEnvfv(GL_TEXTURE_ENV, GL_TEXTURE_ENV_COLOR, blend);
-        blend[0] += 0.0005f;
 
-        //
-        // setup color and draw plane
-        //
-        WIPE_DisplayScreen(v, D_RGBA(0xff, 0xff, 0xff, 8));
+        R_GLClearFrame(0xFF000000);
+
+        dglSetVertexColor(v2, D_RGBA(1, 0, 0, 0xff), 4);
+        R_GLRenderVertex(v2, 1);
+
+        dglSetVertexColor(v, D_RGBA(0, 0, 0, 0x10), 4);
+        R_GLRenderVertex(v, 1);
 
         //
         // move screen down. without clearing the frame, we should
@@ -240,11 +206,30 @@ void WIPE_MeltScreen(void)
         //
         for(j = 0; j < 4; j++)
             v[j].y += 0.5f;
+
+        //
+        // update screen buffer
+        //
+        dglCopyTexSubImage2D(
+            GL_TEXTURE_2D,
+            0,
+            0,
+            0,
+            0,
+            0,
+            padw,
+            padh
+            );
+
+        R_GLFinish();
+
+        WIPE_RefreshDelay();
     }
 
     //
     // reset combiners and blending
     //
+    R_SetTextureMode(GL_MODULATE);
     R_GLResetCombiners();
     R_GLToggleBlend(0);
     R_UnloadTexture(&wipeMeltTexture);

@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: am_map.h 932 2011-08-17 02:58:20Z svkaiser $
+// $Id: am_map.h 1043 2012-02-03 20:26:29Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -22,6 +22,8 @@
 #ifndef __AMMAP_H__
 #define __AMMAP_H__
 
+CVAR_EXTERNAL(am_overlay);
+
 // Called by main loop.
 dboolean AM_Responder (event_t* ev);
 
@@ -38,5 +40,7 @@ void AM_Stop (void);
 
 // Called on P_Start; resets automap variables
 void AM_Reset(void);
+
+void AM_RegisterCvars(void);
 
 #endif

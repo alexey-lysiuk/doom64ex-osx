@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: d_player.h 1027 2012-01-07 22:31:29Z svkaiser $
+// $Id: d_player.h 981 2011-12-22 22:13:41Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -178,9 +178,6 @@ typedef struct player_s
 
     // [kex] display pic as message instead of text
     int             messagepic;
-
-    // [kex] adjusted pitch for sloped floors
-    int             extrapitch;
     
 } player_t;
 

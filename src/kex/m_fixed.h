@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: m_fixed.h 1027 2012-01-07 22:31:29Z svkaiser $
+// $Id: m_fixed.h 987 2011-12-29 01:41:39Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -38,12 +38,12 @@
 #define INT2F(x)		((x)<<FRACBITS)
 #define F2INT(x)		((x)>>FRACBITS)
 #define F2D3D(x) 		(((float)(x))/FRACUNIT)
-#define D3D2F(x)        ((fixed_t)((x)*65536.0f))
 
 typedef int fixed_t;
 
 fixed_t FixedMul    (fixed_t a, fixed_t b);
 fixed_t FixedDiv    (fixed_t a, fixed_t b);
 fixed_t FixedDiv2   (fixed_t a, fixed_t b);
+fixed_t FixedDot    (fixed_t a1, fixed_t b1, fixed_t c1, fixed_t a2, fixed_t b2, fixed_t c2);
 
 #endif

@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: p_lights.c 864 2011-06-07 04:52:35Z svkaiser $
+// $Id: p_lights.c 1043 2012-02-03 20:26:29Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 864 $
-// $Date: 2011-06-07 07:52:35 +0300 (вт, 07 чер 2011) $
+// $Revision: 1043 $
+// $Date: 2012-02-03 22:26:29 +0200 (пт, 03 лют 2012) $
 //
 //
 // DESCRIPTION:
@@ -25,7 +25,7 @@
 //-----------------------------------------------------------------------------
 #ifdef RCSID
 static const char
-rcsid[] = "$Id: p_lights.c 864 2011-06-07 04:52:35Z svkaiser $";
+rcsid[] = "$Id: p_lights.c 1043 2012-02-03 20:26:29Z svkaiser $";
 #endif
 
 
@@ -680,6 +680,8 @@ typedef struct
     thinker_t thinker;
     float factor;
 } fadebright_t;
+
+CVAR_EXTERNAL(i_brightness);
 
 //
 // T_FadeInBrightness

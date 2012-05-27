@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: r_main.h 851 2011-03-19 00:40:21Z svkaiser $
+// $Id: r_main.h 1043 2012-02-03 20:26:29Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -54,6 +54,11 @@ extern unsigned int drawListSize;
 
 extern dboolean     bRenderSky;
 
+CVAR_EXTERNAL(r_fov);
+CVAR_EXTERNAL(r_fillmode);
+CVAR_EXTERNAL(r_uniformtime);
+CVAR_EXTERNAL(r_drawtrace);
+
 void R_Init(void);
 void R_RenderPlayerView(player_t *player);
 subsector_t *R_PointInSubsector(fixed_t x, fixed_t y);
@@ -69,5 +74,6 @@ void R_SetViewOffset(int offset);
 void R_DrawGfx(int x, int y, const char* name, rcolor color, dboolean alpha);
 void R_DrawHudSprite(int type, int rot, int frame, int x, int y, float scale, int pal, rcolor c);
 void R_DrawWireframe(dboolean enable);	//villsa
+void R_RegisterCvars(void);
 
 #endif

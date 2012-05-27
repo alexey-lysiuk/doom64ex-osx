@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: p_floor.c 1027 2012-01-07 22:31:29Z svkaiser $
+// $Id: p_floor.c 865 2011-06-08 00:30:47Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,8 +15,8 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 1027 $
-// $Date: 2012-01-08 00:31:29 +0200 (нд, 08 січ 2012) $
+// $Revision: 865 $
+// $Date: 2011-06-08 03:30:47 +0300 (ср, 08 чер 2011) $
 //
 //
 // DESCRIPTION:
@@ -25,7 +25,7 @@
 //-----------------------------------------------------------------------------
 #ifdef RCSID
 static const char
-rcsid[] = "$Id: p_floor.c 1027 2012-01-07 22:31:29Z svkaiser $";
+rcsid[] = "$Id: p_floor.c 865 2011-06-08 00:30:47Z svkaiser $";
 #endif
 
 
@@ -36,7 +36,6 @@ rcsid[] = "$Id: p_floor.c 1027 2012-01-07 22:31:29Z svkaiser $";
 #include "s_sound.h"
 #include "doomstat.h"
 #include "sounds.h"
-#include "m_math.h"
 
 
 //
@@ -53,180 +52,127 @@ result_e T_MovePlane(sector_t* sector, fixed_t speed, fixed_t dest,
 {
     dboolean flag;
     fixed_t lastpos;
-    plane_t* plane;
     
     switch(floorOrCeiling)
     {
     case 0:
-
         // FLOOR
-
-        plane = &sector->floorplane;
-        lastpos = plane->d;
-
         switch(direction)
         {
         case -1:
-
             // DOWN
-
-            M_MovePlane(plane, -speed);
-
-            if(plane->d >= -dest)
+            if(sector->floorheight - speed < dest)
             {
-                plane->d = -dest;
+                lastpos = sector->floorheight;
+                sector->floorheight = dest;
                 flag = P_ChangeSector(sector,crush);
                 if(flag == true)
                 {
-                    plane->d = lastpos;
+                    sector->floorheight =lastpos;
                     P_ChangeSector(sector,crush);
                 }
-                else
-                {
-                    sector->floorheight += M_DiffPlaneHeight(plane, lastpos);
-                }
-
                 return pastdest;
             }
             else
             {
+                lastpos = sector->floorheight;
+                sector->floorheight -= speed;
                 flag = P_ChangeSector(sector,crush);
                 if(flag == true)
                 {
-                    plane->d = lastpos;
+                    sector->floorheight = lastpos;
                     P_ChangeSector(sector,crush);
                     return stop;
-                }
-                else
-                {
-                    sector->floorheight += M_DiffPlaneHeight(plane, lastpos);
                 }
             }
             break;
             
         case 1:
-
             // UP
-
-            M_MovePlane(plane, speed);
-            if(plane->d <= -dest)
+            if(sector->floorheight + speed > dest)
             {
-                plane->d = -dest;
+                lastpos = sector->floorheight;
+                sector->floorheight = dest;
                 flag = P_ChangeSector(sector,crush);
                 if(flag == true)
                 {
-                    plane->d = lastpos;
+                    sector->floorheight = lastpos;
                     P_ChangeSector(sector,crush);
                 }
-                else
-                {
-                    sector->floorheight += M_DiffPlaneHeight(plane, lastpos);
-                }
-
                 return pastdest;
             }
             else
             {
                 // COULD GET CRUSHED
-
+                lastpos = sector->floorheight;
+                sector->floorheight += speed;
                 flag = P_ChangeSector(sector,crush);
                 if(flag == true)
                 {
                     if(crush == true)
-                    {
-                        sector->floorheight += M_DiffPlaneHeight(plane, lastpos);
                         return crushed;
-                    }
-
-                    plane->d = lastpos;
+                    sector->floorheight = lastpos;
                     P_ChangeSector(sector,crush);
                     return stop;
                 }
-
-                sector->floorheight += M_DiffPlaneHeight(plane, lastpos);
             }
             break;
         }
         break;
         
         case 1:
-
             // CEILING
-
-            plane = &sector->ceilingplane;
-            lastpos = plane->d;
-
             switch(direction)
             {
             case -1:
-
                 // DOWN
-
-                M_MovePlane(plane, -speed);
-                if(plane->d <= dest)
+                if(sector->ceilingheight - speed < dest)
                 {
-                    plane->d = dest;
+                    lastpos = sector->ceilingheight;
+                    sector->ceilingheight = dest;
                     flag = P_ChangeSector(sector,crush);
-
+                    
                     if(flag == true)
                     {
-                        plane->d = lastpos;
+                        sector->ceilingheight = lastpos;
                         P_ChangeSector(sector,crush);
                     }
-                    else
-                    {
-                        sector->ceilingheight += M_DiffPlaneHeight(plane, lastpos);
-                    }
-
                     return pastdest;
                 }
                 else
                 {
-
                     // COULD GET CRUSHED
-
+                    lastpos = sector->ceilingheight;
+                    sector->ceilingheight -= speed;
                     flag = P_ChangeSector(sector,crush);
                     
                     if(flag == true)
                     {
                         if(crush == true)
-                        {
-                            sector->ceilingheight += M_DiffPlaneHeight(plane, lastpos);
                             return crushed;
-                        }
-
-                        plane->d = lastpos;
+                        sector->ceilingheight = lastpos;
                         P_ChangeSector(sector,crush);
                         return crushed;
                     }
-
-                    sector->ceilingheight += M_DiffPlaneHeight(plane, lastpos);
                 }
                 break;
                 
             case 1:
-
                 // UP
-
-                M_MovePlane(plane, speed);
-                if(plane->d >= dest)
+                if(sector->ceilingheight + speed > dest)
                 {
-                    plane->d = dest;
+                    lastpos = sector->ceilingheight;
+                    sector->ceilingheight = dest;
                     flag = P_ChangeSector(sector,crush);
                     if(flag == true)
                     {
-                        plane->d = lastpos;
+                        sector->ceilingheight = lastpos;
                         P_ChangeSector(sector,crush);
                     }
-                    else
-                        sector->ceilingheight += M_DiffPlaneHeight(plane, lastpos);
-
                     return pastdest;
                 }
                 else
-                {
-                    sector->ceilingheight += M_DiffPlaneHeight(plane, lastpos);
-                }
+                    sector->ceilingheight += speed;
                 break;
             }
             break;
@@ -539,98 +485,73 @@ int EV_BuildStairs(line_t* line, stair_e type)
 
 void T_MoveSplitPlane(splitmove_t *split)
 {
-    sector_t *sector	= split->sector;
-    fixed_t lastceilpos = 0;
-    fixed_t lastflrpos	= 0;
-    dboolean cdone		= false;
-    dboolean fdone		= false;
-    plane_t* fp;
-    plane_t* cp;
-    
-    fp = &sector->floorplane;
-    cp = &sector->ceilingplane;
-    
-    //
-    // DOWN
-    //
-    if(split->ceildir == -1)
-    {
-        lastceilpos = cp->d;
-        M_MovePlane(cp, -(2*FRACUNIT));
-        
-        if(cp->d <= split->ceildest)
-        {
-            cp->d = split->ceildest;
-            cdone = true;
-        }
-        else
-            sector->ceilingheight += M_DiffPlaneHeight(cp, lastceilpos);
-    }
-    //
-    // UP
-    //
-    else
-    {
-        lastceilpos = cp->d;
-        M_MovePlane(cp, (2*FRACUNIT));
-        
-        if(cp->d >= split->ceildest)
-        {
-            cp->d = split->ceildest;
-            cdone = true;
-        }
-        else
-            sector->ceilingheight += M_DiffPlaneHeight(cp, lastceilpos);
-    }
-    
-    //
-    // DOWN
-    //
-    if(split->flrdir == -1)
-    {
-        lastflrpos = fp->d;
-        M_MovePlane(fp, -(2*FRACUNIT));
-        
-        if(fp->d >= -split->flrdest)
-        {
-            fp->d = -split->flrdest;
-            fdone = true;
-        }
-        else
-            sector->floorheight += M_DiffPlaneHeight(fp, lastflrpos);
-    }
-    //
-    // UP
-    //
-    else
-    {
-        lastflrpos = fp->d;
-        M_MovePlane(fp, (2*FRACUNIT));
-        
-        if(fp->d <= -split->flrdest)
-        {
-            fp->d = -split->flrdest;
-            fdone = true;
-        }
-        else
-            sector->floorheight += M_DiffPlaneHeight(fp, lastflrpos);
-    }
-    
-    if(!P_ChangeSector(sector, false))
-    {
-        if(!cdone || !fdone)
-            return;
-        
-        P_RemoveThinker(&split->thinker);
-        sector->specialdata = NULL;
-        return;
-    }
-    else
-    {
-        cp->d = lastceilpos;
-        fp->d = lastflrpos;
-        P_ChangeSector(sector, false);
-    }
+	sector_t *sector	= split->sector;
+	fixed_t lastceilpos = 0;
+	fixed_t lastflrpos	= 0;
+	dboolean cdone		= false;
+	dboolean fdone		= false;
+
+	if(split->ceildir == -1)
+	{
+        lastceilpos = sector->ceilingheight;
+
+		sector->ceilingheight -= (2*FRACUNIT);
+		if(sector->ceilingheight <= split->ceildest)
+		{
+			sector->ceilingheight = split->ceildest;
+			cdone = true;
+		}
+	}
+	else
+	{
+        lastceilpos = sector->ceilingheight;
+
+		sector->ceilingheight += (2*FRACUNIT);
+		if(sector->ceilingheight >= split->ceildest)
+		{
+			sector->ceilingheight = split->ceildest;
+			cdone = true;
+		}
+	}
+
+	if(split->flrdir == -1)
+	{
+        lastflrpos = sector->floorheight;
+
+		sector->floorheight -= (2*FRACUNIT);
+		if(sector->floorheight <= split->flrdest)
+		{
+			sector->floorheight = split->flrdest;
+			fdone = true;
+		}
+	}
+	else
+	{
+        lastflrpos = sector->floorheight;
+
+		sector->floorheight += (2*FRACUNIT);
+		if(sector->floorheight >= split->flrdest)
+		{
+			sector->floorheight = split->flrdest;
+			fdone = true;
+		}
+	}
+
+	if(!P_ChangeSector(sector, false))
+	{
+		if(!cdone || !fdone)
+			return;
+
+		P_RemoveThinker(&split->thinker);
+		sector->specialdata = NULL;
+		return;
+	}
+	else
+	{
+		sector->ceilingheight = lastceilpos;
+		sector->floorheight = lastflrpos;
+		P_ChangeSector(sector, false);
+	}
 }
 
 //

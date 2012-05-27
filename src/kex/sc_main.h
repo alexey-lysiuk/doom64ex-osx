@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: sc_main.h 875 2011-07-04 23:37:26Z svkaiser $
+// $Id: sc_main.h 1042 2012-01-27 04:46:46Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -48,7 +48,7 @@ extern scparser_t sc_parser;
 typedef struct
 {
     char*   token;
-    int     ptroffset;
+    int64   ptroffset;
     char    type;
 } scdatatable_t;
 

@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: r_lights.c 838 2011-02-14 04:48:08Z svkaiser $
+// $Id: r_lights.c 1059 2012-02-24 04:34:01Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,14 +15,14 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 838 $
-// $Date: 2011-02-14 06:48:08 +0200 (пн, 14 лют 2011) $
+// $Revision: 1059 $
+// $Date: 2012-02-24 06:34:01 +0200 (пт, 24 лют 2012) $
 //
 // DESCRIPTION: Light rendering/blending functions
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
-static const char rcsid[] = "$Id: r_lights.c 838 2011-02-14 04:48:08Z svkaiser $";
+static const char rcsid[] = "$Id: r_lights.c 1059 2012-02-24 04:34:01Z svkaiser $";
 #endif
 
 #include <math.h>
@@ -34,6 +34,13 @@ static const char rcsid[] = "$Id: r_lights.c 838 2011-02-14 04:48:08Z svkaiser $
 #include "p_local.h"
 
 rcolor	bspColor[5];
+
+CVAR_CMD(i_brightness, 100)
+{
+    R_RefreshBrightness();
+}
+
+CVAR_EXTERNAL(r_texturecombiner);
 
 //
 // R_GetSlopeLight

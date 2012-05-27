@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: v_sdl.h 947 2011-08-24 01:25:17Z svkaiser $
+// $Id: v_sdl.h 1077 2012-03-05 18:26:15Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -34,9 +34,10 @@ void V_Init(void);
 void V_InitGL(void);
 void V_NetWaitScreen(void);
 void V_Shutdown(void);
-void V_ShutdownWait(void);
 void V_StartTic (void);
 void V_FinishUpdate(void);
+
+int V_ShutdownWait(void);
 
 ////////////Input//////////////
 
@@ -46,5 +47,7 @@ extern int	UseJoystick;
 void V_InitInputs(void);
 int V_MouseAccel(int val);
 void V_MouseAccelChange(void);
+
+void V_RegisterCvars(void);
 
 #endif

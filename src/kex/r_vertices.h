@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: r_vertices.h 1027 2012-01-07 22:31:29Z svkaiser $
+// $Id: r_vertices.h 1048 2012-02-13 04:08:26Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -40,7 +40,6 @@ typedef enum
     DLT_FLAT,
     DLT_SPRITE,
     DLT_AMAP,
-    DLT_TWALL,
     NUMDRAWLISTS
 } drawlisttag_e;
 

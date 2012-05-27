@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: d_devstat.c 886 2011-07-31 08:02:07Z svkaiser $
+// $Id: d_devstat.c 1092 2012-03-20 06:20:48Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -15,14 +15,14 @@
 // for more details.
 //
 // $Author: svkaiser $
-// $Revision: 886 $
-// $Date: 2011-07-31 11:02:07 +0300 (нд, 31 лип 2011) $
+// $Revision: 1092 $
+// $Date: 2012-03-20 08:20:48 +0200 (вт, 20 бер 2012) $
 //
 // DESCRIPTION: Developer stuff
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
-static const char rcsid[] = "$Id: d_devstat.c 886 2011-07-31 08:02:07Z svkaiser $";
+static const char rcsid[] = "$Id: d_devstat.c 1092 2012-03-20 06:20:48Z svkaiser $";
 #endif
 
 #include <stdlib.h>
@@ -40,6 +40,10 @@ static const char rcsid[] = "$Id: d_devstat.c 886 2011-07-31 08:02:07Z svkaiser 
 static dboolean showstats = true;
 
 extern word statindice;
+
+CVAR_EXTERNAL(v_mlook);
+CVAR_EXTERNAL(v_mlookinvert);
+CVAR_EXTERNAL(sv_lockmonsters);
 
 //
 // ST_DrawFPS
@@ -125,6 +129,9 @@ void D_DeveloperDisplay(void)
     M_DrawText(0, y, WHITE, 0.35f, false, "Zone PU_LEVSPEC Usage: %5d kb", Z_TagUsage(PU_LEVSPEC) >> 10);
     y+=16;
 
+    M_DrawText(0, y, WHITE, 0.35f, false, "Zone PU_AUTO Usage: %8d kb", Z_TagUsage(PU_AUTO) >> 10);
+    y+=16;
+
 	if(gamestate == GS_LEVEL)
 	{
 		ST_DrawFPS(y);
@@ -171,7 +178,7 @@ void D_DeveloperDisplay(void)
 		M_DrawText(0, y, WHITE, 0.35f, false, "Sprite Render Time: %ims", spriteRenderTic);
 		y+=16;
 
-		M_DrawText(0, y, WHITE, 0.35f, false, "Draw List Size: %fkb", (float)drawListSize / 1000000.0f);
+		M_DrawText(0, y, WHITE, 0.35f, false, "Draw List Size: %fkb", (float)drawListSize / 1000000.0);
 		y+=16;
 	}
 

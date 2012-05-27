@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
-// $Id: p_setup.h 875 2011-07-04 23:37:26Z svkaiser $
+// $Id: p_setup.h 1043 2012-02-03 20:26:29Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -34,6 +34,8 @@ void P_SetupLevel(int map, int playermask, skill_t skill);
 
 // Called by startup code.
 void P_Init (void);
+
+void P_RegisterCvars(void);
 
 //
 // [kex] mapinfo

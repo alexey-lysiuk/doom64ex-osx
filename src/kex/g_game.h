@@ -1,7 +1,7 @@
 // Emacs style mode select   -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: g_game.h 850 2011-03-15 18:51:29Z svkaiser $
+// $Id: g_game.h 1043 2012-02-03 20:26:29Z svkaiser $
 //
 // Copyright (C) 1993-1996 by id Software, Inc.
 //
@@ -49,6 +49,7 @@ void G_Ticker(void);
 void G_ScreenShot(void);
 void G_RunTitleMap(void);
 void G_RunGame(void);
+void G_RegisterCvars(void);
 
 dboolean G_CheckDemoStatus(void);
 dboolean G_Responder(event_t* ev);
