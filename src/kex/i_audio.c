@@ -58,6 +58,8 @@ CVAR(s_soundfont, DOOMSND.SF2);
 // 20120203 villsa - cvar for audio driver
 #ifdef _WIN32
 CVAR_CMD(s_driver, dsound)
+#elif defined __APPLE__
+CVAR_CMD(s_driver, coreaudio)
 #else
 CVAR_CMD(s_driver, alsa)
 #endif
