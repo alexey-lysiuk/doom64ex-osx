@@ -1,27 +1,31 @@
-// Emacs style mode select   -*- C++ -*-
+// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
-// $Id: r_vertices.h 1048 2012-02-13 04:08:26Z svkaiser $
+// Copyright(C) 2007-2012 Samuel Villarreal
 //
-// Copyright (C) 1993-1996 by id Software, Inc.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
 //
-// This source is available for distribution and/or modification
-// only under the terms of the DOOM Source Code License as
-// published by id Software. All rights reserved.
-//
-// The source is distributed in the hope that it will be useful,
+// This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// FITNESS FOR A PARTICULAR PURPOSE. See the DOOM Source Code License
-// for more details.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 //
-//---------------------------------------------------------------------
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+// 02111-1307, USA.
+//
+//-----------------------------------------------------------------------------
 
-#ifndef _R_VERTICES_H_
-#define _R_VERTICES_H_
+#ifndef _R_DRAWLIST_H_
+#define _R_DRAWLIST_H_
 
 #include "doomtype.h"
 #include "doomdef.h"
-#include "r_gl.h"
+#include "gl_main.h"
 #include "r_things.h"
 
 typedef enum
@@ -46,10 +50,10 @@ typedef enum
 typedef struct
 {
     void        *data;
-    dboolean    (*drawfunc)(void*, vtx_t*);
+    dboolean    (*callback)(void*, vtx_t*);
     dtexture    texid;
     int         flags;
-    int         glowvalue;
+    int         params;
 } vtxlist_t;
 
 typedef struct
@@ -61,8 +65,6 @@ typedef struct
 
 extern drawlist_t drawlist[NUMDRAWLISTS];
 
-int qsort_CompareDL(const void *a, const void *b);
-
 #define MAXDLDRAWCOUNT  0x10000
 vtx_t drawVertex[MAXDLDRAWCOUNT];
 
@@ -70,10 +72,8 @@ dboolean DL_ProcessWalls(vtxlist_t* vl, int* drawcount);
 dboolean DL_ProcessLeafs(vtxlist_t* vl, int* drawcount);
 dboolean DL_ProcessSprites(vtxlist_t* vl, int* drawcount);
 
-void DL_PushVertex(drawlist_t *dl);
-void DL_PushSprite(drawlist_t *dl, visspritelist_t *vis, int texid);
-void DL_PushSeg(drawlist_t *dl, seg_t *line, int texid, int sidetype);
-void DL_PushLeaf(drawlist_t *dl, subsector_t *sub, int texid);
+vtxlist_t *DL_AddVertexList(drawlist_t *dl);
+int DL_GetDrawListSize(int tag);
 void DL_BeginDrawList(dboolean t, dboolean a);
 void DL_ProcessDrawList(int tag, dboolean (*procfunc)(vtxlist_t*, int*));
 void DL_RenderDrawList(void);

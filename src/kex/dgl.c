@@ -1,34 +1,34 @@
-// Emacs style mode select	 -*- C++ -*-
+// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
-// $Id: dgl.c 1055 2012-02-19 21:21:21Z svkaiser $
+// Copyright(C) 2007-2012 Samuel Villarreal
 //
-// Copyright (C) 1993-1996 by id Software, Inc.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
 //
-// This source is available for distribution and/or modification
-// only under the terms of the DOOM Source Code License as
-// published by id Software. All rights reserved.
-//
-// The source is distributed in the hope that it will be useful,
+// This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// FITNESS FOR A PARTICULAR PURPOSE. See the DOOM Source Code License
-// for more details.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 //
-// $Author: svkaiser $
-// $Revision: 1055 $
-// $Date: 2012-02-19 23:21:21 +0200 (нд, 19 лют 2012) $
-//
-// DESCRIPTION: Utility functions for rendering
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+// 02111-1307, USA.
 //
 //-----------------------------------------------------------------------------
-#ifdef RCSID
-static const char rcsid[] = "$Id: dgl.c 1055 2012-02-19 21:21:21Z svkaiser $";
-#endif
+//
+// DESCRIPTION: Inlined OpenGL-exclusive functions
+//
+//-----------------------------------------------------------------------------
 
 #include "SDL_opengl.h"
 #include "doomdef.h"
 #include "doomstat.h"
-#include "r_gl.h"
+#include "gl_main.h"
+#include "gl_texture.h"
 #include "con_console.h"
 #include "i_system.h"
 
@@ -88,14 +88,24 @@ void dglLogError(const char *message, const char *file, int line)
 // dglSetVertex
 //
 
+static vtx_t *dgl_prevptr = NULL;
+
 d_inline void dglSetVertex(vtx_t *vtx)
 {
 #ifdef LOG_GLFUNC_CALLS
     I_Printf("dglSetVertex(vtx=0x%p)\n", vtx);
 #endif
+
+    // 20120623 villsa - avoid redundant calls by checking for
+    // the previous pointer that was set
+    if(dgl_prevptr == vtx)
+        return;
+
     dglTexCoordPointer(2, GL_FLOAT, sizeof(vtx_t), &vtx->tu);
     dglVertexPointer(3, GL_FLOAT, sizeof(vtx_t), vtx);
     dglColorPointer(4, GL_UNSIGNED_BYTE, sizeof(vtx_t), &vtx->r);
+
+    dgl_prevptr = vtx;
 }
 
 //
@@ -261,10 +271,10 @@ d_inline void dglTexCombReplace(void)
 #ifdef LOG_GLFUNC_CALLS
     I_Printf("dglTexCombReplace\n");
 #endif
-    dglTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE_ARB);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_RGB, GL_REPLACE);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_RGB, GL_TEXTURE);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_OPERAND0_RGB, GL_SRC_COLOR);
+    GL_SetTextureMode(GL_COMBINE_ARB);
+    GL_SetCombineState(GL_REPLACE);
+    GL_SetCombineSourceRGB(0, GL_TEXTURE);
+    GL_SetCombineOperandRGB(0, GL_SRC_COLOR);
 }
 
 //
@@ -278,13 +288,13 @@ d_inline void dglTexCombColor(int t, rcolor c, int func)
     I_Printf("dglTexCombColor(t=0x%x, c=0x%x)\n", t, c);
 #endif
     dglGetColorf(c, f);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE_ARB);
-    dglTexEnvfv(GL_TEXTURE_ENV, GL_TEXTURE_ENV_COLOR, f);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_RGB, func);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_RGB, t);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_OPERAND0_RGB, GL_SRC_COLOR);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_SOURCE1_RGB, GL_CONSTANT);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_OPERAND1_RGB, GL_SRC_COLOR);
+    GL_SetTextureMode(GL_COMBINE_ARB);
+    GL_SetEnvColor(f);
+    GL_SetCombineState(func);
+    GL_SetCombineSourceRGB(0, t);
+    GL_SetCombineOperandRGB(0, GL_SRC_COLOR);
+    GL_SetCombineSourceRGB(1, GL_CONSTANT);
+    GL_SetCombineOperandRGB(1, GL_SRC_COLOR);
 }
 
 //
@@ -296,13 +306,13 @@ d_inline void dglTexCombColorf(int t, float* f, int func)
 #ifdef LOG_GLFUNC_CALLS
     I_Printf("dglTexCombColorf(t=0x%x, f=%p)\n", t, f);
 #endif
-    dglTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE_ARB);
-    dglTexEnvfv(GL_TEXTURE_ENV, GL_TEXTURE_ENV_COLOR, f);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_RGB, func);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_RGB, t);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_OPERAND0_RGB, GL_SRC_COLOR);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_SOURCE1_RGB, GL_CONSTANT);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_OPERAND1_RGB, GL_SRC_COLOR);
+    GL_SetTextureMode(GL_COMBINE_ARB);
+    GL_SetEnvColor(f);
+    GL_SetCombineState(func);
+    GL_SetCombineSourceRGB(0, t);
+    GL_SetCombineOperandRGB(0, GL_SRC_COLOR);
+    GL_SetCombineSourceRGB(1, GL_CONSTANT);
+    GL_SetCombineOperandRGB(1, GL_SRC_COLOR);
 }
 
 //
@@ -314,12 +324,12 @@ d_inline void dglTexCombModulate(int t, int s)
 #ifdef LOG_GLFUNC_CALLS
     I_Printf("dglTexCombFinalize(t=0x%x)\n", t);
 #endif
-    dglTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE_ARB);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_RGB, GL_MODULATE);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_RGB, t);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_OPERAND0_RGB, GL_SRC_COLOR);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_SOURCE1_RGB, s);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_OPERAND1_RGB, GL_SRC_COLOR);
+    GL_SetTextureMode(GL_COMBINE_ARB);
+    GL_SetCombineState(GL_MODULATE);
+    GL_SetCombineSourceRGB(0, t);
+    GL_SetCombineOperandRGB(0, GL_SRC_COLOR);
+    GL_SetCombineSourceRGB(1, s);
+    GL_SetCombineOperandRGB(1, GL_SRC_COLOR);
 }
 
 //
@@ -331,12 +341,12 @@ d_inline void dglTexCombAdd(int t, int s)
 #ifdef LOG_GLFUNC_CALLS
     I_Printf("dglTexCombFinalize(t=0x%x)\n", t);
 #endif
-    dglTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE_ARB);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_RGB, GL_ADD);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_RGB, t);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_OPERAND0_RGB, GL_SRC_COLOR);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_SOURCE1_RGB, s);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_OPERAND1_RGB, GL_SRC_COLOR);
+    GL_SetTextureMode(GL_COMBINE_ARB);
+    GL_SetCombineState(GL_ADD);
+    GL_SetCombineSourceRGB(0, t);
+    GL_SetCombineOperandRGB(0, GL_SRC_COLOR);
+    GL_SetCombineSourceRGB(1, s);
+    GL_SetCombineOperandRGB(1, GL_SRC_COLOR);
 }
 
 //
@@ -352,15 +362,15 @@ d_inline void dglTexCombInterpolate(int t, float a)
     f[0] = f[1] = f[2] = 0.0f;
     f[3] = a;
 
-    dglTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE_ARB);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_RGB, GL_INTERPOLATE);
-    dglTexEnvfv(GL_TEXTURE_ENV, GL_TEXTURE_ENV_COLOR, f);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_RGB, GL_TEXTURE);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_OPERAND0_RGB, GL_SRC_COLOR);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_SOURCE1_RGB, t);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_OPERAND1_RGB, GL_SRC_COLOR);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_SOURCE2_RGB, GL_CONSTANT);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_OPERAND2_RGB, GL_SRC_ALPHA);
+    GL_SetTextureMode(GL_COMBINE_ARB);
+    GL_SetCombineState(GL_INTERPOLATE);
+    GL_SetEnvColor(f);
+    GL_SetCombineSourceRGB(0, GL_TEXTURE);
+    GL_SetCombineOperandRGB(0, GL_SRC_COLOR);
+    GL_SetCombineSourceRGB(1, t);
+    GL_SetCombineOperandRGB(1, GL_SRC_COLOR);
+    GL_SetCombineSourceRGB(2, GL_CONSTANT);
+    GL_SetCombineOperandRGB(2, GL_SRC_ALPHA);
 }
 
 //
@@ -372,11 +382,11 @@ d_inline void dglTexCombReplaceAlpha(int t)
 #ifdef LOG_GLFUNC_CALLS
     I_Printf("dglTexCombReplaceAlpha(t=0x%x)\n", t);
 #endif
-    dglTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE_ARB);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_ALPHA, GL_MODULATE);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_ALPHA, t);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_OPERAND0_ALPHA, GL_SRC_ALPHA);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_SOURCE1_ALPHA, GL_PRIMARY_COLOR);
-    dglTexEnvi(GL_TEXTURE_ENV, GL_OPERAND1_ALPHA, GL_SRC_ALPHA);
+    GL_SetTextureMode(GL_COMBINE_ARB);
+    GL_SetCombineStateAlpha(GL_MODULATE);
+    GL_SetCombineSourceAlpha(0, t);
+    GL_SetCombineOperandAlpha(0, GL_SRC_ALPHA);
+    GL_SetCombineSourceAlpha(1, GL_PRIMARY_COLOR);
+    GL_SetCombineOperandAlpha(1, GL_SRC_ALPHA);
 }
 

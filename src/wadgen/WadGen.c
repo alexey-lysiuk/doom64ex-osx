@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: WadGen.c 1097 2012-04-01 22:24:04Z svkaiser $
+// $Id: WadGen.c 1185 2012-07-16 07:03:01Z svkaiser $
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -18,14 +18,14 @@
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
 // $Author: svkaiser $
-// $Revision: 1097 $
-// $Date: 2012-04-02 01:24:04 +0300 (пн, 02 кві 2012) $
+// $Revision: 1185 $
+// $Date: 2012-07-16 10:03:01 +0300 (пн, 16 лип 2012) $
 //
 // DESCRIPTION: Global stuff and main application functions
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
-static const char rcsid[] = "$Id: WadGen.c 1097 2012-04-01 22:24:04Z svkaiser $";
+static const char rcsid[] = "$Id: WadGen.c 1185 2012-07-16 07:03:01Z svkaiser $";
 #endif
 
 #include "WadGen.h"
@@ -201,6 +201,7 @@ void WGen_Process(void)
     WGen_AddLumpFile("CRSHAIRS.PNG");
     WGen_AddLumpFile("BUTTONS.PNG");
     WGen_AddLumpFile("CONFONT.PNG");
+    WGen_AddLumpFile("CURSOR.PNG");
     
     Wad_AddOutputLump("G_END", 0, NULL);
     

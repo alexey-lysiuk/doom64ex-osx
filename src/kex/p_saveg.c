@@ -1,31 +1,31 @@
-// Emacs style mode select   -*- C++ -*-
+// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
-// $Id: p_saveg.c 1091 2012-03-17 23:58:49Z svkaiser $
+// Copyright(C) 1993-1997 Id Software, Inc.
+// Copyright(C) 2005 Simon Howard
+// Copyright(C) 2007-2012 Samuel Villarreal
 //
-// Copyright (C) 1993-1996 by id Software, Inc.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
 //
-// This source is available for distribution and/or modification
-// only under the terms of the DOOM Source Code License as
-// published by id Software. All rights reserved.
-//
-// The source is distributed in the hope that it will be useful,
+// This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// FITNESS FOR A PARTICULAR PURPOSE. See the DOOM Source Code License
-// for more details.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 //
-// $Author: svkaiser $
-// $Revision: 1091 $
-// $Date: 2012-03-18 01:58:49 +0200 (нд, 18 бер 2012) $
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+// 02111-1307, USA.
+//
+//-----------------------------------------------------------------------------
 //
 // DESCRIPTION:
 //	Archiving: SaveGame I/O.
 //
 //-----------------------------------------------------------------------------
-#ifdef RCSID
-static const char
-rcsid[] = "$Id: p_saveg.c 1091 2012-03-17 23:58:49Z svkaiser $";
-#endif
 
 #include <time.h> // [kex] - for saving the date and time
 
@@ -659,11 +659,9 @@ static void saveg_write_vldoor_t(vldoor_t* door)
     saveg_write32(door->bottomheight);
     saveg_write32(door->speed);
     saveg_write32(door->initceiling);
-    saveg_write32(door->initfloor);
     saveg_write32(door->direction);
     saveg_write32(door->topwait);
     saveg_write32(door->topcountdown);
-    saveg_write32(door->split);
 }
 
 static void saveg_read_vldoor_t(vldoor_t* door)
@@ -674,11 +672,9 @@ static void saveg_read_vldoor_t(vldoor_t* door)
     door->bottomheight  = saveg_read32();
     door->speed         = saveg_read32();
     door->initceiling   = saveg_read32();
-    door->initfloor     = saveg_read32();
     door->direction     = saveg_read32();
     door->topwait       = saveg_read32();
     door->topcountdown  = saveg_read32();
-    door->split         = saveg_read32();
 
     door->sector->specialdata = door;
 }
@@ -1082,7 +1078,7 @@ static void saveg_write_laserthinker_t(laserthinker_t* laserthinker)
 
 static void saveg_read_laserthinker_t(laserthinker_t* laserthinker)
 {
-    laser_t* l;
+    laser_t* l = NULL;
     int next;
     dboolean head = true;
 

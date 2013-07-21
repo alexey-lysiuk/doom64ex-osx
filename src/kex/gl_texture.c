@@ -1,29 +1,28 @@
-// Emacs style mode select	 -*- C++ -*-
+// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
-// $Id: r_texture.c 1100 2012-04-08 19:17:31Z svkaiser $
+// Copyright(C) 2007-2012 Samuel Villarreal
 //
-// Copyright (C) 1993-1996 by id Software, Inc.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
 //
-// This source is available for distribution and/or modification
-// only under the terms of the DOOM Source Code License as
-// published by id Software. All rights reserved.
-//
-// The source is distributed in the hope that it will be useful,
+// This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// FITNESS FOR A PARTICULAR PURPOSE. See the DOOM Source Code License
-// for more details.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 //
-// $Author: svkaiser $
-// $Revision: 1100 $
-// $Date: 2012-04-08 22:17:31 +0300 (нд, 08 кві 2012) $
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+// 02111-1307, USA.
+//
+//-----------------------------------------------------------------------------
 //
 // DESCRIPTION: Texture handling
 //
 //-----------------------------------------------------------------------------
-#ifdef RCSID
-static const char rcsid[] = "$Id: r_texture.c 1100 2012-04-08 19:17:31Z svkaiser $";
-#endif
 
 #include "doomstat.h"
 #include "r_local.h"
@@ -31,10 +30,14 @@ static const char rcsid[] = "$Id: r_texture.c 1100 2012-04-08 19:17:31Z svkaiser
 #include "i_system.h"
 #include "w_wad.h"
 #include "z_zone.h"
-#include "r_texture.h"
-#include "r_gl.h"
+#include "gl_texture.h"
+#include "gl_main.h"
 #include "p_spec.h"
 #include "p_local.h"
+#include "con_console.h"
+#include "g_actions.h"
+
+#define GL_MAX_TEX_UNITS    4
 
 int         curtexture;
 int         cursprite;
@@ -53,9 +56,6 @@ word*       textureheight;
 word*       texturetranslation;
 word*       palettetranslation;
 
-int         MinTextureSize;
-int         MaxTextureSize;
-
 // gfx textures
 
 int         g_start;
@@ -63,7 +63,9 @@ int         g_end;
 int         numgfx;
 dtexture*   gfxptr;
 word*       gfxwidth;
+word*       gfxorigwidth;
 word*       gfxheight;
+word*       gfxorigheight;
 
 // sprite textures
 
@@ -77,14 +79,56 @@ float*      spritetopoffset;
 word*       spriteheight;
 word*       spritecount;
 
+typedef struct
+{
+    int mode;
+    int combine_rgb;
+    int combine_alpha;
+    int source_rgb[3];
+    int source_alpha[3];
+    int operand_rgb[3];
+    int operand_alpha[3];
+    float color[4];
+} gl_env_state_t;
+
+static gl_env_state_t gl_env_state[GL_MAX_TEX_UNITS];
+static int curunit = -1;
+
 CVAR_EXTERNAL(r_texnonpowresize);
 CVAR_EXTERNAL(r_fillmode);
+CVAR_CMD(r_texturecombiner, 1)
+{
+    int i;
+
+    curunit = -1;
+
+    for(i = 0; i < GL_MAX_TEX_UNITS; i++)
+        dmemset(&gl_env_state[i], 0, sizeof(gl_env_state_t));
+}
 
 //
-// R_InitWorldTextures
+// CMD_DumpTextures
 //
 
-void R_InitWorldTextures(void)
+static CMD(DumpTextures)
+{
+    GL_DumpTextures();
+}
+
+//
+// CMD_ResetTextures
+//
+
+static CMD(ResetTextures)
+{
+    GL_ResetTextures();
+}
+
+//
+// InitWorldTextures
+//
+
+static void InitWorldTextures(void)
 {
     int i = 0;
     
@@ -123,13 +167,15 @@ void R_InitWorldTextures(void)
         
         Z_Free(png);
     }
+
+    CON_DPrintf("%i world textures initialized\n", numtextures);
 }
 
 //
-// R_BindWorldTexture
+// GL_BindWorldTexture
 //
 
-void R_BindWorldTexture(int texnum, int *width, int *height)
+void GL_BindWorldTexture(int texnum, int *width, int *height)
 {
     byte *png;
     int w;
@@ -172,8 +218,8 @@ void R_BindWorldTexture(int texnum, int *width, int *height)
     dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
     dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     
-    R_GLCheckFillMode();
-    R_GLSetFilter();
+    GL_CheckFillMode();
+    GL_SetTextureFilter();
     
     // update global width and heights
     texturewidth[texnum] = w;
@@ -190,10 +236,10 @@ void R_BindWorldTexture(int texnum, int *width, int *height)
 }
 
 //
-// R_SetNewPalette
+// GL_SetNewPalette
 //
 
-void R_SetNewPalette(int id, byte palID)
+void GL_SetNewPalette(int id, byte palID)
 {
     palettetranslation[id] = palID;
     /*if(textureptr[id])
@@ -204,19 +250,92 @@ void R_SetNewPalette(int id, byte palID)
 }
 
 //
-// R_InitGfxTextures
+// SetTextureImage
 //
 
-void R_InitGfxTextures(void)
+static void SetTextureImage(byte* data, int bits, int *origwidth, int *origheight, int format, int type)
+{
+    if(r_texnonpowresize.value > 0)
+    {
+        byte* pad;
+        int wp;
+        int hp;
+
+        // pad the width and heights
+        wp = GL_PadTextureDims(*origwidth);
+        hp = GL_PadTextureDims(*origheight);
+        
+        pad = Z_Calloc(wp * hp * bits, PU_STATIC, 0);
+
+        if(r_texnonpowresize.value >= 2)
+        {
+            // this will probably look like crap
+            gluScaleImage(type, *origwidth, *origheight,
+                GL_UNSIGNED_BYTE, data, wp, hp, GL_UNSIGNED_BYTE, pad);
+        }
+        else
+        {
+            int y;
+
+            for(y = 0; y < *origheight; y++)          
+            {
+                dmemcpy(pad + y * wp * bits,
+                    ((byte*)data) + y * *origwidth * bits, *origwidth * bits);
+            }
+
+            *origwidth = wp;
+            *origheight = hp;
+        }
+
+        dglTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            format,
+            wp,
+            hp,
+            0,
+            type,
+            GL_UNSIGNED_BYTE,
+            pad
+            );
+
+        Z_Free(pad);
+    }
+    else
+    {
+        dglTexImage2D(
+        GL_TEXTURE_2D,
+        0,
+        format,
+        *origwidth,
+        *origheight,
+        0,
+        type,
+        GL_UNSIGNED_BYTE,
+        data
+        );
+    }
+
+    GL_CheckFillMode();
+    GL_SetTextureFilter();
+}
+
+//
+// InitGfxTextures
+//
+
+static void InitGfxTextures(void)
 {
     int i = 0;
     
-    g_start     = W_GetNumForName("G_START") + 1;
-    g_end       = W_GetNumForName("G_END") - 1;
-    numgfx      = (g_end - g_start) + 1;
-    gfxptr      = Z_Calloc(numgfx * sizeof(dtexture), PU_STATIC, NULL);
-    gfxwidth    = Z_Calloc(numgfx * sizeof(short), PU_STATIC, NULL);
-    gfxheight   = Z_Calloc(numgfx * sizeof(short), PU_STATIC, NULL);
+    g_start         = W_GetNumForName("G_START") + 1;
+    g_end           = W_GetNumForName("G_END") - 1;
+    numgfx          = (g_end - g_start) + 1;
+    gfxptr          = Z_Calloc(numgfx * sizeof(dtexture), PU_STATIC, NULL);
+    gfxwidth        = Z_Calloc(numgfx * sizeof(short), PU_STATIC, NULL);
+    gfxorigwidth    = Z_Calloc(numgfx * sizeof(short), PU_STATIC, NULL);
+    gfxheight       = Z_Calloc(numgfx * sizeof(short), PU_STATIC, NULL);
+    gfxorigheight   = Z_Calloc(numgfx * sizeof(short), PU_STATIC, NULL);
     
     for(i = 0; i < numgfx; i++)
     {
@@ -228,26 +347,27 @@ void R_InitGfxTextures(void)
         
         gfxptr[i] = 0;
         gfxwidth[i] = w;
+        gfxorigwidth[i] = w;
+        gfxorigheight[i] = h;
         gfxheight[i] = h;
         
         Z_Free(png);
     }
+
+    CON_DPrintf("%i generic textures initialized\n", numgfx);
 }
 
 //
-// R_BindGfxTexture
+// GL_BindGfxTexture
 //
 
-int R_BindGfxTexture(const char* name, dboolean alpha)
+int GL_BindGfxTexture(const char* name, dboolean alpha)
 {
     byte* png;
-    byte* pngp;
     dboolean npot;
     int lump;
     int width;
     int height;
-    int wp;
-    int hp;
     int format;
     int type;
     int gfxid;
@@ -276,75 +396,34 @@ int R_BindGfxTexture(const char* name, dboolean alpha)
     if(!npot && r_texnonpowresize.value <= 0)
         CON_CvarSetValue(r_texnonpowresize.name, 1.0f);
     
-    if(r_texnonpowresize.value > 0)
-    {
-        const byte bits = (alpha ? 4 : 3);
-
-        npot = false;
-
-        // pad the width and heights
-        wp = R_PadTextureDims(width);
-        hp = R_PadTextureDims(height);
-        
-        pngp = Z_Calloc(wp * hp * bits, PU_STATIC, 0);
-
-        if(r_texnonpowresize.value >= 2)
-        {
-            // this will probably look like crap
-            gluScaleImage(alpha ? GL_RGBA : GL_RGB, width, height,
-                GL_UNSIGNED_BYTE, png, wp, hp, GL_UNSIGNED_BYTE, pngp);
-        }
-        else
-        {
-            int y;
-
-            for(y = 0; y < height; y++)          
-            {
-                dmemcpy(pngp + y * wp * bits,
-                    ((byte*)png) + y * width * bits, width * bits);
-            }
-
-            width = wp;
-            height = hp;
-        }
-    }
-    
     dglGenTextures(1, &gfxptr[gfxid]);
     dglBindTexture(GL_TEXTURE_2D, gfxptr[gfxid]);
     
     // if alpha is specified, setup the format for only RGBA pixels (4 bytes) per pixel
     format = alpha ? GL_RGBA8 : GL_RGB8;
     type = alpha ? GL_RGBA : GL_RGB;
-    
-    if(!npot)
-        dglTexImage2D(GL_TEXTURE_2D, 0, format, wp, hp, 0, type, GL_UNSIGNED_BYTE, pngp);
-    else
-        dglTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, type, GL_UNSIGNED_BYTE, png);
-    
-    R_GLCheckFillMode();
-    R_GLSetFilter();
+
+    SetTextureImage(png, (alpha ? 4 : 3), &width, &height, format, type);
+    Z_Free(png);
     
     gfxwidth[gfxid] = width;
     gfxheight[gfxid] = height;
-    
-    Z_Free(png);
-    if(!npot)
-        Z_Free(pngp);
-    
+
     if(devparm) glBindCalls++;
     
     return gfxid;
 }
 
 //
-// R_InitSpriteTextures
+// InitSpriteTextures
 //
 
-void R_InitSpriteTextures(void)
+static void InitSpriteTextures(void)
 {
     int i = 0;
     int j = 0;
     int p = 0;
+    int palcnt = 0;
     int offset[2];
     
     s_start             = W_GetNumForName("S_START") + 1;
@@ -374,7 +453,10 @@ void R_InitSpriteTextures(void)
                 {
                     sprintf(palname, "PAL%s%i", sprnames[j], p);
                     if(W_CheckNumForName(palname) != -1)
+                    {
+                        palcnt++;
                         spritecount[i]++;
+                    }
                     else
                         break;
                 }
@@ -382,6 +464,9 @@ void R_InitSpriteTextures(void)
             }
         }
     }
+
+    CON_DPrintf("%i sprites initialized\n", numsprtex);
+    CON_DPrintf("%i external palettes initialized\n", palcnt);
     
     for(i = 0; i < numsprtex; i++)
     {
@@ -410,18 +495,15 @@ void R_InitSpriteTextures(void)
 }
 
 //
-// R_BindSpriteTexture
+// GL_BindSpriteTexture
 //
 
-void R_BindSpriteTexture(int spritenum, int pal)
+void GL_BindSpriteTexture(int spritenum, int pal)
 {
     byte* png;
-    byte* pngp;
     dboolean npot;
     int w;
     int h;
-    int wp;
-    int hp;
 
     if(r_fillmode.value <= 0)
         return;
@@ -454,65 +536,26 @@ void R_BindSpriteTexture(int spritenum, int pal)
     if(!npot && r_texnonpowresize.value <= 0)
         CON_CvarSetValue(r_texnonpowresize.name, 1.0f);
     
-    if(r_texnonpowresize.value > 0)
-    {
-        npot = false;
-
-        // pad the width and heights
-        wp = R_PadTextureDims(w);
-        hp = R_PadTextureDims(h);
-        
-        pngp = Z_Calloc(wp * hp * 4, PU_STATIC, 0);
-
-        if(r_texnonpowresize.value >= 2)
-        {
-            // this will probably look like crap
-            gluScaleImage(GL_RGBA, w, h, GL_UNSIGNED_BYTE, png, wp, hp, GL_UNSIGNED_BYTE, pngp);
-        }
-        else
-        {
-            int y;
-
-            for(y = 0; y < h; y++)          
-            {
-                dmemcpy(pngp + y * wp * 4,
-                    ((byte*)png) + y * w * 4, w * 4);
-            }
-
-            w = wp;
-            h = hp;
-        }
-    }
-
-    spritewidth[spritenum] = w;
-    spriteheight[spritenum] = h;
-    
     dglGenTextures(1, &spriteptr[spritenum][pal]);
     dglBindTexture(GL_TEXTURE_2D, spriteptr[spritenum][pal]);
 
     dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, DGL_CLAMP);
     dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, DGL_CLAMP);
-    
-    if(!npot)
-        dglTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, wp, hp, 0, GL_RGBA, GL_UNSIGNED_BYTE, pngp);
-    else
-        dglTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, png);
-    
-    R_GLCheckFillMode();
-    R_GLSetFilter();
-    
+
+    SetTextureImage(png, 4, &w, &h, GL_RGBA8, GL_RGBA);
     Z_Free(png);
-    if(!npot)
-        Z_Free(pngp);
+
+    spritewidth[spritenum] = w;
+    spriteheight[spritenum] = h;
     
     if(devparm) glBindCalls++;
 }
 
 //
-// R_CaptureScreen
+// GL_ScreenToTexture
 //
 
-dtexture R_ScreenToTexture(void)
+dtexture GL_ScreenToTexture(void)
 {
     dtexture id;
     int width;
@@ -528,8 +571,8 @@ dtexture R_ScreenToTexture(void)
     dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     
-    width = R_PadTextureDims(video_width);
-    height = R_PadTextureDims(video_height);
+    width = GL_PadTextureDims(video_width);
+    height = GL_PadTextureDims(video_height);
 
     dglTexImage2D(
         GL_TEXTURE_2D,
@@ -558,12 +601,12 @@ dtexture R_ScreenToTexture(void)
 }
 
 //
-// R_BindDummyTexture
+// GL_BindDummyTexture
 //
 
 static dtexture dummytexture = 0;
 
-void R_BindDummyTexture(void)
+void GL_BindDummyTexture(void)
 {
     if(dummytexture == 0)
     {
@@ -581,20 +624,20 @@ void R_BindDummyTexture(void)
         dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     
-        R_GLCheckFillMode();
-        R_GLSetFilter();
+        GL_CheckFillMode();
+        GL_SetTextureFilter();
     }
     else
         dglBindTexture(GL_TEXTURE_2D, dummytexture);
 }
 
 //
-// R_BindEnvTexture
+// GL_BindEnvTexture
 //
 
 static dtexture envtexture = 0;
 
-void R_BindEnvTexture(void)
+void GL_BindEnvTexture(void)
 {
     rcolor rgb[16];
 
@@ -611,20 +654,20 @@ void R_BindEnvTexture(void)
         dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
         dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     
-        R_GLCheckFillMode();
-        R_GLSetFilter();
+        GL_CheckFillMode();
+        GL_SetTextureFilter();
     }
     else
         dglBindTexture(GL_TEXTURE_2D, envtexture);
 }
 
 //
-// R_UpdateEnvTexture
+// GL_UpdateEnvTexture
 //
 
 static rcolor lastenvcolor = 0;
 
-void R_UpdateEnvTexture(rcolor color)
+void GL_UpdateEnvTexture(rcolor color)
 {
     rcolor env;
     rcolor rgb[16];
@@ -672,10 +715,10 @@ void R_UpdateEnvTexture(rcolor color)
 }
 
 //
-// R_UnloadTexture
+// GL_UnloadTexture
 //
 
-void R_UnloadTexture(dtexture* texture)
+void GL_UnloadTexture(dtexture* texture)
 {
     if(*texture != 0)
     {
@@ -685,13 +728,10 @@ void R_UnloadTexture(dtexture* texture)
 }
 
 //
-// R_SetTextureUnit
+// GL_SetTextureUnit
 //
 
-static int curunit = -1;
-static dboolean unitenabled[4];
-
-void R_SetTextureUnit(int unit, dboolean enable)
+void GL_SetTextureUnit(int unit, dboolean enable)
 {
     if(!has_GL_ARB_multitexture)
         return;
@@ -708,67 +748,181 @@ void R_SetTextureUnit(int unit, dboolean enable)
     curunit = unit;
 
     dglActiveTextureARB(GL_TEXTURE0_ARB + unit);
-
-    if(enable && !unitenabled[unit])
-    {
-        dglEnable(GL_TEXTURE_2D);
-        unitenabled[unit] = true;
-    }
-    else if(!enable && unitenabled[unit])
-    {
-        dglDisable(GL_TEXTURE_2D);
-        unitenabled[unit] = false;
-    }
+    GL_SetState(GLSTATE_TEXTURE0 + unit, enable);
 }
 
 //
-// R_SetTextureMode
+// GL_SetTextureMode
 //
 
-static int prevmode[4];
-
-void R_SetTextureMode(int mode)
+void GL_SetTextureMode(int mode)
 {
-    if(prevmode[curunit] == mode)
+    gl_env_state_t *state;
+
+    state = &gl_env_state[curunit];
+
+    if(state->mode == mode)
         return;
 
-    prevmode[curunit] = mode;
-
-    dglTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, mode);
+    state->mode = mode;
+    dglTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, state->mode);
 }
 
-CVAR_CMD(r_texturecombiner, 1)
+//
+// GL_SetCombineState
+//
+
+void GL_SetCombineState(int combine)
 {
-    int i;
+    gl_env_state_t *state;
 
-    curunit = -1;
+    state = &gl_env_state[curunit];
 
-    for(i = 0; i < 4; i++)
+    if(state->combine_rgb == combine)
+        return;
+
+    state->combine_rgb = combine;
+    dglTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_RGB, state->combine_rgb);
+}
+
+//
+// GL_SetCombineStateAlpha
+//
+
+void GL_SetCombineStateAlpha(int combine)
+{
+    gl_env_state_t *state;
+
+    state = &gl_env_state[curunit];
+
+    if(state->combine_alpha == combine)
+        return;
+
+    state->combine_alpha = combine;
+    dglTexEnvi(GL_TEXTURE_ENV, GL_COMBINE_ALPHA, state->combine_alpha);
+}
+
+//
+// GL_SetEnvColor
+//
+
+void GL_SetEnvColor(float* param)
+{
+    float* f = (float*)param;
+    gl_env_state_t *state = &gl_env_state[curunit];
+
+    if(f == NULL)
     {
-        unitenabled[i] = 0;
-        prevmode[i] = 0;
+        CON_Warnf("GL_SetEnvColor: passed in NULL for GL_TEXTURE_ENV_COLOR\n");
+        return;
     }
+
+    if(state->color[0] == f[0] &&
+        state->color[1] == f[1] &&
+        state->color[2] == f[2] &&
+        state->color[3] == f[3])
+        return;
+
+    state->color[0] = f[0];
+    state->color[1] = f[1];
+    state->color[2] = f[2];
+    state->color[3] = f[3];
+
+    dglTexEnvfv(GL_TEXTURE_ENV, GL_TEXTURE_ENV_COLOR, f);
 }
 
 //
-// R_InitTextures
+// GL_SetCombineSourceRGB
 //
 
-void R_InitTextures(void)
+void GL_SetCombineSourceRGB(int source, int target)
 {
-    R_InitWorldTextures();
-    R_InitGfxTextures();
-    R_InitSpriteTextures();
+    gl_env_state_t *state;
+
+    state = &gl_env_state[curunit];
+
+    if(state->source_rgb[source] == target)
+        return;
+
+    state->source_rgb[source] = target;
+    dglTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_RGB + source, state->source_rgb[source]);
 }
 
 //
-// R_PadTextureDims
+// GL_SetCombineSourceAlpha
+//
+
+void GL_SetCombineSourceAlpha(int source, int target)
+{
+    gl_env_state_t *state;
+
+    state = &gl_env_state[curunit];
+
+    if(state->source_alpha[source] == target)
+        return;
+
+    state->source_alpha[source] = target;
+    dglTexEnvi(GL_TEXTURE_ENV, GL_SOURCE0_ALPHA + source, state->source_alpha[source]);
+}
+
+//
+// GL_SetCombineOperandRGB
+//
+
+void GL_SetCombineOperandRGB(int operand, int target)
+{
+    gl_env_state_t *state;
+
+    state = &gl_env_state[curunit];
+
+    if(state->operand_rgb[operand] == target)
+        return;
+
+    state->operand_rgb[operand] = target;
+    dglTexEnvi(GL_TEXTURE_ENV, GL_OPERAND0_RGB + operand, state->operand_rgb[operand]);
+}
+
+//
+// GL_SetCombineOperandAlpha
+//
+
+void GL_SetCombineOperandAlpha(int operand, int target)
+{
+    gl_env_state_t *state;
+
+    state = &gl_env_state[curunit];
+
+    if(state->operand_alpha[operand] == target)
+        return;
+
+    state->operand_alpha[operand] = target;
+    dglTexEnvi(GL_TEXTURE_ENV, GL_OPERAND0_ALPHA + operand, state->operand_alpha[operand]);
+}
+
+//
+// GL_InitTextures
+//
+
+void GL_InitTextures(void)
+{
+    CON_DPrintf("--------Initializing textures--------\n");
+
+    InitWorldTextures();
+    InitGfxTextures();
+    InitSpriteTextures();
+
+    G_AddCommand("dumptextures", CMD_DumpTextures, 0);
+    G_AddCommand("resettextures", CMD_ResetTextures, 0);
+}
+
+//
+// GL_PadTextureDims
 //
 
 #define MAXTEXSIZE	2048
 #define MINTEXSIZE	1
 
-int R_PadTextureDims(int n)
+int GL_PadTextureDims(int n)
 {
     int mask = 1;
     
@@ -783,21 +937,11 @@ int R_PadTextureDims(int n)
 }
 
 //
-// R_CheckTextureSizeLimits
-//
-
-void R_CheckTextureSizeLimits(void)
-{
-    MinTextureSize = R_PadTextureDims(MinTextureSize);
-    MaxTextureSize = R_PadTextureDims(MaxTextureSize);
-}
-
-//
-// R_DumpTextures
+// GL_DumpTextures
 // Unbinds all textures from memory
 //
 
-void R_DumpTextures(void)
+void GL_DumpTextures(void)
 {
     int	i;
     int j;
@@ -805,7 +949,7 @@ void R_DumpTextures(void)
     
     for(i = 0; i < numtextures; i++)
     {
-        R_UnloadTexture(&textureptr[i][0]);
+        GL_UnloadTexture(&textureptr[i][0]);
         
         for(p = 0; p < numanimdef; p++)
         {
@@ -817,7 +961,7 @@ void R_DumpTextures(void)
             if(animdefs[p].palette)
             {
                 for(j = 1; j < animdefs[p].frames; j++)
-                    R_UnloadTexture(&textureptr[i][j]);
+                    GL_UnloadTexture(&textureptr[i][j]);
             }
         }
     }
@@ -825,127 +969,20 @@ void R_DumpTextures(void)
     for(i = 0; i < numsprtex; i++)
     {
         for(p = 0; p < spritecount[i]; p++)
-            R_UnloadTexture(&spriteptr[i][p]);
+            GL_UnloadTexture(&spriteptr[i][p]);
     }
 
     for(i = 0; i < numgfx; i++)
-        R_UnloadTexture(&gfxptr[i]);
+        GL_UnloadTexture(&gfxptr[i]);
 }
 
 //
-// R_ResetTextures
+// GL_ResetTextures
 // Resets the current texture index
 //
 
-void R_ResetTextures(void)
+void GL_ResetTextures(void)
 {
     curtexture = cursprite = curgfx = -1;
-}
-
-//
-// R_PrecacheLevel
-// Loads and binds all world textures before level startup
-//
-
-void R_PrecacheLevel(void)
-{
-    char *texturepresent;
-    char *spritepresent;
-    int	i;
-    int j;
-    int	p;
-    mobj_t* mo;
-    
-    R_DumpTextures();
-    
-    texturepresent = (char*)Z_Alloca(numtextures);
-    spritepresent = (char*)Z_Alloca(NUMSPRITES);
-    
-    for(i = 0; i < numsides; i++)
-    {
-        texturepresent[sides[i].toptexture] = 1;
-        texturepresent[sides[i].midtexture] = 1;
-        texturepresent[sides[i].bottomtexture] = 1;
-    }
-    
-    for(i = 0; i < numsectors; i++)
-    {
-        texturepresent[sectors[i].ceilingpic] = 1;
-        texturepresent[sectors[i].floorpic] = 1;
-
-        if(sectors[i].flags & MS_LIQUIDFLOOR)
-            texturepresent[sectors[i].floorpic + 1] = 1;
-    }
-    
-    for(i = 0; i < numtextures; i++)
-    {
-        if(texturepresent[i])
-        {
-            R_BindWorldTexture(i, 0, 0);
-
-            for(p = 0; p < numanimdef; p++)
-            {
-                int lump = W_GetNumForName(animdefs[p].name) - t_start;
-            
-                if(lump != i)
-                    continue;
-
-                //
-                // TODO - add support for precaching palettes
-                //
-                if(!animdefs[p].palette)
-                {
-                    for(j = 1; j < animdefs[p].frames; j++)
-                        R_BindWorldTexture(i + j, 0, 0);
-                }
-            }
-        }
-    }
-
-    for(mo = mobjhead.next; mo != &mobjhead; mo = mo->next)
-        spritepresent[mo->sprite] = 1;
-
-    //
-    // TODO - add support for precaching palettes
-    //
-    for(i = 0; i < NUMSPRITES; i++)
-    {
-        if(spritepresent[i])
-        {
-            spritedef_t	*sprdef;
-            int k;
-
-            sprdef = &spriteinfo[i];
-
-            for(k = 0; k < sprdef->numframes; k++)
-            {
-                spriteframe_t *sprframe;
-                int p;
-
-                sprframe = &sprdef->spriteframes[k];
-                if(sprframe->rotate)
-                {
-                    for(p = 0; p < 8; p++)
-                        R_BindSpriteTexture(sprframe->lump[p], 0);
-                }
-                else
-                    R_BindSpriteTexture(sprframe->lump[0], 0);
-            }
-        }
-    }
-
-    if(has_GL_ARB_multitexture)
-    {
-        R_SetTextureUnit(1, true);
-        R_BindEnvTexture();
-
-        R_SetTextureUnit(2, true);
-        R_BindDummyTexture();
-
-        R_SetTextureUnit(3, true);
-        R_BindDummyTexture();
-    }
-
-    R_GLResetCombiners();
 }
 

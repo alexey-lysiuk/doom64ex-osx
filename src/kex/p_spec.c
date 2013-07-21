@@ -1,23 +1,26 @@
-// Emacs style mode select   -*- C++ -*-
+// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
-// $Id: p_spec.c 1085 2012-03-11 04:47:16Z svkaiser $
+// Copyright(C) 1993-1997 Id Software, Inc.
+// Copyright(C) 1997 Midway Home Entertainment, Inc
+// Copyright(C) 2007-2012 Samuel Villarreal
 //
-// Copyright (C) 1993-1996 by id Software, Inc.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
 //
-// This source is available for distribution and/or modification
-// only under the terms of the DOOM Source Code License as
-// published by id Software. All rights reserved.
-//
-// The source is distributed in the hope that it will be useful,
+// This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// FITNESS FOR A PARTICULAR PURPOSE. See the DOOM Source Code License
-// for more details.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 //
-// $Author: svkaiser $
-// $Revision: 1085 $
-// $Date: 2012-03-11 06:47:16 +0200 (нд, 11 бер 2012) $
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+// 02111-1307, USA.
 //
+//-----------------------------------------------------------------------------
 //
 // DESCRIPTION:
 //	Implements special effects:
@@ -27,10 +30,6 @@
 //	Line Tag handling. Line and Sector triggers.
 //
 //-----------------------------------------------------------------------------
-#ifdef RCSID
-static const char
-rcsid[] = "$Id: p_spec.c 1085 2012-03-11 04:47:16Z svkaiser $";
-#endif
 
 #include <stdlib.h>
 
@@ -49,7 +48,7 @@ rcsid[] = "$Id: p_spec.c 1085 2012-03-11 04:47:16Z svkaiser $";
 #include "d_englsh.h"
 #include "r_local.h"
 #include "sounds.h"
-#include "r_texture.h"
+#include "gl_texture.h"
 #include "m_misc.h"
 #include "con_console.h"
 #include "r_sky.h"
@@ -237,7 +236,7 @@ void P_CyclePicAnims(void)
             info->frame++;
         
         if(anim->palette)
-            R_SetNewPalette(info->texnum, info->frame);
+            GL_SetNewPalette(info->texnum, info->frame);
         else
             texturetranslation[info->texnum] = info->texnum + info->frame;
         
@@ -430,7 +429,7 @@ fixed_t P_FindLowestCeilingSurrounding(sector_t* sec)
     int         i;
     line_t*     check;
     sector_t*   other;
-    fixed_t     height = MAXINT;
+    fixed_t     height = D_MAXINT;
     
     for(i = 0; i < sec->linecount; i++)
     {
@@ -580,9 +579,13 @@ static void P_ModifyLine(int tag1, int tag2, int type)
                 sides[line1->sidenum[0]].bottomtexture = sides[line2->sidenum[0]].bottomtexture;
                 sides[line1->sidenum[0]].midtexture = sides[line2->sidenum[0]].midtexture;
                 sides[line1->sidenum[0]].toptexture = sides[line2->sidenum[0]].toptexture;
-                sides[line1->sidenum[1]].bottomtexture = sides[line2->sidenum[1]].bottomtexture;
-                sides[line1->sidenum[1]].midtexture = sides[line2->sidenum[1]].midtexture;
-                sides[line1->sidenum[1]].toptexture = sides[line2->sidenum[1]].toptexture;
+
+                if(line1->flags & ML_TWOSIDED || line1->sidenum[1] != NO_SIDE_INDEX)
+                {
+                    sides[line1->sidenum[1]].bottomtexture = sides[line2->sidenum[1]].bottomtexture;
+                    sides[line1->sidenum[1]].midtexture = sides[line2->sidenum[1]].midtexture;
+                    sides[line1->sidenum[1]].toptexture = sides[line2->sidenum[1]].toptexture;
+                }
                 
                 if(line1->flags & ML_SWITCHX02 &&
                     !sides[line1->sidenum[0]].toptexture)
@@ -816,6 +819,10 @@ static void P_AlertTaggedMobj(player_t* player, int tid)
         if(!mo->info->seestate)
             continue;
 
+        // 20120610 villsa - check for killable things only
+        if(!mo->flags & MF_COUNTKILL)
+            continue;
+
         // [kex] TODO - there's no check if the mobj is already dead but
         // if it is, then just revive it. May need to add a feature
         // to skip dead mobjs sometime in the future
@@ -876,6 +883,9 @@ int P_SetAimCamera(player_t* player, line_t* line, dboolean aim)
     mobj_t* mo;
     aimcamera_t* camera;
     
+    P_ClearUserCamera(player);
+    player->cheats |= CF_LOCKCAM;
+
     for(mo = mobjhead.next; mo != &mobjhead; mo = mo->next)
     {
         // not matching the tid
@@ -893,7 +903,10 @@ int P_SetAimCamera(player_t* player, line_t* line, dboolean aim)
             player->cameratarget = mo;
 
         if(player->mo == player->cameratarget)
+        {
+            player->cheats &= ~CF_LOCKCAM;
             return 1;
+        }
 
         if(!aim)
             return 1;
@@ -907,7 +920,6 @@ int P_SetAimCamera(player_t* player, line_t* line, dboolean aim)
 
         // [kex] store player information
         camera->activator = player;
-
         return 1;
     }
     
@@ -1005,6 +1017,12 @@ void P_SetMovingCamera(player_t* player, line_t* line)
     camera = Z_Malloc(sizeof(*camera), PU_LEVSPEC, 0);
     P_AddThinker(&camera->thinker);
     camera->thinker.function.acp1 = (actionf_p1)T_MovingCamera;
+
+    if(!(player->cheats & CF_LOCKCAM))
+    {
+        P_ClearUserCamera(player);
+        player->cheats |= CF_LOCKCAM;
+    }
     
     for(mo = mobjhead.next; mo != &mobjhead; mo = mo->next)
     {

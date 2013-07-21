@@ -1,29 +1,29 @@
-// Emacs style mode select	 -*- C++ -*-
+// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
-// $Id: con_cvar.c 1101 2012-04-08 19:48:22Z svkaiser $
+// Copyright(C) 1993-1997 Id Software, Inc.
+// Copyright(C) 2007-2012 Samuel Villarreal
 //
-// Copyright (C) 1993-1996 by id Software, Inc.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
 //
-// This source is available for distribution and/or modification
-// only under the terms of the DOOM Source Code License as
-// published by id Software. All rights reserved.
-//
-// The source is distributed in the hope that it will be useful,
+// This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// FITNESS FOR A PARTICULAR PURPOSE. See the DOOM Source Code License
-// for more details.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 //
-// $Author: svkaiser $
-// $Revision: 1101 $
-// $Date: 2012-04-08 22:48:22 +0300 (нд, 08 кві 2012) $
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+// 02111-1307, USA.
+//
+//-----------------------------------------------------------------------------
 //
 // DESCRIPTION: Console cvar functionality (from Quake)
 //
 //-----------------------------------------------------------------------------
-#ifdef RCSID
-static const char rcsid[] = "$Id: con_cvar.c 1101 2012-04-08 19:48:22Z svkaiser $";
-#endif
 
 #include "doomstat.h"
 #include "i_video.h"
@@ -38,8 +38,25 @@ static const char rcsid[] = "$Id: con_cvar.c 1101 2012-04-08 19:48:22Z svkaiser 
 #include "p_setup.h"
 #include "st_stuff.h"
 #include "g_game.h"
+#include "g_actions.h"
 
 cvar_t  *cvarcap;
+
+//
+// CMD_ListCvars
+//
+
+static CMD(ListCvars)
+{
+    cvar_t *var;
+
+    CON_Printf(GREEN, "Available cvars:\n");
+
+    for(var = cvarcap; var; var = var->next)
+    {
+        CON_Printf(AQUA, "%s\n", var->name);
+    }
+}
 
 //
 // CON_CvarGet
@@ -47,11 +64,13 @@ cvar_t  *cvarcap;
 
 cvar_t *CON_CvarGet(char *name)
 {
-    cvar_t	*var;
+    cvar_t *var;
     
     for(var = cvarcap; var; var = var->next)
+    {
         if(!dstrcmp(name, var->name))
             return var;
+    }
         
         return NULL;
 }
@@ -131,8 +150,8 @@ void CON_CvarAutoComplete(char *partial)
             Z_Free(spacing);
 
             CONCLEARINPUT();
-            sprintf(ConsoleInputBuff+1, "%s ", name);
-            ConsoleInputLen = dstrlen(ConsoleInputBuff);
+            sprintf(console_inputbuffer+1, "%s ", name);
+            console_inputlength = dstrlen(console_inputbuffer);
         }
     }
 }
@@ -220,5 +239,7 @@ void CON_CvarInit(void)
     M_RegisterCvars();
     P_RegisterCvars();
     G_RegisterCvars();
+
+    G_AddCommand("listcvars", CMD_ListCvars, 0);
 }
 

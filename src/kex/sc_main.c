@@ -1,33 +1,28 @@
-// Emacs style mode select	 -*- C++ -*-
+// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
-// $Id: sc_main.c 1097 2012-04-01 22:24:04Z svkaiser $
+// Copyright(C) 2007-2012 Samuel Villarreal
 //
-// Copyright (C) 1993-1996 by id Software, Inc.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
 //
-// This source is available for distribution and/or modification
-// only under the terms of the DOOM Source Code License as
-// published by id Software. All rights reserved.
-//
-// The source is distributed in the hope that it will be useful,
+// This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// FITNESS FOR A PARTICULAR PURPOSE. See the DOOM Source Code License
-// for more details.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 //
-// $Author: svkaiser $
-// $Revision: 1097 $
-// $Date: 2012-04-02 01:24:04 +0300 (пн, 02 кві 2012) $
-//
-//
-// DESCRIPTION:
-//
-//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+// 02111-1307, USA.
 //
 //-----------------------------------------------------------------------------
-#ifdef RCSID
-static const char
-rcsid[] = "$Id: sc_main.c 1097 2012-04-01 22:24:04Z svkaiser $";
-#endif
+//
+// DESCRIPTION: Lexter parsing system for script data
+//
+//-----------------------------------------------------------------------------
 
 #ifdef _MSC_VER
 #include "i_opndir.h"
@@ -41,6 +36,7 @@ rcsid[] = "$Id: sc_main.c 1097 2012-04-01 22:24:04Z svkaiser $";
 #include "w_wad.h"
 #include "m_misc.h"
 #include "sc_main.h"
+#include "con_console.h"
 
 scparser_t sc_parser;
 
@@ -51,6 +47,8 @@ scparser_t sc_parser;
 static void SC_Open(char* name)
 {
     int lump;
+
+    CON_DPrintf("--------SC_Open: Reading %s--------\n", name);
 
     lump = W_CheckNumForName(name);
 
@@ -66,6 +64,8 @@ static void SC_Open(char* name)
         sc_parser.buffer     = W_CacheLumpNum(lump, PU_STATIC);
         sc_parser.buffsize   = W_LumpLength(lump);
     }
+
+    CON_DPrintf("%s size: %ikb\n", name, sc_parser.buffsize >> 10);
 
     sc_parser.pointer_start  = sc_parser.buffer;
     sc_parser.pointer_end    = sc_parser.buffer + sc_parser.buffsize;

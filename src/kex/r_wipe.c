@@ -1,29 +1,29 @@
-// Emacs style mode select	 -*- C++ -*-
+// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
-// $Id: r_wipe.c 1068 2012-03-03 04:48:45Z svkaiser $
+// Copyright(C) 1997 Midway Home Entertainment, Inc
+// Copyright(C) 2007-2012 Samuel Villarreal
 //
-// Copyright (C) 1993-1996 by id Software, Inc.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
 //
-// This source is available for distribution and/or modification
-// only under the terms of the DOOM Source Code License as
-// published by id Software. All rights reserved.
-//
-// The source is distributed in the hope that it will be useful,
+// This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// FITNESS FOR A PARTICULAR PURPOSE. See the DOOM Source Code License
-// for more details.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 //
-// $Author: svkaiser $
-// $Revision: 1068 $
-// $Date: 2012-03-03 06:48:45 +0200 (сб, 03 бер 2012) $
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+// 02111-1307, USA.
+//
+//-----------------------------------------------------------------------------
 //
 // DESCRIPTION: Endlevel wipe FX.
 //
 //-----------------------------------------------------------------------------
-#ifdef RCSID
-static const char rcsid[] = "$Id: r_wipe.c 1068 2012-03-03 04:48:45Z svkaiser $";
-#endif
 
 #include "doomdef.h"
 #include "r_wipe.h"
@@ -33,7 +33,7 @@ static const char rcsid[] = "$Id: r_wipe.c 1068 2012-03-03 04:48:45Z svkaiser $"
 #include "z_zone.h"
 #include "i_system.h"
 #include "m_random.h"
-#include "r_texture.h"
+#include "gl_texture.h"
 #include "doomstat.h"
 
 void M_ClearMenus(void);    // from m_menu.c
@@ -74,12 +74,12 @@ void WIPE_FadeScreen(int fadetics)
     allowmenu = false;
 
     wipeFadeAlpha = 0xff;
-    wipeMeltTexture = R_ScreenToTexture();
+    wipeMeltTexture = GL_ScreenToTexture();
 
-    padw = R_PadTextureDims(video_width);
-    padh = R_PadTextureDims(video_height);
+    padw = GL_PadTextureDims(video_width);
+    padh = GL_PadTextureDims(video_height);
     
-    R_GLToggleBlend(1);
+    GL_SetState(GLSTATE_BLEND, 1);
     dglEnable(GL_TEXTURE_2D);
 
     //
@@ -114,7 +114,7 @@ void WIPE_FadeScreen(int fadetics)
         //
         // clear frame
         //
-        R_GLClearFrame(0xFF000000);
+        GL_ClearView(0xFF000000);
 
         if(wipeFadeAlpha < 0)
             wipeFadeAlpha = 0;
@@ -125,17 +125,17 @@ void WIPE_FadeScreen(int fadetics)
         color = D_RGBA(wipeFadeAlpha, wipeFadeAlpha, wipeFadeAlpha, 0xff);
 
         dglSetVertexColor(v, color, 4);
-        R_GLRenderVertex(v, 1);
+        GL_Draw2DQuad(v, 1);
 
-        R_GLFinish();
+        GL_SwapBuffers();
 
         WIPE_RefreshDelay();
 
         wipeFadeAlpha -= fadetics;
     }
 
-    R_GLToggleBlend(0);
-    R_UnloadTexture(&wipeMeltTexture);
+    GL_SetState(GLSTATE_BLEND, 0);
+    GL_UnloadTexture(&wipeMeltTexture);
 
     allowmenu = true;
 }
@@ -155,12 +155,12 @@ void WIPE_MeltScreen(void)
     M_ClearMenus();
     allowmenu = false;
 
-    wipeMeltTexture = R_ScreenToTexture();
+    wipeMeltTexture = GL_ScreenToTexture();
 
-    padw = R_PadTextureDims(video_width);
-    padh = R_PadTextureDims(video_height);
+    padw = GL_PadTextureDims(video_width);
+    padh = GL_PadTextureDims(video_height);
     
-    R_GLToggleBlend(1);
+    GL_SetState(GLSTATE_BLEND, 1);
     dglEnable(GL_TEXTURE_2D);
 
     //
@@ -186,19 +186,19 @@ void WIPE_MeltScreen(void)
     dmemcpy(v2, v, sizeof(vtx_t) * 4);
 
     dglBindTexture(GL_TEXTURE_2D, wipeMeltTexture);
-    R_SetTextureMode(GL_ADD);
+    GL_SetTextureMode(GL_ADD);
 
     for(i = 0; i < 160; i += 2)
     {
         int j;
 
-        R_GLClearFrame(0xFF000000);
+        GL_ClearView(0xFF000000);
 
         dglSetVertexColor(v2, D_RGBA(1, 0, 0, 0xff), 4);
-        R_GLRenderVertex(v2, 1);
+        GL_Draw2DQuad(v2, 1);
 
         dglSetVertexColor(v, D_RGBA(0, 0, 0, 0x10), 4);
-        R_GLRenderVertex(v, 1);
+        GL_Draw2DQuad(v, 1);
 
         //
         // move screen down. without clearing the frame, we should
@@ -221,7 +221,7 @@ void WIPE_MeltScreen(void)
             padh
             );
 
-        R_GLFinish();
+        GL_SwapBuffers();
 
         WIPE_RefreshDelay();
     }
@@ -229,10 +229,10 @@ void WIPE_MeltScreen(void)
     //
     // reset combiners and blending
     //
-    R_SetTextureMode(GL_MODULATE);
-    R_GLResetCombiners();
-    R_GLToggleBlend(0);
-    R_UnloadTexture(&wipeMeltTexture);
+    GL_SetTextureMode(GL_MODULATE);
+    GL_SetDefaultCombiner();
+    GL_SetState(GLSTATE_BLEND, 0);
+    GL_UnloadTexture(&wipeMeltTexture);
 
     //
     // fade screen out

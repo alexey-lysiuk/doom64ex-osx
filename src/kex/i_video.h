@@ -1,20 +1,24 @@
-// Emacs style mode select   -*- C++ -*-
+// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
-// $Id: i_video.h 1101 2012-04-08 19:48:22Z svkaiser $
+// Copyright(C) 1993-1997 Id Software, Inc.
+// Copyright(C) 2005 Simon Howard
+// Copyright(C) 2007-2012 Samuel Villarreal
 //
-// Copyright (C) 1993-1996 by id Software, Inc.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
 //
-// This source is available for distribution and/or modification
-// only under the terms of the DOOM Source Code License as
-// published by id Software. All rights reserved.
-//
-// The source is distributed in the hope that it will be useful,
+// This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// FITNESS FOR A PARTICULAR PURPOSE. See the DOOM Source Code License
-// for more details.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 //
-// DESCRIPTION: Global SDL stuff
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+// 02111-1307, USA.
 //
 //-----------------------------------------------------------------------------
 
@@ -23,6 +27,7 @@
 #define __I_VIDEO_H__
 
 #include "SDL.h"
+#include "d_event.h"
 
 #define SDL_BPP		32
 
@@ -31,7 +36,7 @@
 extern SDL_Surface *screen;
 
 void I_InitVideo(void);
-void I_InitGL(void);
+void I_InitScreen(void);
 void I_NetWaitScreen(void);
 void I_ShutdownVideo(void);
 //
@@ -40,15 +45,16 @@ void I_ShutdownVideo(void);
 // Quick syncronous operations are performed here.
 // Can call D_PostEvent.
 void I_StartTic(void);
-
 void I_FinishUpdate(void);
-
 int I_ShutdownWait(void);
+void I_CenterMouse(void);
 
 ////////////Input//////////////
 
-extern int	UseMouse[2];
-extern int	UseJoystick;
+extern int UseMouse[2];
+extern int UseJoystick;
+extern int mouse_x;
+extern int mouse_y;
 
 int I_MouseAccel(int val);
 void I_MouseAccelChange(void);

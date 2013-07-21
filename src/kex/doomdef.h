@@ -1,22 +1,23 @@
-// Emacs style mode select   -*- C++ -*-
+// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
-// $Id: doomdef.h 1048 2012-02-13 04:08:26Z svkaiser $
+// Copyright(C) 1993-1997 Id Software, Inc.
+// Copyright(C) 2007-2012 Samuel Villarreal
 //
-// Copyright (C) 1993-1996 by id Software, Inc.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
 //
-// This source is available for distribution and/or modification
-// only under the terms of the DOOM Source Code License as
-// published by id Software. All rights reserved.
-//
-// The source is distributed in the hope that it will be useful,
+// This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// FITNESS FOR A PARTICULAR PURPOSE. See the DOOM Source Code License
-// for more details.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 //
-// DESCRIPTION:
-//  Internally used data structures for virtually everything,
-//   key definitions, lots of other stuff.
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+// 02111-1307, USA.
 //
 //-----------------------------------------------------------------------------
 
@@ -51,9 +52,9 @@ extern const char version_date[];
 #endif
 
 void        dprintf(const char *s, ...);
-void*       dmemcpy(void *s1, const void *s2, size_t n);
-void*       dmemset(void *s, dword c, size_t n);
-char*       dstrcpy(char *dest, const char *src);
+void        *dmemcpy(void *s1, const void *s2, size_t n);
+void        *dmemset(void *s, dword c, size_t n);
+char        *dstrcpy(char *dest, const char *src);
 void        dstrncpy(char *dest, const char *src, int maxcount);
 int         dstrcmp(const char *s1, const char *s2);
 int         dstrncmp(const char *s1, const char *s2, int len);
@@ -62,8 +63,9 @@ int         dstrnicmp(const char *s1, const char *s2, int len);
 void        dstrupr(char *s);
 void        dstrlwr(char *s);
 int         dstrlen(const char *string);
-char*       dstrrchr(char *s, char c);
+char        *dstrrchr(char *s, char c);
 void        dstrcat(char *dest, const char *src);
+char        *dstrstr(char *s1, char *s2);
 int         datoi(const char *str);
 float       datof(char *str);
 int         dhtoi(char* str);

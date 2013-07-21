@@ -1,31 +1,29 @@
-// Emacs style mode select	 -*- C++ -*-
+// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
-// $Id: g_settings.c 1031 2012-01-15 04:55:14Z svkaiser $
+// Copyright(C) 1999-2000 Paul Brook
+// Copyright(C) 2007-2012 Samuel Villarreal
 //
-// Copyright (C) 1993-1996 by id Software, Inc.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
 //
-// This source is available for distribution and/or modification
-// only under the terms of the DOOM Source Code License as
-// published by id Software. All rights reserved.
-//
-// The source is distributed in the hope that it will be useful,
+// This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// FITNESS FOR A PARTICULAR PURPOSE. See the DOOM Source Code License
-// for more details.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 //
-// $Log: g_game.c,v $
-// Revision 1.1  2008/05/18 22:28:33  svkaiser
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+// 02111-1307, USA.
 //
+//-----------------------------------------------------------------------------
 //
 // DESCRIPTION: Doom3D's config file parsing
 //
 //-----------------------------------------------------------------------------
-
-#ifdef RCSID
-static const char
-rcsid[] = "$Id: g_settings.c 1031 2012-01-15 04:55:14Z svkaiser $";
-#endif
 
 #ifndef _WIN32
 // 20120105 bkw: G_GetConfigFileName() needs these, better safe than sorry
@@ -59,6 +57,7 @@ char	DefaultConfig[] =
 
 char *G_GetConfigFileName(void) {
 #ifdef _WIN32
+    CON_DPrintf("Loading config: %s\\%s\n", I_DoomExeDir(), ConfigFileName);
     return ConfigFileName;
 #else
     // 20120105 bkw: Be UNIX-friendly and use ~/.doom64ex/config.cfg
@@ -79,6 +78,7 @@ char *G_GetConfigFileName(void) {
         I_Printf("G_GetConfigFileName: using config file '%s'\n", ConfigFileName);
     }
     
+    CON_DPrintf("Loading config: %s\n", ConfigFileName);
     return ConfigFileName;
 #endif
 }

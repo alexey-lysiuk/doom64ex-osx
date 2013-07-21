@@ -1,44 +1,43 @@
-// Emacs style mode select	 -*- C++ -*-
+// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
-// $Id: am_draw.c 1100 2012-04-08 19:17:31Z svkaiser $
+// Copyright(C) 2007-2012 Samuel Villarreal
 //
-// Copyright (C) 1993-1996 by id Software, Inc.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
 //
-// This source is available for distribution and/or modification
-// only under the terms of the DOOM Source Code License as
-// published by id Software. All rights reserved.
-//
-// The source is distributed in the hope that it will be useful,
+// This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// FITNESS FOR A PARTICULAR PURPOSE. See the DOOM Source Code License
-// for more details.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 //
-// $Author: svkaiser $
-// $Revision: 1100 $
-// $Date: 2012-04-08 22:17:31 +0300 (нд, 08 кві 2012) $
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+// 02111-1307, USA.
+//
+//-----------------------------------------------------------------------------
 //
 // DESCRIPTION: Automap rendering code
 //
 //-----------------------------------------------------------------------------
-#ifdef RCSID
-static const char rcsid[] = "$Id: am_draw.c 1100 2012-04-08 19:17:31Z svkaiser $";
-#endif
 
 #include "r_lights.h"
 #include "m_fixed.h"
 #include "tables.h"
 #include "doomstat.h"
 #include "z_zone.h"
-#include "r_gl.h"
-#include "r_texture.h"
+#include "gl_main.h"
+#include "gl_texture.h"
 #include "am_map.h"
 #include "am_draw.h"
 #include "m_cheat.h"
 #include "r_sky.h"
 #include "p_local.h"
 #include "r_clipper.h"
-#include "r_vertices.h"
+#include "r_drawlist.h"
 
 extern fixed_t automappanx;
 extern fixed_t automappany;
@@ -60,12 +59,12 @@ void AM_BeginDraw(angle_t view, fixed_t x, fixed_t y)
 
     if(r_texturecombiner.value > 0 && am_overlay.value)
     {
-        R_GLToggleBlend(1);
+        GL_SetState(GLSTATE_BLEND, 1);
 
         //
         // increase the rgb scale so the automap can look good while transparent (overlay mode)
         //
-        dglTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE);
+        GL_SetTextureMode(GL_COMBINE);
         dglTexEnvi(GL_TEXTURE_ENV, GL_RGB_SCALE, 4);
     }
 
@@ -83,7 +82,7 @@ void AM_BeginDraw(angle_t view, fixed_t x, fixed_t y)
     drawlist[DLT_AMAP].index = 0;
 
     R_FrustrumSetup();
-    R_ResetTextures();
+    GL_ResetTextures();
 }
 
 //
@@ -97,13 +96,12 @@ void AM_EndDraw(void)
 
     if(r_texturecombiner.value > 0 && am_overlay.value)
     {
-        R_GLToggleBlend(0);
-
-        dglTexEnvi(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_COMBINE);
+        GL_SetState(GLSTATE_BLEND, 0);
+        GL_SetTextureMode(GL_COMBINE);
         dglTexEnvi(GL_TEXTURE_ENV, GL_RGB_SCALE, 1);
     }
 
-    R_GLResetCombiners();
+    GL_SetDefaultCombiner();
 }
 
 //
@@ -247,11 +245,9 @@ void AM_DrawLeafs(float scale)
                 if(!R_FrustrumTestVertex(v, sub->numleafs))
                     continue;
 
-                DL_PushVertex(am_drawlist);
-
-                list            = &am_drawlist->list[am_drawlist->index++];
+                list            = DL_AddVertexList(am_drawlist);
                 list->data      = (subsector_t*)sub;
-                list->drawfunc  = NULL;
+                list->callback  = NULL;
                 list->texid     = sub->sector->floorpic;
             }
         }
@@ -274,9 +270,9 @@ void AM_DrawLeafs(float scale)
     else
     {
         if(!nolights)
-            R_SetTextureMode(GL_MODULATE);
+            GL_SetTextureMode(GL_MODULATE);
         else
-            R_SetTextureMode(GL_REPLACE);
+            GL_SetTextureMode(GL_REPLACE);
     }
 
     DL_ProcessDrawList(DLT_AMAP, DL_ProcessAutomap);
@@ -473,8 +469,8 @@ void AM_DrawSprite(mobj_t* thing, float scale)
     vtx[3].tu   = 1 - flip;
     vtx[3].tv   = 0.0f;
     
-    R_BindSpriteTexture(sprframe->lump[rot], thing->info->palette);
-    R_GLToggleBlend(1);
+    GL_BindSpriteTexture(sprframe->lump[rot], thing->info->palette);
+    GL_SetState(GLSTATE_BLEND, 1);
 
     alpha = (thing->alpha * (am_overlay.value ? 96 : 0xff)) / 0xff;
 
@@ -497,6 +493,6 @@ void AM_DrawSprite(mobj_t* thing, float scale)
     dglTriangle(3, 2, 1);
     dglDrawGeometry(4, vtx);
 
-    R_GLToggleBlend(0);
+    GL_SetState(GLSTATE_BLEND, 0);
 }
 

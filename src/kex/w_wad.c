@@ -1,33 +1,31 @@
-// Emacs style mode select   -*- C++ -*-
+// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
-// $Id: w_wad.c 1099 2012-04-02 17:34:36Z svkaiser $
+// Copyright(C) 1993-1997 Id Software, Inc.
+// Copyright(C) 1997 Midway Home Entertainment, Inc
+// Copyright(C) 2007-2012 Samuel Villarreal
 //
-// Copyright (C) 1993-1996 by id Software, Inc.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
 //
-// This source is available for distribution and/or modification
-// only under the terms of the DOOM Source Code License as
-// published by id Software. All rights reserved.
-//
-// The source is distributed in the hope that it will be useful,
+// This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// FITNESS FOR A PARTICULAR PURPOSE. See the DOOM Source Code License
-// for more details.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 //
-// $Author: svkaiser $
-// $Revision: 1099 $
-// $Date: 2012-04-02 20:34:36 +0300 (пн, 02 кві 2012) $
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+// 02111-1307, USA.
 //
+//-----------------------------------------------------------------------------
 //
 // DESCRIPTION:
 //	Handles WAD file header, directory, lump I/O.
 //
 //-----------------------------------------------------------------------------
-
-#ifdef RCSID
-static const char
-rcsid[] = "$Id: w_wad.c 1099 2012-04-02 17:34:36Z svkaiser $";
-#endif
 
 #ifdef _MSC_VER
 #include "i_opndir.h"
@@ -258,6 +256,20 @@ void W_Init(void)
             char *filename;
             filename = W_TryFindWADByName(myargv[p]);
             W_MergeFile(filename);
+        }
+    }
+    // 20120724 villsa - find drag & drop wad files
+    else
+    {
+        for(i = 1; i < myargc; i++)
+        {
+            if(dstrstr(myargv[i], ".wad") ||
+                dstrstr(myargv[i], ".WAD"))
+            {
+                char *filename;
+                filename = W_TryFindWADByName(myargv[i]);
+                W_MergeFile(filename);
+            }
         }
     }
 
@@ -648,14 +660,13 @@ void W_Checksum(md5_digest_t digest)
 // W_IwadChecksum
 //
 
-#define MAXDIGESTS  4
+#define MAXDIGESTS  3
 
 static const md5_digest_t iwad_digests[MAXDIGESTS] =
 {
-    { 0x35,0xd6,0x24,0xb3,0xa6,0xb8,0xcc,0xcc,0x39,0xf1,0xd4,0x5f,0x5b,0x84,0x90,0xf6 },    // USA1
-    { 0x0c,0x1d,0x47,0x92,0x39,0x5e,0x2d,0xe3,0x7e,0x79,0xb5,0xdf,0x6d,0xb2,0x70,0x9a },    // European
-    { 0xab,0x45,0xc3,0x16,0x4c,0xe2,0x3a,0xbd,0x76,0xe1,0xe5,0x0d,0x1e,0x32,0x63,0x9c },    // Japan
-    { 0x25,0xa0,0xb7,0xcd,0x3f,0x64,0x09,0x01,0x54,0x84,0xdb,0x3b,0xb5,0xe1,0xfa,0xd4 }     // USA2??
+    { 0xa6,0x4e,0xa8,0xf0,0x18,0xef,0x09,0x12,0xc6,0x2c,0xb3,0xd7,0xf3,0xee,0x93,0xe6 },    // USA1
+    { 0xeb,0xa5,0x29,0x66,0x16,0xab,0xc1,0x1e,0xf2,0x5a,0xbf,0x8d,0xe7,0xb6,0xf3,0x9c },    // European
+    { 0x06,0xa0,0x47,0x0f,0x62,0x4d,0x06,0x59,0x49,0x7d,0xfd,0x79,0x4d,0xb7,0x5a,0x81 }     // Japan
 };
 
 void W_IwadChecksum(void)

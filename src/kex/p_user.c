@@ -1,23 +1,26 @@
-// Emacs style mode select   -*- C++ -*-
+// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
-// $Id: p_user.c 1048 2012-02-13 04:08:26Z svkaiser $
+// Copyright(C) 1993-1997 Id Software, Inc.
+// Copyright(C) 1997 Midway Home Entertainment, Inc
+// Copyright(C) 2007-2012 Samuel Villarreal
 //
-// Copyright (C) 1993-1996 by id Software, Inc.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
 //
-// This source is available for distribution and/or modification
-// only under the terms of the DOOM Source Code License as
-// published by id Software. All rights reserved.
-//
-// The source is distributed in the hope that it will be useful,
+// This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// FITNESS FOR A PARTICULAR PURPOSE. See the DOOM Source Code License
-// for more details.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 //
-// $Author: svkaiser $
-// $Revision: 1048 $
-// $Date: 2012-02-13 06:08:26 +0200 (пн, 13 лют 2012) $
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+// 02111-1307, USA.
 //
+//-----------------------------------------------------------------------------
 //
 // DESCRIPTION:
 //      Player related stuff.
@@ -25,12 +28,6 @@
 //      Pending weapon.
 //
 //-----------------------------------------------------------------------------
-
-#ifdef RCSID
-static const char
-rcsid[] = "$Id: p_user.c 1048 2012-02-13 04:08:26Z svkaiser $";
-#endif
-
 
 #include "doomdef.h"
 #include "d_event.h"
@@ -125,6 +122,9 @@ void P_SetStaticCamera(player_t* player)
 {
     mobj_t* mo = player->mo;
 
+    if(player->cheats & CF_LOCKCAM)
+        return;
+
     if(!(player->cheats & CF_FLOATCAM))
     {
         camstatic = P_SpawnMobj(mo->x, mo->y, player->viewz, MT_CAMERA);
@@ -183,6 +183,9 @@ void P_UpdateFollowCamera(player_t* player)
 
 void P_SetFollowCamera(player_t* player)
 {
+    if(player->cheats & CF_LOCKCAM)
+        return;
+
     P_SetStaticCamera(player);
 
     if(player->cameratarget == camstatic)
@@ -198,6 +201,22 @@ void P_SetFollowCamera(player_t* player)
     }
 
     P_UpdateFollowCamera(player);
+}
+
+//
+// P_ClearUserCamera
+//
+
+void P_ClearUserCamera(player_t* player)
+{
+    if(player->cheats & CF_FLOATCAM)
+    {
+        P_SetStaticCamera(player);   // clear float cam
+    }
+    else if(player->cheats & CF_CHASECAM)
+    {
+        P_SetFollowCamera(player);   // clear chasecam
+    }
 }
 
 

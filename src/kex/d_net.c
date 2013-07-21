@@ -1,32 +1,32 @@
-// Emacs style mode select   -*- C++ -*-
+// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
-// $Id: d_net.c 1101 2012-04-08 19:48:22Z svkaiser $
+// Copyright(C) 1993-1997 Id Software, Inc.
+// Copyright(C) 2005 Simon Howard
+// Copyright(C) 2007-2012 Samuel Villarreal
 //
-// Copyright (C) 1993-1996 by id Software, Inc.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
 //
-// This source is available for distribution and/or modification
-// only under the terms of the DOOM Source Code License as
-// published by id Software. All rights reserved.
-//
-// The source is distributed in the hope that it will be useful,
+// This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// FITNESS FOR A PARTICULAR PURPOSE. See the DOOM Source Code License
-// for more details.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 //
-// $Author: svkaiser $
-// $Revision: 1101 $
-// $Date: 2012-04-08 22:48:22 +0300 (нд, 08 кві 2012) $
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+// 02111-1307, USA.
+//
+//-----------------------------------------------------------------------------
 //
 // DESCRIPTION:
 //	DOOM Network game communication and protocol,
 //	all OS independend parts.
 //
 //-----------------------------------------------------------------------------
-#ifdef RCSID
-
-static const char rcsid[] = "$Id: d_net.c 1101 2012-04-08 19:48:22Z svkaiser $";
-#endif
 
 #include "m_menu.h"
 #include "i_system.h"
@@ -78,7 +78,10 @@ void D_Display(void);
 
 dboolean renderinframe = false;
 
+//
+// GetAdjustedTime
 // 30 fps clock adjusted by offsetms milliseconds
+//
 
 static int GetAdjustedTime(void)
 {
@@ -102,7 +105,7 @@ static int GetAdjustedTime(void)
 // Builds ticcmds for console player,
 // sends out a packet
 //
-int      gametime=0;
+int gametime = 0;
 
 void NetUpdate(void)
 {
@@ -200,11 +203,10 @@ void D_StartGameLoop(void)
 }
 
 //
-// D_NetWait
+// PrintMD5Digest
 //
 
 static dboolean had_warning = false;
-
 static void PrintMD5Digest(char *s, byte *digest)
 {
     unsigned int i;
@@ -218,6 +220,10 @@ static void PrintMD5Digest(char *s, byte *digest)
 
     I_Printf("\n");
 }
+
+//
+// CheckMD5Sums
+//
 
 static void CheckMD5Sums(void)
 {
@@ -241,6 +247,10 @@ static void CheckMD5Sums(void)
     
     had_warning = true;
 }
+
+//
+// D_NetWait
+//
 
 static void D_NetWait(void)
 {
@@ -433,6 +443,7 @@ void D_CheckNetGame (void)
 // Called before quitting to leave a net game
 // without hanging the other players
 //
+
 void D_QuitNetGame (void)
 {
     if(debugfile)
@@ -445,7 +456,10 @@ void D_QuitNetGame (void)
 
 }
 
+//
+// PlayersInGame
 // Returns true if there are currently any players in the game.
+//
 
 dboolean PlayersInGame(void)
 {
@@ -459,6 +473,10 @@ dboolean PlayersInGame(void)
 
 	return false;
 }
+
+//
+// GetLowTic
+//
 
 int GetLowTic(void)
 {

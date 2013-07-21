@@ -1,32 +1,33 @@
-// Emacs style mode select   -*- C++ -*-
+// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
-// $Id: p_tick.c 1085 2012-03-11 04:47:16Z svkaiser $
+// Copyright(C) 1993-1997 Id Software, Inc.
+// Copyright(C) 2007-2012 Samuel Villarreal
 //
-// Copyright (C) 1993-1996 by id Software, Inc.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
 //
-// This source is available for distribution and/or modification
-// only under the terms of the DOOM Source Code License as
-// published by id Software. All rights reserved.
-//
-// The source is distributed in the hope that it will be useful,
+// This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// FITNESS FOR A PARTICULAR PURPOSE. See the DOOM Source Code License
-// for more details.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 //
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+// 02111-1307, USA.
+//
+//-----------------------------------------------------------------------------
 //
 // DESCRIPTION:
 //      Archiving: SaveGame I/O.
 //      Thinker, Ticker.
 //
 //-----------------------------------------------------------------------------
-#ifdef RCSID
-static const char
-rcsid[] = "$Id: p_tick.c 1085 2012-03-11 04:47:16Z svkaiser $";
-#endif
 
 #include "doomstat.h"
-
 #include "z_zone.h"
 #include "p_local.h"
 #include "p_macros.h"
@@ -353,14 +354,22 @@ void P_Stop(void)
         demoplayback = false;
 
     // do wipe/melt effect
-    if(r_wipe.value && gameaction != ga_loadgame)
+    if(gameaction != ga_loadgame)
     {
-        if(gameaction != ga_warpquick)
-            WIPE_MeltScreen();
+        if(r_wipe.value)
+        {
+            if(gameaction != ga_warpquick)
+                WIPE_MeltScreen();
+            else
+            {
+                S_StopMusic();
+                WIPE_FadeScreen(8);
+            }
+        }
         else
         {
-            S_StopMusic();
-            WIPE_FadeScreen(8);
+            if(gameaction == ga_warpquick)
+                S_StopMusic();
         }
     }
 
@@ -379,7 +388,7 @@ void P_Drawer(void)
     if(!leveltime)
         return;
 
-    R_GLClearFrame(0xFF000000);
+    GL_ClearView(0xFF000000);
 
     if(!automapactive || am_overlay.value)
         R_RenderPlayerView(&players[displayplayer]);

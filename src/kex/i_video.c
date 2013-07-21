@@ -1,31 +1,30 @@
-// Emacs style mode select   -*- C++ -*-
+// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
-// $Id: i_video.c 1101 2012-04-08 19:48:22Z svkaiser $
+// Copyright(C) 2005 Simon Howard
+// Copyright(C) 2007-2012 Samuel Villarreal
 //
-// Copyright (C) 1993-1996 by id Software, Inc.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
 //
-// This source is available for distribution and/or modification
-// only under the terms of the DOOM Source Code License as
-// published by id Software. All rights reserved.
-//
-// The source is distributed in the hope that it will be useful,
+// This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// FITNESS FOR A PARTICULAR PURPOSE. See the DOOM Source Code License
-// for more details.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 //
-// $Author: svkaiser $
-// $Revision: 1101 $
-// $Date: 2012-04-08 22:48:22 +0300 (нд, 08 кві 2012) $
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+// 02111-1307, USA.
 //
+//-----------------------------------------------------------------------------
 //
 // DESCRIPTION:
 //	SDL Stuff
 //
 //-----------------------------------------------------------------------------
-#ifdef RCSID
-static const char rcsid[] = "$Id: i_video.c 1101 2012-04-08 19:48:22Z svkaiser $";
-#endif
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -40,7 +39,7 @@ static const char rcsid[] = "$Id: i_video.c 1101 2012-04-08 19:48:22Z svkaiser $
 #include "i_system.h"
 #include "i_video.h"
 #include "d_main.h"
-#include "r_gl.h"
+#include "gl_main.h"
 
 #ifdef _WIN32
 #include "i_xinput.h"
@@ -58,6 +57,8 @@ CVAR(v_vsync, 1);
 CVAR(v_depthsize, 24);
 CVAR(v_buffersize, 32);
 
+CVAR_EXTERNAL(m_menumouse);
+
 static void I_GetEvent(SDL_Event *Event);
 static void I_ReadMouse(void);
 static void I_InitInputs(void);
@@ -70,7 +71,11 @@ void I_UpdateGrab(void);
 SDL_Surface *screen;
 int	video_width;
 int	video_height;
+float video_ratio;
 dboolean window_focused;
+
+int mouse_x = 0;
+int mouse_y = 0;
 
 //
 // I_InitScreen
@@ -85,6 +90,7 @@ void I_InitScreen(void)
     InWindow = (int)v_windowed.value;
     video_width = (int)v_width.value;
     video_height = (int)v_height.value;
+    video_ratio = (float)video_width / (float)video_height;
     
     if(M_CheckParm("-window"))		InWindow=true;
     if(M_CheckParm("-fullscreen"))	InWindow=false;
@@ -105,6 +111,21 @@ void I_InitScreen(void)
         video_height = newheight;
         CON_CvarSetValue(v_width.name, (float)video_width);
         CON_CvarSetValue(v_height.name, (float)video_height);
+    }
+
+    if(v_depthsize.value != 8 &&
+        v_depthsize.value != 16 &&
+        v_depthsize.value != 24)
+    {
+        CON_CvarSetValue(v_depthsize.name, 24);
+    }
+    
+    if(v_buffersize.value != 8 &&
+        v_buffersize.value != 16 &&
+        v_buffersize.value != 24
+        && v_buffersize.value != 32)
+    {
+        CON_CvarSetValue(v_buffersize.name, 32);
     }
     
     usingGL = false;
@@ -166,62 +187,6 @@ void I_NetWaitScreen(void)
 }
 
 //
-// I_InitGL
-//
-
-void I_InitGL(void)
-{
-    uint32	flags = 0;
-    
-    I_InitScreen();
-    
-    if(v_depthsize.value != 8 &&
-        v_depthsize.value != 16 &&
-        v_depthsize.value != 24)
-    {
-        CON_CvarSetValue(v_depthsize.name, 24);
-    }
-    
-    if(v_buffersize.value != 8 &&
-        v_buffersize.value != 16 &&
-        v_buffersize.value != 24
-        && v_buffersize.value != 32)
-    {
-        CON_CvarSetValue(v_buffersize.name, 32);
-    }
-    
-    SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 0);
-    SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 0);
-    SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE, 0);
-    SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 0);
-    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 0);
-    SDL_GL_SetAttribute(SDL_GL_ACCUM_RED_SIZE, 0);
-    SDL_GL_SetAttribute(SDL_GL_ACCUM_GREEN_SIZE, 0);
-    SDL_GL_SetAttribute(SDL_GL_ACCUM_BLUE_SIZE, 0);
-    SDL_GL_SetAttribute(SDL_GL_ACCUM_ALPHA_SIZE, 0);
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    SDL_GL_SetAttribute(SDL_GL_BUFFER_SIZE, (int)v_buffersize.value);
-    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, (int)v_depthsize.value);
-    SDL_GL_SetAttribute(SDL_GL_SWAP_CONTROL, (int)v_vsync.value);
-    
-    flags |= SDL_OPENGL;
-    
-    if(!InWindow)
-        flags |= SDL_FULLSCREEN;
-    
-    if (SDL_SetVideoMode(video_width, video_height, SDL_BPP, flags) == NULL)
-        I_Error("I_Init: Failed to set opengl");
-    
-    R_GLInitialize();
-    
-    usingGL = true;
-    
-#ifdef USESYSCONSOLE
-    I_ShowSysConsole(false);
-#endif
-}
-
-//
 // I_InitVideo
 //
 
@@ -274,7 +239,7 @@ void I_StartTic (void)
 void I_FinishUpdate(void)
 {
     I_UpdateGrab();
-    R_GLFinish();
+    GL_SwapBuffers();
 
     BusyDisk = false;
 }
@@ -394,7 +359,7 @@ static void I_UpdateFocus(void)
 // Warp the mouse back to the middle of the screen
 //
 
-static void I_CenterMouse(void)
+void I_CenterMouse(void)
 {
     // Warp the the screen center
     SDL_WarpMouse((unsigned short)(video_width/2), (unsigned short)(video_height/2));
@@ -421,7 +386,7 @@ static dboolean I_MouseShouldBeGrabbed()
         return false;
     
 #ifdef _WIN32
-    if(!InWindow)
+    if(!InWindow && m_menumouse.value <= 0)
         return true;
 #endif
     
@@ -440,21 +405,24 @@ static dboolean I_MouseShouldBeGrabbed()
 static void I_ReadMouse(void)
 {
     int x, y;
+    Uint8 btn;
     event_t ev;
+    static Uint8 lastmbtn = 0;
     
     SDL_GetRelativeMouseState(&x, &y);
+    btn = SDL_GetMouseState(&mouse_x, &mouse_y);
     
-    // 20120105 bkw: Update the mouse even if the pointer hasn't been
-    // moved. Otherwise, we can't shoot while standing still!
-    
-    // if(x != 0 || y != 0) 
-    // {
-    ev.type = ev_mouse;
-    ev.data1 = I_SDLtoDoomMouseState(SDL_GetMouseState(NULL, NULL));
-    ev.data2 = x << 5;
-    ev.data3 = (-y) << 5;
-    D_PostEvent(&ev);
-    // }
+    if(x != 0 || y != 0 || btn || (lastmbtn != btn)) 
+    {
+        ev.type = ev_mouse;
+        ev.data1 = I_SDLtoDoomMouseState(btn);
+        ev.data2 = x << 5;
+        ev.data3 = (-y) << 5;
+        ev.data4 = 0;
+        D_PostEvent(&ev);
+    }
+
+    lastmbtn = btn;
     
     if(I_MouseShouldBeGrabbed())
         I_CenterMouse();
@@ -503,7 +471,7 @@ static void I_DeactivateMouse(void)
 {
     SDL_SetCursor(cursors[0]);
     SDL_WM_GrabInput(SDL_GRAB_OFF);
-    SDL_ShowCursor(1);
+    SDL_ShowCursor(m_menumouse.value < 1);
 }
 
 //
@@ -572,7 +540,8 @@ static void I_GetEvent(SDL_Event *Event)
         }
         else
         {
-            event.type = ev_mouse;
+            event.type = Event->type ==
+                SDL_MOUSEBUTTONUP ? ev_mouseup : ev_mousedown;
             event.data1 = I_SDLtoDoomMouseState(SDL_GetMouseState(NULL, NULL));
         }
         
@@ -621,6 +590,8 @@ static void I_InitInputs(void)
     SDL_PumpEvents();
     cursors[0] = SDL_GetCursor();
     cursors[1] = SDL_CreateCursor(data, data, 8, 1, 0, 0);
+
+    SDL_ShowCursor(m_menumouse.value < 1);
     
     UseMouse[0] = 1;
     UseMouse[1] = 2;

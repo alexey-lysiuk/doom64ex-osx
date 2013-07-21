@@ -1,19 +1,25 @@
-// Emacs style mode select   -*- C++ -*-
+// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
-// $Id: p_maputl.c 1091 2012-03-17 23:58:49Z svkaiser $
+// Copyright(C) 1993-1997 Id Software, Inc.
+// Copyright(C) 2007-2012 Samuel Villarreal
 //
-// Copyright (C) 1993-1996 by id Software, Inc.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
 //
-// This source is available for distribution and/or modification
-// only under the terms of the DOOM Source Code License as
-// published by id Software. All rights reserved.
-//
-// The source is distributed in the hope that it will be useful,
+// This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// FITNESS FOR A PARTICULAR PURPOSE. See the DOOM Source Code License
-// for more details.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 //
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+// 02111-1307, USA.
+//
+//-----------------------------------------------------------------------------
 //
 // DESCRIPTION:
 //	Movement/collision utility functions,
@@ -22,11 +28,6 @@
 //	and some PIT_* functions to use for iteration.
 //
 //-----------------------------------------------------------------------------
-#ifdef RCSID
-static const char
-rcsid[] = "$Id: p_maputl.c 1091 2012-03-17 23:58:49Z svkaiser $";
-#endif
-
 
 #include <stdlib.h>
 
@@ -77,49 +78,46 @@ int P_PointOnLineSide(fixed_t x, fixed_t y, line_t *line)
 // Considers the line to be infinite
 // Returns side 0 or 1, -1 if box crosses the line.
 //
-int
-P_BoxOnLineSide
-( fixed_t*	tmbox,
-  line_t*	ld )
+int P_BoxOnLineSide(fixed_t* tmbox, line_t* ld)
 {
-    int		p1;
-    int		p2;
+    int p1;
+    int p2;
 
     switch (ld->slopetype)
     {
-      case ST_HORIZONTAL:
-	p1 = tmbox[BOXTOP] > ld->v1->y;
-	p2 = tmbox[BOXBOTTOM] > ld->v1->y;
-	if (ld->dx < 0)
-	{
-	    p1 ^= 1;
-	    p2 ^= 1;
-	}
+    case ST_HORIZONTAL:
+        p1 = tmbox[BOXTOP] > ld->v1->y;
+        p2 = tmbox[BOXBOTTOM] > ld->v1->y;
+        if(ld->dx < 0)
+        {
+            p1 ^= 1;
+            p2 ^= 1;
+        }
+        break;
+    case ST_VERTICAL:
+        p1 = tmbox[BOXRIGHT] < ld->v1->x;
+        p2 = tmbox[BOXLEFT] < ld->v1->x;
+        if(ld->dy < 0)
+        {
+            p1 ^= 1;
+            p2 ^= 1;
+        }
 	break;
-
-      case ST_VERTICAL:
-	p1 = tmbox[BOXRIGHT] < ld->v1->x;
-	p2 = tmbox[BOXLEFT] < ld->v1->x;
-	if (ld->dy < 0)
-	{
-	    p1 ^= 1;
-	    p2 ^= 1;
-	}
+    case ST_POSITIVE:
+        p1 = P_PointOnLineSide (tmbox[BOXLEFT], tmbox[BOXTOP], ld);
+        p2 = P_PointOnLineSide (tmbox[BOXRIGHT], tmbox[BOXBOTTOM], ld);
+        break;
+    case ST_NEGATIVE:
+        p1 = P_PointOnLineSide (tmbox[BOXRIGHT], tmbox[BOXTOP], ld);
+        p2 = P_PointOnLineSide (tmbox[BOXLEFT], tmbox[BOXBOTTOM], ld);
 	break;
-
-      case ST_POSITIVE:
-	p1 = P_PointOnLineSide (tmbox[BOXLEFT], tmbox[BOXTOP], ld);
-	p2 = P_PointOnLineSide (tmbox[BOXRIGHT], tmbox[BOXBOTTOM], ld);
-	break;
-
-      case ST_NEGATIVE:
-	p1 = P_PointOnLineSide (tmbox[BOXRIGHT], tmbox[BOXTOP], ld);
-	p2 = P_PointOnLineSide (tmbox[BOXLEFT], tmbox[BOXBOTTOM], ld);
-	break;
+    default:
+        return -1;
     }
 
-    if (p1 == p2)
-	return p1;
+    if(p1 == p2)
+        return p1;
+
     return -1;
 }
 
@@ -696,7 +694,7 @@ P_TraverseIntercepts
 
     while (count--)
     {
-	dist = MAXINT;
+	dist = D_MAXINT;
 	for (scan = intercepts ; scan<intercept_p ; scan++)
 	{
 	    if (scan->frac < dist)
@@ -724,7 +722,7 @@ P_TraverseIntercepts
         if ( !func (in) )
 	    return false;	// don't bother going farther
 
-	in->frac = MAXINT;
+	in->frac = D_MAXINT;
     }
 
     return true;		// everything was traversed

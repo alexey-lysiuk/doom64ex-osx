@@ -709,7 +709,7 @@ void SlapGLExtensionsToFile(FILE* f, char* arbstring)
     fprintf(f, "\n");
 
     fprintf(f, "#define %s_Init() \\\n", arbstring);
-    fprintf(f, "has_%s = R_GLCheckExtension(\"%s\");", arbstring, arbstring);
+    fprintf(f, "has_%s = GL_CheckExtension(\"%s\");", arbstring, arbstring);
 
     if(i > 0)
         fprintf(f, " \\\n");
@@ -718,7 +718,7 @@ void SlapGLExtensionsToFile(FILE* f, char* arbstring)
 
     for(j = 0; j < i; j++)
     {
-        fprintf(f, "_%s = R_GLRegisterProc(\"%s\")", gldata[j].name, gldata[j].name);
+        fprintf(f, "_%s = GL_RegisterProc(\"%s\")", gldata[j].name, gldata[j].name);
         if(j < (i - 1))
             fprintf(f, "; \\\n");
         else

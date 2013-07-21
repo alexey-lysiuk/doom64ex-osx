@@ -1,33 +1,31 @@
-// Emacs style mode select   -*- C++ -*-
+// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
-// $Id: m_menu.c 1101 2012-04-08 19:48:22Z svkaiser $
+// Copyright(C) 1993-1997 Id Software, Inc.
+// Copyright(C) 2007-2012 Samuel Villarreal
 //
-// Copyright (C) 1993-1996 by id Software, Inc.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
 //
-// This source is available for distribution and/or modification
-// only under the terms of the DOOM Source Code License as
-// published by id Software. All rights reserved.
-//
-// The source is distributed in the hope that it will be useful,
+// This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// FITNESS FOR A PARTICULAR PURPOSE. See the DOOM Source Code License
-// for more details.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 //
-// $Author: svkaiser $
-// $Revision: 1101 $
-// $Date: 2012-04-08 22:48:22 +0300 (нд, 08 кві 2012) $
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+// 02111-1307, USA.
 //
+//-----------------------------------------------------------------------------
 //
 // DESCRIPTION:
 //      DOOM selection menu, options, episode etc.
 //      Sliders and icons. Kinda widget stuff.
 //
 //-----------------------------------------------------------------------------
-#ifdef RCSID
-static const char
-rcsid[] = "$Id: m_menu.c 1101 2012-04-08 19:48:22Z svkaiser $";
-#endif
 
 #ifdef _WIN32
 #include <io.h>
@@ -65,6 +63,8 @@ rcsid[] = "$Id: m_menu.c 1101 2012-04-08 19:48:22Z svkaiser $";
 #include "st_stuff.h"
 #include "p_saveg.h"
 #include "p_setup.h"
+#include "gl_texture.h"
+#include "gl_draw.h"
 
 #ifdef _WIN32
 #include "i_xinput.h"
@@ -82,20 +82,6 @@ rcsid[] = "$Id: m_menu.c 1101 2012-04-08 19:48:22Z svkaiser $";
 #define MENUCOLORRED	    D_RGBA(255, 0, 0, menualphacolor)
 #define MENUCOLORWHITE	    D_RGBA(255, 255, 255, menualphacolor)
 #define MAXBRIGHTNESS	    100
-
-CVAR(m_regionblood, 0);
-CVAR_CMD(m_menufadetime, 20)
-{
-    if(cvar->value < 0)
-        cvar->value = 0;
-
-    if(cvar->value > 256)
-        cvar->value = 256;
-}
-
-#if 0
-CVAR(m_menumouse, 0);
-#endif
 
 //
 // defaulted values
@@ -142,8 +128,6 @@ static dboolean lockmonstersmon = false;
 static int      thermowait = 0;
 static int      m_aspectRatio = 0;
 static int      m_ScreenSize = 1;
-static int      m_mousex = 0;
-static int      m_mousey = 0;
 
 //------------------------------------------------------------------------
 //
@@ -172,12 +156,19 @@ typedef struct
     float	mdefault;
 } menudefault_t;
 
+typedef struct
+{
+    int item;
+    float width;
+    cvar_t *mitem;
+} menuthermobar_t;
+
 typedef struct menu_s
 {
     short               numitems;           // # of menu items
     dboolean            textonly;
-    struct menu_s*      prevMenu;           // previous menu
-    menuitem_t*         menuitems;          // menu items
+    struct menu_s       *prevMenu;          // previous menu
+    menuitem_t          *menuitems;         // menu items
     void                (*routine)(void);   // draw routine
     char                title[64];
     short               x;
@@ -188,7 +179,8 @@ typedef struct menu_s
     short               numpageitems;       // number of items to display per page
     short               menupageoffset;
     float               scale;
-    char**              hints;
+    char                **hints;
+    menuthermobar_t     *thermobars;
 } menu_t;
 
 typedef struct
@@ -198,6 +190,7 @@ typedef struct
 }menuaction_t;
 
 short           itemOn;                 // menu item skull is on
+short           itemSelected;
 short           skullAnimCounter;       // skull animation counter
 short           whichSkull;             // which skull to draw
 
@@ -221,17 +214,46 @@ void M_QuickLoad(void);
 
 static int M_StringWidth(const char *string);
 static int M_StringHeight(const char *string);
+static int M_BigStringWidth(const char *string);
 
 static void M_DrawThermo(int x, int y, int thermWidth, float thermDot);
 static void M_DoDefaults(int choice);
 static void M_Return(int choice);
 static void M_ReturnToOptions(int choice);
 static void M_SetCvar(cvar_t *cvar, float value);
+static void M_SetOptionValue(int choice, float min, float max, float inc, cvar_t *cvar);
 static void M_DrawSmbString(const char* text, menu_t* menu, int item);
 static void M_DrawSaveGameFrontend(menu_t* def);
 static void M_SetInputString(char* string, int len);
+static void M_Scroll(menu_t* menu, dboolean up);
 
 static dboolean M_SetThumbnail(int which);
+
+CVAR(m_regionblood, 0);
+CVAR_CMD(m_menufadetime, 0)
+{
+    if(cvar->value < 0)
+        cvar->value = 0;
+
+    if(cvar->value > 80)
+        cvar->value = 80;
+}
+
+CVAR_CMD(m_menumouse, 1)
+{
+    SDL_ShowCursor(cvar->value < 1);
+    if(cvar->value <= 0)
+        itemSelected = -1;
+}
+
+CVAR_CMD(m_cursorscale, 8)
+{
+    if(cvar->value < 0)
+        cvar->value = 0;
+
+    if(cvar->value > 50)
+        cvar->value = 50;
+}
 
 //------------------------------------------------------------------------
 //
@@ -243,6 +265,7 @@ void M_NewGame(int choice);
 void M_Options(int choice);
 void M_LoadGame(int choice);
 void M_QuitDOOM(int choice);
+void M_QuitDOOM2(int choice);
 
 enum
 {
@@ -258,10 +281,10 @@ menuitem_t MainMenu[]=
     {1,"New Game",M_NewGame,'n'},
     {1,"Options",M_Options,'o'},
     {1,"Load Game",M_LoadGame,'l'},
-    {1,"Quit Game",M_QuitDOOM,'q'},
+    {1,"Quit Game",M_QuitDOOM2,'q'},
 };
 
-menu_t  MainDef =
+menu_t MainDef =
 {
     main_end,
     false,
@@ -276,6 +299,7 @@ menu_t  MainDef =
     -1,
     0,
     1.0f,
+    NULL,
     NULL
 };
 
@@ -313,7 +337,7 @@ menuitem_t PauseMenu[]=
     {1,"Quit Game",M_QuitDOOM,'q'},
 };
 
-menu_t  PauseDef =
+menu_t PauseDef =
 {
     pause_end,
     false,
@@ -328,6 +352,7 @@ menu_t  PauseDef =
     -1,
     0,
     1.0f,
+    NULL,
     NULL
 };
 
@@ -353,7 +378,7 @@ menuitem_t QuitGameMenu[]=
     {1,"No",M_QuitGameBack,'n'},
 };
 
-menu_t  QuitDef =
+menu_t QuitDef =
 {
     quitend,
     false,
@@ -368,15 +393,13 @@ menu_t  QuitDef =
     -1,
     0,
     1.0f,
+    NULL,
     NULL
 };
 
 void M_QuitDOOM(int choice)
 {
-    menu_t* menu = currentMenu;
-
     M_SetupNextMenu(&QuitDef);
-    currentMenu->prevMenu = menu;
 }
 
 void M_QuitGame(int choice)
@@ -385,6 +408,62 @@ void M_QuitGame(int choice)
 }
 
 void M_QuitGameBack(int choice)
+{
+    M_SetupNextMenu(currentMenu->prevMenu);
+}
+
+//------------------------------------------------------------------------
+//
+// QUIT GAME PROMPT (From Main Menu)
+//
+//------------------------------------------------------------------------
+
+void M_QuitGame2(int choice);
+void M_QuitGameBack2(int choice);
+
+enum
+{
+    quit2yes = 0,
+    quit2no,
+    quit2end
+}; quit2prompt_e;
+
+menuitem_t QuitGameMenu2[]=
+{
+    {1,"Yes",M_QuitGame2,'y'},
+    {1,"No",M_QuitGameBack2,'n'},
+};
+
+menu_t QuitDef2 =
+{
+    quit2end,
+    false,
+    &MainDef,
+    QuitGameMenu2,
+    NULL,
+    "Quit DOOM?",
+    144,112,
+    quit2no,
+    false,
+    NULL,
+    -1,
+    0,
+    1.0f,
+    NULL,
+    NULL
+};
+
+void M_QuitDOOM2(int choice)
+{
+    M_SetupNextMenu(&QuitDef2);
+}
+
+void M_QuitGame2(int choice)
+{
+    I_Quit();
+}
+
+void M_QuitGameBack2(int choice)
 {
     M_SetupNextMenu(currentMenu->prevMenu);
 }
@@ -410,7 +489,7 @@ menuitem_t PromptMain[]=
     {1,"No",M_ReturnToOptions,'n'},
 };
 
-menu_t  PromptMainDef =
+menu_t PromptMainDef =
 {
     PMain_end,
     false,
@@ -425,6 +504,7 @@ menu_t  PromptMainDef =
     -1,
     0,
     1.0f,
+    NULL,
     NULL
 };
 
@@ -474,7 +554,7 @@ menuitem_t RestartConfirmMain[]=
     {1,"No",M_ReturnToOptions,'n'},
 };
 
-menu_t  RestartDef =
+menu_t RestartDef =
 {
     RMain_end,
     false,
@@ -489,6 +569,7 @@ menu_t  RestartDef =
     -1,
     0,
     1.0f,
+    NULL,
     NULL
 };
 
@@ -530,7 +611,7 @@ menuitem_t StartNewNotify[]=
     {1,"Ok",M_NewGameNotifyResponse,'o'}
 };
 
-menu_t  StartNewNotifyDef =
+menu_t StartNewNotifyDef =
 {
     SNN_End,
     false,
@@ -545,6 +626,7 @@ menu_t  StartNewNotifyDef =
     -1,
     0,
     1.0f,
+    NULL,
     NULL
 };
 
@@ -555,8 +637,8 @@ void M_NewGameNotifyResponse(int choice)
 
 void M_DrawStartNewNotify(void)
 {
-    M_DrawSmbText(-1, 16, MENUCOLORRED , "You Cannot Start");
-    M_DrawSmbText(-1, 32, MENUCOLORRED , "A New Game On A Network");
+    Draw_BigText(-1, 16, MENUCOLORRED , "You Cannot Start");
+    Draw_BigText(-1, 32, MENUCOLORRED , "A New Game On A Network");
 }
 
 //------------------------------------------------------------------------
@@ -586,7 +668,7 @@ menuitem_t NewGameMenu[]=
     {-3,"Hardcore!",M_ChooseSkill, 'h'},
 };
 
-menu_t  NewDef =
+menu_t NewDef =
 {
     newg_end,
     false,
@@ -601,6 +683,7 @@ menu_t  NewDef =
     -1,
     0,
     1.0f,
+    NULL,
     NULL
 };
 
@@ -621,6 +704,7 @@ void M_ChooseSkill(int choice)
     G_DeferedInitNew(choice,1);
     M_ClearMenus();
     dmemset(passwordData, 0xff, 16);
+    allowmenu = false;
 }
 
 
@@ -684,7 +768,7 @@ char* OptionHints[opt_end]=
     NULL
 };
 
-menu_t  OptionsDef =
+menu_t OptionsDef =
 {
     opt_end,
     false,
@@ -699,7 +783,8 @@ menu_t  OptionsDef =
     -1,
     0,
     0.75f,
-    OptionHints
+    OptionHints,
+    NULL
 };
 
 void M_Options(int choice)
@@ -711,9 +796,9 @@ void M_DrawOptions(void)
 {
     if(OptionsDef.hints[itemOn] != NULL)
     {
-        R_GLSetOrthoScale(0.5f);
-        M_DrawSmbText(-1, 410, MENUCOLORWHITE, OptionsDef.hints[itemOn]);
-        R_GLSetOrthoScale(OptionsDef.scale);
+        GL_SetOrthoScale(0.5f);
+        Draw_BigText(-1, 410, MENUCOLORWHITE, OptionsDef.hints[itemOn]);
+        GL_SetOrthoScale(OptionsDef.scale);
     }
 }
 
@@ -766,7 +851,7 @@ char* RegionHints[region_end]=
     NULL
 };
 
-menu_t  RegionDef =
+menu_t RegionDef =
 {
     region_end,
     false,
@@ -781,7 +866,8 @@ menu_t  RegionDef =
     -1,
     0,
     0.8f,
-    RegionHints
+    RegionHints,
+    NULL
 };
 
 void M_Region(int choice)
@@ -802,20 +888,7 @@ void M_RegionChoice(int choice)
         if(RegionMenu[region_mode].status == 1)
             return;
 
-        if(choice)
-        {
-            if(p_regionmode.value < 2)
-                M_SetCvar(&p_regionmode, p_regionmode.value + 1);
-            else
-                CON_CvarSetValue(p_regionmode.name, 2);
-        }
-        else
-        {
-            if(p_regionmode.value > 0)
-                M_SetCvar(&p_regionmode, p_regionmode.value - 1);
-            else
-                CON_CvarSetValue(p_regionmode.name, 0);
-        }
+        M_SetOptionValue(choice, 0, 2, 1, &p_regionmode);
         break;
 
     case region_lang:
@@ -825,10 +898,7 @@ void M_RegionChoice(int choice)
         if(RegionMenu[region_lang].status == 1)
             return;
 
-        if(choice)
-            M_SetCvar(&st_regionmsg, 1);
-        else
-            M_SetCvar(&st_regionmsg, 0);
+        M_SetOptionValue(choice, 0, 1, 1, &st_regionmsg);
         break;
 
     case region_blood:
@@ -838,10 +908,7 @@ void M_RegionChoice(int choice)
         if(RegionMenu[region_blood].status == 1)
             return;
 
-        if(choice)
-            M_SetCvar(&m_regionblood, 1);
-        else
-            M_SetCvar(&m_regionblood, 0);
+        M_SetOptionValue(choice, 0, 1, 1, &m_regionblood);
 
         lump = (int)m_regionblood.value;
 
@@ -876,7 +943,7 @@ void M_DrawRegion(void)
         string = (char*)regionmode[(int)p_regionmode.value];
     }
 
-    M_DrawSmbText(RegionDef.x + 136, RegionDef.y + LINEHEIGHT * region_mode, color, string);
+    Draw_BigText(RegionDef.x + 136, RegionDef.y + LINEHEIGHT * region_mode, color, string);
 
     if(RegionMenu[region_lang].status == 1)
     {
@@ -889,7 +956,7 @@ void M_DrawRegion(void)
         string = (char*)language[(int)st_regionmsg.value];
     }
 
-    M_DrawSmbText(RegionDef.x + 136, RegionDef.y + LINEHEIGHT * region_lang, color, string);
+    Draw_BigText(RegionDef.x + 136, RegionDef.y + LINEHEIGHT * region_lang, color, string);
 
     if(RegionMenu[region_blood].status == 1)
     {
@@ -902,13 +969,13 @@ void M_DrawRegion(void)
         string = (char*)bloodcolor[(int)m_regionblood.value];
     }
 
-    M_DrawSmbText(RegionDef.x + 136, RegionDef.y + LINEHEIGHT * region_blood, color, string);
+    Draw_BigText(RegionDef.x + 136, RegionDef.y + LINEHEIGHT * region_blood, color, string);
 
     if(RegionDef.hints[itemOn] != NULL)
     {
-        R_GLSetOrthoScale(0.5f);
-        M_DrawSmbText(-1, 410, MENUCOLORWHITE, RegionDef.hints[itemOn]);
-        R_GLSetOrthoScale(RegionDef.scale);
+        GL_SetOrthoScale(0.5f);
+        Draw_BigText(-1, 410, MENUCOLORWHITE, RegionDef.hints[itemOn]);
+        GL_SetOrthoScale(RegionDef.scale);
     }
 }
 
@@ -951,9 +1018,7 @@ enum
     network_respawnmonsters,
     network_respawnitems,
     network_damagescale,
-    network_empty1,
     network_healthscale,
-    network_empty2,
     network_default,
     network_return,
     network_end
@@ -974,10 +1039,8 @@ menuitem_t NetworkMenu[]=
     {2,"Fast Monsters:", M_NetworkChoice, 'f'},
     {2,"Respawn Monsters:", M_NetworkChoice, 'r'},
     {2,"Respawn Items:", M_NetworkChoice, 'i'},
-    {3,"Damage Scale", M_NetworkChoice, 'd'},
-    {-1,"",0 },
-    {3,"Health Scale", M_NetworkChoice, 'h'},
-    {-1,"",0 },
+    {2,"Damage Scale:", M_NetworkChoice, 'd'},
+    {2,"Health Scale:", M_NetworkChoice, 'h'},
     {-2,"Default",M_DoDefaults,'d'},
     {1,"/r Return",M_Return, 0x20}
 };
@@ -1014,14 +1077,12 @@ char* NetworkHints[network_end]=
     "monsters will respawn after death",
     "items will respawn after pickup",
     "set a multiplier for damage dealt by monsters",
-    NULL,
     "set a multiplier for monster health",
-    NULL,
     NULL,
     NULL
 };
 
-menu_t  NetworkDef =
+menu_t NetworkDef =
 {
     network_end,
     false,
@@ -1036,7 +1097,8 @@ menu_t  NetworkDef =
     14,
     0,
     0.5f,
-    NetworkHints
+    NetworkHints,
+    NULL
 };
 
 void M_Network(int choice)
@@ -1055,76 +1117,37 @@ void M_NetworkChoice(int choice)
     switch(itemOn)
     {
     case network_damagescale:
-        if(choice)
-        {
-            if(sv_damagescale.value < 30.0f)
-                M_SetCvar(&sv_damagescale, sv_damagescale.value + 0.5f);
-            else
-                CON_CvarSetValue(sv_damagescale.name, 30);
-        }
-        else
-        {
-            if(sv_damagescale.value > 1.0f)
-                M_SetCvar(&sv_damagescale, sv_damagescale.value - 0.5f);
-            else
-                CON_CvarSetValue(sv_damagescale.name, 1);
-        }
+        M_SetOptionValue(choice, 1, 3, 1, &sv_damagescale);
         break;
     case network_healthscale:
-        if(choice)
-        {
-            if(sv_healthscale.value < 20.0f)
-                M_SetCvar(&sv_healthscale, sv_healthscale.value + 0.5f);
-            else
-                CON_CvarSetValue(sv_healthscale.name, 20);
-        }
-        else
-        {
-            if(sv_healthscale.value > 1.0f)
-                M_SetCvar(&sv_healthscale, sv_healthscale.value - 0.5f);
-            else
-                CON_CvarSetValue(sv_healthscale.name, 1);
-        }
+        M_SetOptionValue(choice, 1, 3, 1, &sv_healthscale);
         break;
     case network_allowcheats:
-        M_SetCvar(&sv_allowcheats, (float)choice);
+        M_SetOptionValue(choice, 0, 1, 1, &sv_allowcheats);
         break;
     case network_friendlyfire:
-        M_SetCvar(&sv_friendlyfire, (float)choice);
+        M_SetOptionValue(choice, 0, 1, 1, &sv_friendlyfire);
         break;
     case network_keepitems:
-        M_SetCvar(&sv_keepitems, (float)choice);
+        M_SetOptionValue(choice, 0, 1, 1, &sv_keepitems);
         break;
     case network_allowjump:
-        M_SetCvar(&p_allowjump, (float)choice);
+        M_SetOptionValue(choice, 0, 1, 1, &p_allowjump);
         break;
     case network_allowautoaim:
-        M_SetCvar(&p_autoaim, (float)choice);
+        M_SetOptionValue(choice, 0, 1, 1, &p_autoaim);
         break;
     case network_nomonsters:
-        M_SetCvar(&sv_nomonsters, (float)choice);
+        M_SetOptionValue(choice, 0, 1, 1, &sv_nomonsters);
         break;
     case network_fastmonsters:
-        M_SetCvar(&sv_fastmonsters, (float)choice);
+        M_SetOptionValue(choice, 0, 1, 1, &sv_fastmonsters);
         break;
     case network_respawnmonsters:
-        M_SetCvar(&sv_respawn, (float)choice);
+        M_SetOptionValue(choice, 0, 1, 1, &sv_respawn);
         break;
     case network_respawnitems:
-        if(choice)
-        {
-            if(sv_respawnitems.value < 10)
-                M_SetCvar(&sv_respawnitems, sv_respawnitems.value + 1);
-            else
-                CON_CvarSetValue(sv_respawnitems.name, 10);
-        }
-        else
-        {
-            if(sv_respawnitems.value > 0)
-                M_SetCvar(&sv_respawnitems, sv_respawnitems.value - 1);
-            else
-                CON_CvarSetValue(sv_respawnitems.name, 0);
-        }
+        M_SetOptionValue(choice, 0, 10, 1, &sv_respawnitems);
         break;
     }
 }
@@ -1147,46 +1170,19 @@ void M_DrawNetwork(void)
         "10 Minutes"
     };
 
-    if(currentMenu->menupageoffset <= network_damagescale+1 &&
-        (network_damagescale+1) - currentMenu->menupageoffset < currentMenu->numpageitems)
+    static const char* networkscalestrings[3] =
     {
-        char str[8];
-
-        y = network_damagescale - currentMenu->menupageoffset;
-        M_DrawThermo(NetworkDef.x, NetworkDef.y + LINEHEIGHT * (y + 1), 30, sv_damagescale.value);
-
-        sprintf(str, "x %i", (int)sv_damagescale.value);
-
-        M_DrawSmbText(
-            NetworkDef.x + 192,
-            NetworkDef.y + LINEHEIGHT * (y + 1),
-            MENUCOLORRED,
-            str);
-    }
-
-    if(currentMenu->menupageoffset <= network_healthscale+1 &&
-        (network_healthscale+1) - currentMenu->menupageoffset < currentMenu->numpageitems)
-    {
-        char str[8];
-
-        y = network_healthscale - currentMenu->menupageoffset;
-        M_DrawThermo(NetworkDef.x, NetworkDef.y + LINEHEIGHT * (y + 1), 20, sv_healthscale.value);
-
-        sprintf(str, "x %i", (int)sv_healthscale.value);
-
-        M_DrawSmbText(
-            NetworkDef.x + 192,
-            NetworkDef.y + LINEHEIGHT * (y + 1),
-            MENUCOLORRED,
-            str);
-    }
+        "x 1",
+        "x 2",
+        "x 3"
+    };
 
 #define DRAWNETWORKITEM(a, b, c) \
     if(currentMenu->menupageoffset <= a && \
         a - currentMenu->menupageoffset < currentMenu->numpageitems) \
     { \
         y = a - currentMenu->menupageoffset; \
-        M_DrawSmbText(NetworkDef.x + 194, NetworkDef.y+LINEHEIGHT*y, MENUCOLORRED, \
+        Draw_BigText(NetworkDef.x + 194, NetworkDef.y+LINEHEIGHT*y, MENUCOLORRED, \
             c[(int)b]); \
     }
 
@@ -1200,6 +1196,8 @@ void M_DrawNetwork(void)
     DRAWNETWORKITEM(network_fastmonsters, sv_fastmonsters.value, msgNames);
     DRAWNETWORKITEM(network_respawnmonsters, sv_respawn.value, msgNames);
     DRAWNETWORKITEM(network_respawnitems, sv_respawnitems.value, respawnitemstrings);
+    DRAWNETWORKITEM(network_damagescale, sv_damagescale.value-1, networkscalestrings);
+    DRAWNETWORKITEM(network_healthscale, sv_healthscale.value-1, networkscalestrings);
 
 #undef DRAWNETWORKITEM
 
@@ -1208,15 +1206,15 @@ void M_DrawNetwork(void)
         int i;
 
         y = network_playername - currentMenu->menupageoffset;
-        i = ((int)(160.0f / NetworkDef.scale) - M_CenterSmbText(inputString)) * 2;
-        M_DrawSmbText(NetworkDef.x + i + 198, (NetworkDef.y + LINEHEIGHT * y), MENUCOLORWHITE, "/r");
+        i = ((int)(160.0f / NetworkDef.scale) - Center_Text(inputString)) * 2;
+        Draw_BigText(NetworkDef.x + i + 198, (NetworkDef.y + LINEHEIGHT * y), MENUCOLORWHITE, "/r");
     }
 
     if(NetworkDef.hints[itemOn] != NULL)
     {
-        R_GLSetOrthoScale(0.5f);
-        M_DrawSmbText(-1, 410, MENUCOLORWHITE, NetworkDef.hints[itemOn]);
-        R_GLSetOrthoScale(NetworkDef.scale);
+        GL_SetOrthoScale(0.5f);
+        Draw_BigText(-1, 410, MENUCOLORWHITE, NetworkDef.hints[itemOn]);
+        GL_SetOrthoScale(NetworkDef.scale);
     }
 }
 
@@ -1233,7 +1231,7 @@ CVAR_EXTERNAL(am_showkeymarkers);
 CVAR_EXTERNAL(am_showkeycolors);
 CVAR_EXTERNAL(am_drawobjects);
 CVAR_EXTERNAL(am_overlay);
-CVAR_EXTERNAL(r_looksky);
+CVAR_EXTERNAL(r_skybox);
 CVAR_EXTERNAL(r_texnonpowresize);
 CVAR_EXTERNAL(i_interpolateframes);
 CVAR_EXTERNAL(p_usecontext);
@@ -1249,9 +1247,9 @@ enum
     misc_header1,
     misc_menufade,
     misc_empty1,
-#if 0
     misc_menumouse,
-#endif
+    misc_cursorsize,
+    misc_empty2,
     misc_header2,
     misc_aim,
     misc_jump,
@@ -1262,7 +1260,7 @@ enum
     misc_frame,
     misc_combine,
     misc_sprites,
-    misc_skylook,
+    misc_skybox,
     misc_header4,
     misc_showkey,
     misc_showlocks,
@@ -1282,9 +1280,9 @@ menuitem_t MiscMenu[]=
     {-1,"Menu Options",0 },
     {3,"Menu Fade Speed",M_MiscChoice, 'm' },
     {-1,"",0 },
-#if 0
-    {2,"Menu Cursor:",M_MiscChoice, 'h'},
-#endif
+    {2,"Show Cursor:",M_MiscChoice, 'h'},
+    {3,"Cursor Scale:",M_MiscChoice,'u'},
+    {-1,"",0 },
     {-1,"Gameplay",0 },
     {2,"Auto Aim:",M_MiscChoice, 'a'},
     {2,"Jumping:",M_MiscChoice, 'j'},
@@ -1295,7 +1293,7 @@ menuitem_t MiscMenu[]=
     {2,"Framerate:",M_MiscChoice, 'f' },
     {2,"Use Combiners:",M_MiscChoice, 'c' },
     {2,"Sprite Pitch:",M_MiscChoice,'p'},
-    {2,"Sky Pitch:",M_MiscChoice,'k'},
+    {2,"Skybox:",M_MiscChoice,'k'},
     {-1,"Automap",0 },
     {2,"Key Pickups:",M_MiscChoice },
     {2,"Locked Doors:",M_MiscChoice },
@@ -1314,9 +1312,9 @@ char* MiscHints[misc_end]=
     NULL,
     "change transition speeds between switching menus",
     NULL,
-#if 0
+    "enable menu cursor",
+    "set the size of the mouse cursor",
     NULL,
-#endif
     NULL,
     "toggle classic style auto-aiming",
     "toggle the ability to jump",
@@ -1327,7 +1325,7 @@ char* MiscHints[misc_end]=
     "interpolate between frames to achieve smooth framerate",
     "use texture combining - not supported by low-end cards",
     "toggles billboard sprite rendering",
-    "sky backgrounds will adjust accordingly to player view",
+    "toggle skies to render either normally or as skyboxes",
     NULL,
     "display key pickups in automap",
     "colorize locked doors accordingly to the key in automap",
@@ -1343,10 +1341,9 @@ char* MiscHints[misc_end]=
 
 menudefault_t MiscDefault[] =
 {
-    { &m_menufadetime, 20 },
-#if 0
-    { &m_menumouse, 0 },
-#endif
+    { &m_menufadetime, 0 },
+    { &m_menumouse, 1 },
+    { &m_cursorscale, 8 },
     { &p_autoaim, 1 },
     { &p_allowjump, 0 },
     { &p_usecontext, 0 },
@@ -1355,7 +1352,7 @@ menudefault_t MiscDefault[] =
     { &i_interpolateframes, 0 },
     { &r_texturecombiner, 1 },
     { &r_rendersprites, 1 },
-    { &r_looksky, 0 },
+    { &r_skybox, 0 },
     { &am_showkeymarkers, 0 },
     { &am_showkeycolors, 0 },
     { &am_drawobjects, 0 },
@@ -1366,7 +1363,14 @@ menudefault_t MiscDefault[] =
     { NULL, -1 }
 };
 
-menu_t  MiscDef =
+menuthermobar_t SetupBars[] =
+{
+    { misc_empty1, 80, &m_menufadetime },
+    { misc_empty2, 50, &m_cursorscale },
+    { -1, 0 }
+};
+
+menu_t MiscDef =
 {
     misc_end,
     false,
@@ -1381,7 +1385,8 @@ menu_t  MiscDef =
     14,
     0,
     0.5f,
-    MiscHints
+    MiscHints,
+    SetupBars
 };
 
 void M_Misc(int choice)
@@ -1391,130 +1396,108 @@ void M_Misc(int choice)
 
 void M_MiscChoice(int choice)
 {
-    float slope = 80.0f / 100.0f;
-
     switch(itemOn)
     {
     case misc_menufade:
         if(choice)
         {
-            if(m_menufadetime.value < 100.0f)
-                M_SetCvar(&m_menufadetime, m_menufadetime.value + slope);
+            if(m_menufadetime.value < 80.0f)
+                M_SetCvar(&m_menufadetime, m_menufadetime.value + 0.8f);
             else
-                CON_CvarSetValue(m_menufadetime.name, 100);
+                CON_CvarSetValue(m_menufadetime.name, 80);
         }
         else
         {
-            if(m_menufadetime.value > 20.0f)
-                M_SetCvar(&m_menufadetime, m_menufadetime.value - slope);
+            if(m_menufadetime.value > 0.0f)
+                M_SetCvar(&m_menufadetime, m_menufadetime.value - 0.8f);
             else
-                CON_CvarSetValue(m_menufadetime.name, 20);
+                CON_CvarSetValue(m_menufadetime.name, 0);
         }
         break;
 
-#if 0
-    case misc_menumouse:
-        M_SetCvar(&m_menumouse, (float)choice);
+    case misc_cursorsize:
+        if(choice)
+        {
+            if(m_cursorscale.value < 50)
+                M_SetCvar(&m_cursorscale, m_cursorscale.value + 0.5f);
+            else
+                CON_CvarSetValue(m_cursorscale.name, 50);
+        }
+        else
+        {
+            if(m_cursorscale.value > 0.0f)
+                M_SetCvar(&m_cursorscale, m_cursorscale.value - 0.5f);
+            else
+                CON_CvarSetValue(m_cursorscale.name, 0);
+        }
         break;
-#endif
+
+    case misc_menumouse:
+        M_SetOptionValue(choice, 0, 1, 1, &m_menumouse);
+        break;
 
     case misc_aim:
-        M_SetCvar(&p_autoaim, (float)choice);
+        M_SetOptionValue(choice, 0, 1, 1, &p_autoaim);
         break;
 
     case misc_jump:
-        M_SetCvar(&p_allowjump, (float)choice);
+        M_SetOptionValue(choice, 0, 1, 1, &p_allowjump);
         break;
 
     case misc_context:
-        M_SetCvar(&p_usecontext, (float)choice);
+        M_SetOptionValue(choice, 0, 1, 1, &p_usecontext);
         break;
 
     case misc_wipe:
-        M_SetCvar(&r_wipe, (float)choice);
+        M_SetOptionValue(choice, 0, 1, 1, &r_wipe);
         break;
 
     case misc_texresize:
-        if(choice)
-        {
-            if(r_texnonpowresize.value < 2)
-            {
-                M_SetCvar(&r_texnonpowresize, r_texnonpowresize.value + 1);
-                R_DumpTextures();
-            }
-            else
-                CON_CvarSetValue(r_texnonpowresize.name, 2);
-        }
-        else
-        {
-            if(r_texnonpowresize.value > 0)
-            {
-                M_SetCvar(&r_texnonpowresize, r_texnonpowresize.value - 1);
-                R_DumpTextures();
-            }
-            else
-                CON_CvarSetValue(r_texnonpowresize.name, 0);
-        }
+        M_SetOptionValue(choice, 0, 2, 1, &r_texnonpowresize);
         break;
 
     case misc_frame:
-        M_SetCvar(&i_interpolateframes, (float)choice);
+        M_SetOptionValue(choice, 0, 1, 1, &i_interpolateframes);
         break;
 
     case misc_combine:
-        M_SetCvar(&r_texturecombiner, (float)choice);
+        M_SetOptionValue(choice, 0, 1, 1, &r_texturecombiner);
         break;
 
     case misc_sprites:
-        if(choice)
-            M_SetCvar(&r_rendersprites, 2);
-        else
-            M_SetCvar(&r_rendersprites, 1);
+        M_SetOptionValue(choice, 1, 2, 1, &r_rendersprites);
         break;
 
-    case misc_skylook:
-        M_SetCvar(&r_looksky, (float)choice);
+    case misc_skybox:
+        M_SetOptionValue(choice, 0, 1, 1, &r_skybox);
         break;
 
     case misc_showkey:
-        M_SetCvar(&am_showkeymarkers, (float)choice);
+        M_SetOptionValue(choice, 0, 1, 1, &am_showkeymarkers);
         break;
 
     case misc_showlocks:
-        M_SetCvar(&am_showkeycolors, (float)choice);
+        M_SetOptionValue(choice, 0, 1, 1, &am_showkeycolors);
         break;
 
     case misc_amobjects:
-        if(choice)
-        {
-            if(am_drawobjects.value < 2)
-                M_SetCvar(&am_drawobjects, am_drawobjects.value + 1);
-            else
-                CON_CvarSetValue(am_drawobjects.name, 2);
-        }
-        else
-        {
-            if(am_drawobjects.value > 0)
-                M_SetCvar(&am_drawobjects, am_drawobjects.value - 1);
-            else
-                CON_CvarSetValue(am_drawobjects.name, 0);
-        }
+        M_SetOptionValue(choice, 0, 2, 1, &am_drawobjects);
         break;
 
     case misc_amoverlay:
-        M_SetCvar(&am_overlay, (float)choice);
+        M_SetOptionValue(choice, 0, 1, 1, &am_overlay);
         break;
 
     case misc_comp_collision:
-        M_SetCvar(&compat_collision, (float)choice);
+        M_SetOptionValue(choice, 0, 1, 1, &compat_collision);
         break;
 
     case misc_comp_pain:
-        M_SetCvar(&compat_limitpain, (float)choice);
+        M_SetOptionValue(choice, 0, 1, 1, &compat_limitpain);
         break;
 
     case misc_comp_pass:
-        M_SetCvar(&compat_mobjpass, (float)(choice ^ 1));
+        M_SetOptionValue(choice, 0, 1, 1, &compat_mobjpass);
         break;
     }
 }
@@ -1531,7 +1514,14 @@ void M_DrawMisc(void)
         (misc_menufade+1) - currentMenu->menupageoffset < currentMenu->numpageitems)
     {
         y = misc_menufade - currentMenu->menupageoffset;
-        M_DrawThermo(MiscDef.x,MiscDef.y+LINEHEIGHT*(y+1), 80, m_menufadetime.value - 20);
+        M_DrawThermo(MiscDef.x,MiscDef.y+LINEHEIGHT*(y+1), 80, m_menufadetime.value);
+    }
+
+    if(currentMenu->menupageoffset <= misc_cursorsize+1 &&
+        (misc_cursorsize+1) - currentMenu->menupageoffset < currentMenu->numpageitems)
+    {
+        y = misc_cursorsize - currentMenu->menupageoffset;
+        M_DrawThermo(MiscDef.x,MiscDef.y+LINEHEIGHT*(y+1), 50, m_cursorscale.value);
     }
 
 #define DRAWMISCITEM(a, b, c) \
@@ -1539,14 +1529,11 @@ void M_DrawMisc(void)
         a - currentMenu->menupageoffset < currentMenu->numpageitems) \
     { \
         y = a - currentMenu->menupageoffset; \
-        M_DrawSmbText(MiscDef.x + 176, MiscDef.y+LINEHEIGHT*y, MENUCOLORRED, \
+        Draw_BigText(MiscDef.x + 176, MiscDef.y+LINEHEIGHT*y, MENUCOLORRED, \
             c[(int)b]); \
     }
 
-#if 0
     DRAWMISCITEM(misc_menumouse, m_menumouse.value, msgNames);
-#endif
-
     DRAWMISCITEM(misc_aim, p_autoaim.value, msgNames);
     DRAWMISCITEM(misc_jump, p_allowjump.value, msgNames);
     DRAWMISCITEM(misc_context, p_usecontext.value, mapdisplaytype);
@@ -1555,7 +1542,7 @@ void M_DrawMisc(void)
     DRAWMISCITEM(misc_frame, i_interpolateframes.value, frametype);
     DRAWMISCITEM(misc_combine, r_texturecombiner.value, msgNames);
     DRAWMISCITEM(misc_sprites, r_rendersprites.value - 1, msgNames);
-    DRAWMISCITEM(misc_skylook, r_looksky.value, msgNames);
+    DRAWMISCITEM(misc_skybox, r_skybox.value, msgNames);
     DRAWMISCITEM(misc_showkey, am_showkeymarkers.value, mapdisplaytype);
     DRAWMISCITEM(misc_showlocks, am_showkeycolors.value, mapdisplaytype);
     DRAWMISCITEM(misc_amobjects, am_drawobjects.value, objectdrawtype);
@@ -1568,9 +1555,9 @@ void M_DrawMisc(void)
 
     if(MiscDef.hints[itemOn] != NULL)
     {
-        R_GLSetOrthoScale(0.5f);
-        M_DrawSmbText(-1, 410, MENUCOLORWHITE, MiscDef.hints[itemOn]);
-        R_GLSetOrthoScale(MiscDef.scale);
+        GL_SetOrthoScale(0.5f);
+        Draw_BigText(-1, 410, MENUCOLORWHITE, MiscDef.hints[itemOn]);
+        GL_SetOrthoScale(MiscDef.scale);
     }
 }
 
@@ -1631,7 +1618,15 @@ menudefault_t MouseDefault[] =
     { NULL, -1 }
 };
 
-menu_t  MouseDef =
+menuthermobar_t MouseBars[] =
+{
+    { mouse_empty1, 32, &v_msensitivityx },
+    { mouse_empty2, 32, &v_msensitivityy },
+    { mouse_empty3, 20, &v_macceleration },
+    { -1, 0 }
+};
+
+menu_t MouseDef =
 {
     mouse_end,
     false,
@@ -1646,7 +1641,8 @@ menu_t  MouseDef =
     -1,
     0,
     1.0f,
-    NULL
+    NULL,
+    MouseBars
 };
 
 void M_Mouse(int choice)
@@ -1661,9 +1657,9 @@ void M_DrawMouse(void)
     
     M_DrawThermo(MouseDef.x,MouseDef.y+LINEHEIGHT*(mouse_accel+1),20, v_macceleration.value);
     
-    M_DrawSmbText(MouseDef.x + 144, MouseDef.y+LINEHEIGHT*mouse_look, MENUCOLORRED,
+    Draw_BigText(MouseDef.x + 144, MouseDef.y+LINEHEIGHT*mouse_look, MENUCOLORRED,
         msgNames[(int)v_mlook.value]);
-    M_DrawSmbText(MouseDef.x + 144, MouseDef.y+LINEHEIGHT*mouse_invert, MENUCOLORRED,
+    Draw_BigText(MouseDef.x + 144, MouseDef.y+LINEHEIGHT*mouse_invert, MENUCOLORRED,
         msgNames[(int)v_mlookinvert.value]);
 }
 
@@ -1730,12 +1726,12 @@ void M_ChangeMouseAccel(int choice)
 
 void M_ChangeMouseLook(int choice)
 {
-    M_SetCvar(&v_mlook, (float)choice);
+    M_SetOptionValue(choice, 0, 1, 1, &v_mlook);
 }
 
 void M_ChangeMouseInvert(int choice)
 {
-    M_SetCvar(&v_mlookinvert, (float)choice);
+    M_SetOptionValue(choice, 0, 1, 1, &v_mlookinvert);
 }
 
 //------------------------------------------------------------------------
@@ -1830,7 +1826,14 @@ menudefault_t DisplayDefault[] =
     { NULL, -1 }
 };
 
-menu_t  DisplayDef =
+menuthermobar_t DisplayBars[] =
+{
+    { display_empty1, 100, &i_brightness },
+    { display_empty2, 255, &st_crosshairopacity },
+    { -1, 0 }
+};
+
+menu_t DisplayDef =
 {
     display_end,
     false,
@@ -1845,7 +1848,8 @@ menu_t  DisplayDef =
     -1,
     0,
     0.715f,
-    DisplayHints
+    DisplayHints,
+    DisplayBars
 };
 
 void M_Display(int choice)
@@ -1859,22 +1863,22 @@ void M_DrawDisplay(void)
     static const char* flashtype[2] = { "Environment", "Overlay" };
     
     M_DrawThermo(DisplayDef.x, DisplayDef.y+LINEHEIGHT*(dbrightness+1), MAXBRIGHTNESS, i_brightness.value);
-    M_DrawSmbText(DisplayDef.x + 140, DisplayDef.y+LINEHEIGHT*messages, MENUCOLORRED,
+    Draw_BigText(DisplayDef.x + 140, DisplayDef.y+LINEHEIGHT*messages, MENUCOLORRED,
         msgNames[(int)m_messages.value]);
-    M_DrawSmbText(DisplayDef.x + 140, DisplayDef.y+LINEHEIGHT*statusbar, MENUCOLORRED,
+    Draw_BigText(DisplayDef.x + 140, DisplayDef.y+LINEHEIGHT*statusbar, MENUCOLORRED,
         hudtype[(int)st_drawhud.value]);
-    M_DrawSmbText(DisplayDef.x + 140, DisplayDef.y+LINEHEIGHT*display_flash, MENUCOLORRED,
+    Draw_BigText(DisplayDef.x + 140, DisplayDef.y+LINEHEIGHT*display_flash, MENUCOLORRED,
         flashtype[(int)st_flashoverlay.value]);
-    M_DrawSmbText(DisplayDef.x + 140, DisplayDef.y+LINEHEIGHT*display_damage, MENUCOLORRED,
+    Draw_BigText(DisplayDef.x + 140, DisplayDef.y+LINEHEIGHT*display_damage, MENUCOLORRED,
         msgNames[(int)p_damageindicator.value]);
-    M_DrawSmbText(DisplayDef.x + 140, DisplayDef.y+LINEHEIGHT*display_weapon, MENUCOLORRED,
+    Draw_BigText(DisplayDef.x + 140, DisplayDef.y+LINEHEIGHT*display_weapon, MENUCOLORRED,
         msgNames[(int)st_showpendingweapon.value]);
-    M_DrawSmbText(DisplayDef.x + 140, DisplayDef.y+LINEHEIGHT*display_stats, MENUCOLORRED,
+    Draw_BigText(DisplayDef.x + 140, DisplayDef.y+LINEHEIGHT*display_stats, MENUCOLORRED,
         msgNames[(int)st_showstats.value]);
 
     if(st_crosshair.value <= 0)
     {
-        M_DrawSmbText(DisplayDef.x + 140, DisplayDef.y+LINEHEIGHT*display_crosshair, MENUCOLORRED,
+        Draw_BigText(DisplayDef.x + 140, DisplayDef.y+LINEHEIGHT*display_crosshair, MENUCOLORRED,
         msgNames[0]);
     }
     else
@@ -1888,9 +1892,9 @@ void M_DrawDisplay(void)
 
     if(DisplayDef.hints[itemOn] != NULL)
     {
-        R_GLSetOrthoScale(0.5f);
-        M_DrawSmbText(-1, 432, MENUCOLORWHITE, DisplayDef.hints[itemOn]);
-        R_GLSetOrthoScale(DisplayDef.scale);
+        GL_SetOrthoScale(0.5f);
+        Draw_BigText(-1, 432, MENUCOLORWHITE, DisplayDef.hints[itemOn]);
+        GL_SetOrthoScale(DisplayDef.scale);
     }
 }
 
@@ -1915,7 +1919,7 @@ void M_ChangeBrightness(int choice)
 
 void M_ChangeMessages(int choice)
 {
-    M_SetCvar(&m_messages, (float)choice);
+    M_SetOptionValue(choice, 0, 1, 1, &m_messages);
 
     if(choice)
         players[consoleplayer].message = MSGON;
@@ -1925,58 +1929,32 @@ void M_ChangeMessages(int choice)
 
 void M_ToggleHudDraw(int choice)
 {
-    if(choice)
-    {
-        if(st_drawhud.value == 1)
-            M_SetCvar(&st_drawhud, 2);
-        else if(st_drawhud.value <= 0)
-            M_SetCvar(&st_drawhud, 1);
-    }
-    else
-    {
-        if(st_drawhud.value == 1)
-            M_SetCvar(&st_drawhud, 0);
-        else if(st_drawhud.value >= 2)
-            M_SetCvar(&st_drawhud, 1);
-    }
+    M_SetOptionValue(choice, 0, 2, 1, &st_drawhud);
 }
 
 void M_ToggleDamageHud(int choice)
 {
-    M_SetCvar(&p_damageindicator, (float)choice);
+    M_SetOptionValue(choice, 0, 1, 1, &p_damageindicator);
 }
 
 void M_ToggleWpnDisplay(int choice)
 {
-    M_SetCvar(&st_showpendingweapon, (float)choice);
+    M_SetOptionValue(choice, 0, 1, 1, &st_showpendingweapon);
 }
 
 void M_ToggleShowStats(int choice)
 {
-    M_SetCvar(&st_showstats, (float)choice);
+    M_SetOptionValue(choice, 0, 1, 1, &st_showstats);
 }
 
 void M_ToggleFlashOverlay(int choice)
 {
-    M_SetCvar(&st_flashoverlay, (float)choice);
+    M_SetOptionValue(choice, 0, 1, 1, &st_flashoverlay);
 }
 
 void M_ChangeCrosshair(int choice)
 {
-    int i = (int)st_crosshair.value;
-
-    if(choice)
-    {
-        i++;
-        if(i <= st_crosshairs)
-            M_SetCvar(&st_crosshair, (float)i);
-    }
-    else
-    {
-        i--;
-        if(i >= 0)
-            M_SetCvar(&st_crosshair, (float)i);
-    }
+    M_SetOptionValue(choice, 0, (float)st_crosshairs, 1, &st_crosshair);
 }
 
 void M_ChangeOpacity(int choice)
@@ -2073,7 +2051,13 @@ menudefault_t VideoDefault[] =
     { NULL, -1 }
 };
 
-menu_t  VideoDef =
+menuthermobar_t VideoBars[] =
+{
+    { video_empty1, 20, &i_gamma },
+    { -1, 0 }
+};
+
+menu_t VideoDef =
 {
     video_end,
     false,
@@ -2088,7 +2072,8 @@ menu_t  VideoDef =
     12,
     0,
     0.65f,
-    NULL
+    NULL,
+    VideoBars
 };
 
 #define MAX_RES4_3  9
@@ -2229,7 +2214,7 @@ void M_DrawVideo(void)
         a - currentMenu->menupageoffset < currentMenu->numpageitems) \
     { \
         y = a - currentMenu->menupageoffset; \
-        M_DrawSmbText(VideoDef.x + 176, VideoDef.y+LINEHEIGHT*y, MENUCOLORRED, b); \
+        Draw_BigText(VideoDef.x + 176, VideoDef.y+LINEHEIGHT*y, MENUCOLORRED, b); \
     }
 
 #define DRAWVIDEOITEM2(a, b, c) DRAWVIDEOITEM(a, c[(int)b])
@@ -2257,7 +2242,7 @@ void M_DrawVideo(void)
             dsnprintf(bitValue, 8, "Invalid");
 
         y = depth - currentMenu->menupageoffset;
-        M_DrawSmbText(VideoDef.x + 176, VideoDef.y+LINEHEIGHT*y, MENUCOLORRED, bitValue);
+        Draw_BigText(VideoDef.x + 176, VideoDef.y+LINEHEIGHT*y, MENUCOLORRED, bitValue);
     }
 
     if(currentMenu->menupageoffset <= buffer &&
@@ -2275,16 +2260,16 @@ void M_DrawVideo(void)
             dsnprintf(bitValue, 8, "Invalid");
 
         y = buffer - currentMenu->menupageoffset;
-        M_DrawSmbText(VideoDef.x + 176, VideoDef.y+LINEHEIGHT*y, MENUCOLORRED, bitValue);
+        Draw_BigText(VideoDef.x + 176, VideoDef.y+LINEHEIGHT*y, MENUCOLORRED, bitValue);
     }
 
 #undef DRAWVIDEOITEM
 #undef DRAWVIDEOITEM2
     
-    M_DrawText(145, 308, MENUCOLORWHITE, VideoDef.scale, false,
+    Draw_Text(145, 308, MENUCOLORWHITE, VideoDef.scale, false,
         "Changes will take effect\nafter restarting the game..");
 
-    R_GLSetOrthoScale(VideoDef.scale);
+    GL_SetOrthoScale(VideoDef.scale);
 }
 
 void M_ChangeGammaLevel(int choice)
@@ -2317,20 +2302,17 @@ void M_ChangeGammaLevel(int choice)
 
 void M_ChangeFilter(int choice)
 {
-    M_SetCvar(&r_filter, (float)choice);
+    M_SetOptionValue(choice, 0, 1, 1, &r_filter);
 }
 
 void M_ChangeAnisotropic(int choice)
 {
-    M_SetCvar(&r_anisotropic, (float)choice);
+    M_SetOptionValue(choice, 0, 1, 1, &r_anisotropic);
 }
 
 void M_ChangeWindowed(int choice)
 {
-    if(choice)
-        M_SetCvar(&v_windowed, 1);
-    else
-        M_SetCvar(&v_windowed, 0);
+    M_SetOptionValue(choice, 0, 1, 1, &v_windowed);
 }
 
 static void M_SetResolution(void)
@@ -2363,7 +2345,15 @@ void M_ChangeRatio(int choice)
     int max = 0;
 
     if(choice)
-        m_aspectRatio = MIN(m_aspectRatio++, 2);
+    {
+        if(++m_aspectRatio > 2)
+        {
+            if(choice == 2)
+                m_aspectRatio = 0;
+            else
+                m_aspectRatio = 2;
+        }
+    }
     else
         m_aspectRatio = MAX(m_aspectRatio--, 0);
 
@@ -2403,7 +2393,15 @@ void M_ChangeResolution(int choice)
     }
 
     if(choice)
-        m_ScreenSize = MIN(m_ScreenSize++, max - 1);
+    {
+        if(++m_ScreenSize > max - 1)
+        {
+            if(choice == 2)
+                m_ScreenSize = 0;
+            else
+                m_ScreenSize = max - 1;
+        }
+    }
     else
         m_ScreenSize = MAX(m_ScreenSize--, 0);
 
@@ -2412,88 +2410,17 @@ void M_ChangeResolution(int choice)
 
 void M_ChangeVSync(int choice)
 {
-    if(choice)
-        M_SetCvar(&v_vsync, 1);
-    else
-        M_SetCvar(&v_vsync, 0);
+    M_SetOptionValue(choice, 0, 1, 1, &v_vsync);
 }
 
 void M_ChangeDepthSize(int choice)
 {
-    if(choice)
-    {
-        if(v_depthsize.value == 8)
-        {
-            M_SetCvar(&v_depthsize, 16);
-            return;
-        }
-        else if(v_depthsize.value == 16)
-        {
-            M_SetCvar(&v_depthsize, 24);
-            return;
-        }
-        else
-            return;
-    }
-    else
-    {
-        if(v_depthsize.value == 24)
-        {
-            M_SetCvar(&v_depthsize, 16);
-            return;
-        }
-        else if(v_depthsize.value == 16)
-        {
-            M_SetCvar(&v_depthsize, 8);
-            return;
-        }
-        else
-            return;
-    }
+    M_SetOptionValue(choice, 8, 24, 8, &v_depthsize);
 }
 
 void M_ChangeBufferSize(int choice)
 {
-    if(choice)
-    {
-        if(v_buffersize.value == 8)
-        {
-            M_SetCvar(&v_buffersize, 16);
-            return;
-        }
-        else if(v_buffersize.value == 16)
-        {
-            M_SetCvar(&v_buffersize, 24);
-            return;
-        }
-        else if(v_buffersize.value == 24)
-        {
-            M_SetCvar(&v_buffersize, 32);
-            return;
-        }
-        else
-            return;
-    }
-    else
-    {
-        if(v_buffersize.value == 32)
-        {
-            M_SetCvar(&v_buffersize, 24);
-            return;
-        }
-        else if(v_buffersize.value == 24)
-        {
-            M_SetCvar(&v_buffersize, 16);
-            return;
-        }
-        else if(v_buffersize.value == 16)
-        {
-            M_SetCvar(&v_buffersize, 8);
-            return;
-        }
-        else
-            return;
-    }
+    M_SetOptionValue(choice, 8, 32, 8, &v_buffersize);
 }
 
 //------------------------------------------------------------------------
@@ -2521,6 +2448,7 @@ menu_t PasswordDef =
     -1,
     0,
     1.0f,
+    NULL,
     NULL
 };
 
@@ -2551,8 +2479,8 @@ void M_DrawPassword(void)
     if(!xgamepad.connected)
 #endif
     {
-        M_DrawSmbText(-1, 240 - 48, MENUCOLORWHITE , "Press Backspace To Change");
-        M_DrawSmbText(-1, 240 - 32, MENUCOLORWHITE , "Press Escape To Return");
+        Draw_BigText(-1, 240 - 48, MENUCOLORWHITE , "Press Backspace To Change");
+        Draw_BigText(-1, 240 - 32, MENUCOLORWHITE , "Press Escape To Return");
     }
     
     if(passInvalid)
@@ -2565,7 +2493,7 @@ void M_DrawPassword(void)
         
         if(passInvalidTic & 16)
         {
-            M_DrawSmbText(-1, 240 - 80, MENUCOLORWHITE, "Invalid Password");
+            Draw_BigText(-1, 240 - 80, MENUCOLORWHITE, "Invalid Password");
             return;
         }
     }
@@ -2587,7 +2515,7 @@ void M_DrawPassword(void)
             passData++;
         }
         
-        M_DrawSmbText((currentMenu->x + (i * 12)) - 48, 240 - 80, MENUCOLORRED, password);
+        Draw_BigText((currentMenu->x + (i * 12)) - 48, 240 - 80, MENUCOLORRED, password);
     }
 }
 
@@ -2694,7 +2622,15 @@ menudefault_t SoundDefault[] =
     { NULL, -1 }
 };
 
-menu_t  SoundDef =
+menuthermobar_t SoundBars[] =
+{
+    { sfx_empty1, 100, &s_sfxvol },
+    { sfx_empty2, 100, &s_musvol },
+    { sfx_empty3, 2, &s_gain },
+    { -1, 0 }
+};
+
+menu_t SoundDef =
 {
     sound_end,
     false,
@@ -2709,7 +2645,8 @@ menu_t  SoundDef =
     -1,
     0,
     1.0f,
-    NULL
+    NULL,
+    SoundBars
 };
 
 void M_Sound(int choice)
@@ -2826,7 +2763,7 @@ menuitem_t FeaturesMenu[]=
     {2,"Wireframe Mode:",M_DoFeature,'r'},
 };
 
-menu_t  featuresDef =
+menu_t featuresDef =
 {
     features_end,
     false,
@@ -2841,6 +2778,7 @@ menu_t  featuresDef =
     -1,
     0,
     1.0f,
+    NULL,
     NULL
 };
 
@@ -2909,7 +2847,12 @@ void M_DoFeature(int choice)
         {
             levelwarp++;
             if(levelwarp >= 31)
-                levelwarp = 31;
+            {
+                if(choice == 2)
+                    levelwarp = 0;
+                else
+                    levelwarp = 31;
+            }
         }
         else
         {
@@ -3104,6 +3047,7 @@ menu_t XGamePadDef =
     -1,
     0,
     1.0f,
+    NULL,
     NULL
 };
 
@@ -3123,6 +3067,7 @@ menu_t XCtrlSchemeDef =
     8,
     0,
     1.0f,
+    NULL,
     NULL
 };
 #endif
@@ -3169,7 +3114,7 @@ void M_XGamePadChoice(int choice)
         break;
 
     case xgp_layout:
-        M_SetCvar(&i_xinputscheme, (float)choice);
+        M_SetOptionValue(choice, 0, 1, 1, &i_xinputscheme);
         break;
     }
 }
@@ -3184,13 +3129,13 @@ void M_DrawXGamePad(void)
     M_DrawThermo(XGamePadDef.x, XGamePadDef.y + LINEHEIGHT*(xgp_threshold+1),
         50, i_rstickthreshold.value * 0.5f);
 
-     M_DrawSmbText(XGamePadDef.x + 128, XGamePadDef.y + LINEHEIGHT * xgp_layout, MENUCOLORRED,
+     Draw_BigText(XGamePadDef.x + 128, XGamePadDef.y + LINEHEIGHT * xgp_layout, MENUCOLORRED,
         schemeType[(int)i_xinputscheme.value]);
 
-     M_DrawSmbText(XGamePadDef.x + 128, XGamePadDef.y + LINEHEIGHT * xgp_look, MENUCOLORRED,
+     Draw_BigText(XGamePadDef.x + 128, XGamePadDef.y + LINEHEIGHT * xgp_look, MENUCOLORRED,
         msgNames[(int)v_mlook.value]);
 
-    M_DrawSmbText(XGamePadDef.x + 128, XGamePadDef.y + LINEHEIGHT * xgp_invert, MENUCOLORRED,
+    Draw_BigText(XGamePadDef.x + 128, XGamePadDef.y + LINEHEIGHT * xgp_invert, MENUCOLORRED,
         msgNames[(int)v_mlookinvert.value]);
 }
 
@@ -3244,14 +3189,15 @@ void M_ChangeKeyBinding(int choice);
 void M_BuildControlMenu(void);
 void M_DrawControls(void);
 
-#define NUM_NONBINDABLE_ITEMS   17
-#define	NUM_CONTROL_ITEMS		34 + NUM_NONBINDABLE_ITEMS
+#define NUM_NONBINDABLE_ITEMS   8
+#define NUM_CONTROL_ACTIONS     44
+#define	NUM_CONTROL_ITEMS		NUM_CONTROL_ACTIONS + NUM_NONBINDABLE_ITEMS
 
 menuaction_t*   PlayerActions;
 menu_t          ControlsDef;
 menuitem_t      ControlsItem[NUM_CONTROL_ITEMS];
 
-menuaction_t mPlayerActionsDef[]=
+static menuaction_t mPlayerActionsDef[NUM_CONTROL_ITEMS] =
 {
     {"Movement", NULL},
     {"Forward", "+forward"},
@@ -3283,10 +3229,20 @@ menuaction_t mPlayerActionsDef[]=
     {"Chainsaw", "weapon 1"},
     {"Super Shotgun", "weapon 5"},
     {"Laser Artifact", "weapon 10"},
+    {"Automap", NULL},
+    {"Toggle", "automap"},
+    {"Zoom In", "+automap_in"},
+    {"Zoom Out", "+automap_out"},
+    {"Pan Left", "+automap_left"},
+    {"Pan Right", "+automap_right"},
+    {"Pan Up", "+automap_up"},
+    {"Pan Down", "+automap_down"},
+    {"Mouse Pan", "+automap_freepan"},
+    {"Follow Mode", "automap_follow"},
     {"Other", NULL},
     {"Detatch Camera", "setcamerastatic"},
     {"Chasecam", "setcamerachase"},
-    {NULL, NULL},
+    {NULL, NULL}
 };
 
 void M_Controls(int choice)
@@ -3367,16 +3323,7 @@ void M_BuildControlMenu(void)
     ADD_NONBINDABLE_ITEM(4, "Quicksave      : F6", 1);
     ADD_NONBINDABLE_ITEM(5, "Quickload      : F7", 1);
     ADD_NONBINDABLE_ITEM(6, "Change Gamma   : F11", 1);
-    ADD_NONBINDABLE_ITEM(7, "Toggle Automap : Tab", 1);
-    ADD_NONBINDABLE_ITEM(8, "Zoom In Map    : KeyPad+", 1);
-    ADD_NONBINDABLE_ITEM(9, "Zoom Out Map   : KeyPad-", 1);
-    ADD_NONBINDABLE_ITEM(10,"Follow Mode    : f", 1);
-    ADD_NONBINDABLE_ITEM(11,"Map Pan Left   : Left", 1);
-    ADD_NONBINDABLE_ITEM(12,"Map Pan Right  : Right", 1);
-    ADD_NONBINDABLE_ITEM(13,"Map Pan Up     : Up", 1);
-    ADD_NONBINDABLE_ITEM(14,"Map Pan Down   : Down", 1);
-    ADD_NONBINDABLE_ITEM(15,"Map Pan Drag   : Space", 1);
-    ADD_NONBINDABLE_ITEM(16,"Chat           : t", 1);
+    ADD_NONBINDABLE_ITEM(7, "Chat           : t", 1);
 }
 
 void M_ChangeKeyBinding(int choice)
@@ -3391,8 +3338,8 @@ void M_ChangeKeyBinding(int choice)
 
 void M_DrawControls(void)
 {
-    M_DrawSmbText(-1, 264, MENUCOLORWHITE , "Press Escape To Return");
-    M_DrawSmbText(-1, 280, MENUCOLORWHITE , "Press Delete To Unbind");
+    Draw_BigText(-1, 264, MENUCOLORWHITE , "Press Escape To Return");
+    Draw_BigText(-1, 280, MENUCOLORWHITE , "Press Delete To Unbind");
 }
 
 //------------------------------------------------------------------------
@@ -3414,7 +3361,7 @@ menuitem_t QuickSaveConfirm[]=
     {1,"Ok",M_ReturnToOptions,'o'}
 };
 
-menu_t  QuickSaveConfirmDef =
+menu_t QuickSaveConfirmDef =
 {
     QS_End,
     false,
@@ -3429,13 +3376,14 @@ menu_t  QuickSaveConfirmDef =
     -1,
     0,
     1.0f,
+    NULL,
     NULL
 };
 
 void M_DrawQuickSaveConfirm(void)
 {
-    M_DrawSmbText(-1, 16, MENUCOLORRED , "You Need To Pick");
-    M_DrawSmbText(-1, 32, MENUCOLORRED , "A Quicksave Slot!");
+    Draw_BigText(-1, 16, MENUCOLORRED , "You Need To Pick");
+    Draw_BigText(-1, 32, MENUCOLORRED , "A Quicksave Slot!");
 }
 
 //------------------------------------------------------------------------
@@ -3457,7 +3405,7 @@ menuitem_t NetLoadNotify[]=
     {1,"Ok",M_ReturnToOptions,'o'}
 };
 
-menu_t  NetLoadNotifyDef =
+menu_t NetLoadNotifyDef =
 {
     NLN_End,
     false,
@@ -3472,13 +3420,14 @@ menu_t  NetLoadNotifyDef =
     -1,
     0,
     1.0f,
+    NULL,
     NULL
 };
 
 void M_DrawNetLoadNotify(void)
 {
-    M_DrawSmbText(-1, 16, MENUCOLORRED , "You Cannot Load While");
-    M_DrawSmbText(-1, 32, MENUCOLORRED , "In A Net Game!");
+    Draw_BigText(-1, 16, MENUCOLORRED , "You Cannot Load While");
+    Draw_BigText(-1, 32, MENUCOLORRED , "In A Net Game!");
 }
 
 //------------------------------------------------------------------------
@@ -3500,7 +3449,7 @@ menuitem_t SaveDeadNotify[]=
     {1,"Ok",M_ReturnToOptions,'o'}
 };
 
-menu_t  SaveDeadDef =
+menu_t SaveDeadDef =
 {
     SDN_End,
     false,
@@ -3515,13 +3464,14 @@ menu_t  SaveDeadDef =
     -1,
     0,
     1.0f,
+    NULL,
     NULL
 };
 
 void M_DrawSaveDeadNotify(void)
 {
-    M_DrawSmbText(-1, 16, MENUCOLORRED , "You Cannot Save");
-    M_DrawSmbText(-1, 32, MENUCOLORRED , "While Not In Game");
+    Draw_BigText(-1, 16, MENUCOLORRED , "You Cannot Save");
+    Draw_BigText(-1, 32, MENUCOLORRED , "While Not In Game");
 }
 
 //------------------------------------------------------------------------
@@ -3559,7 +3509,7 @@ menuitem_t SaveMenu[]=
     {1,"", M_SaveSelect,'8'},
 };
 
-menu_t  SaveDef =
+menu_t SaveDef =
 {
     load_end,
     false,
@@ -3574,6 +3524,7 @@ menu_t  SaveDef =
     -1,
     0,
     0.5f,
+    NULL,
     NULL
 };
 
@@ -3595,13 +3546,13 @@ void M_DrawSave(void)
         else
             string = savegamestrings[i];
 
-        M_DrawSmbText(SaveDef.x, SaveDef.y + LINEHEIGHT * i, MENUCOLORRED, string);
+        Draw_BigText(SaveDef.x, SaveDef.y + LINEHEIGHT * i, MENUCOLORRED, string);
     }
     
     if(inputEnter)
     {
-        i = ((int)(160.0f / SaveDef.scale) - M_CenterSmbText(inputString)) * 2;
-        M_DrawSmbText(SaveDef.x + i, (SaveDef.y + LINEHEIGHT * saveSlot) - 2, MENUCOLORWHITE, "/r");
+        i = ((int)(160.0f / SaveDef.scale) - Center_Text(inputString)) * 2;
+        Draw_BigText(SaveDef.x + i, (SaveDef.y + LINEHEIGHT * saveSlot) - 2, MENUCOLORWHITE, "/r");
     }
 }
 
@@ -3668,7 +3619,7 @@ menuitem_t DoomLoadMenu[]=//LoadMenu conflicts with Win32 API
     {1,"", M_LoadSelect,'8'}
 };
 
-menu_t  LoadMainDef =
+menu_t LoadMainDef =
 {
     load_end,
     false,
@@ -3683,10 +3634,11 @@ menu_t  LoadMainDef =
     -1,
     0,
     0.5f,
+    NULL,
     NULL
 };
 
-menu_t  LoadDef =
+menu_t LoadDef =
 {
     load_end,
     false,
@@ -3701,6 +3653,7 @@ menu_t  LoadDef =
     -1,
     0,
     0.5f,
+    NULL,
     NULL
 };
 
@@ -3714,7 +3667,7 @@ void M_DrawLoad(void)
     M_DrawSaveGameFrontend(&LoadDef);
 
     for(i = 0; i < load_end; i++)
-        M_DrawSmbText(LoadDef.x, LoadDef.y + LINEHEIGHT * i,
+        Draw_BigText(LoadDef.x, LoadDef.y + LINEHEIGHT * i,
         MENUCOLORRED, savegamestrings[i]);
 }
 
@@ -3802,7 +3755,7 @@ menuitem_t QuickSavePrompt[]=
     {1,"No",M_ReturnToOptions,'n'}
 };
 
-menu_t  QuickSavePromptDef =
+menu_t QuickSavePromptDef =
 {
     QSP_End,
     false,
@@ -3817,6 +3770,7 @@ menu_t  QuickSavePromptDef =
     -1,
     0,
     1.0f,
+    NULL,
     NULL
 };
 
@@ -3846,7 +3800,7 @@ menuitem_t QuickLoadPrompt[]=
     {1,"No",M_ReturnToOptions,'n'}
 };
 
-menu_t  QuickLoadPromptDef =
+menu_t QuickLoadPromptDef =
 {
     QLP_End,
     false,
@@ -3861,6 +3815,7 @@ menu_t  QuickLoadPromptDef =
     -1,
     0,
     1.0f,
+    NULL,
     NULL
 };
 
@@ -3897,6 +3852,32 @@ static void M_SetCvar(cvar_t *cvar, float value)
 }
 
 //
+// M_SetOptionValue
+//
+
+static void M_SetOptionValue(int choice, float min, float max, float inc, cvar_t *cvar)
+{
+    if(choice)
+    {
+        if(cvar->value < max)
+            M_SetCvar(cvar, cvar->value + inc);
+        else if(choice == 2)
+            M_SetCvar(cvar, min);
+        else
+            CON_CvarSetValue(cvar->name, max);
+    }
+    else
+    {
+        if(cvar->value > min)
+            M_SetCvar(cvar, cvar->value - inc);
+        else if(choice == 2)
+            M_SetCvar(cvar, max);
+        else
+            CON_CvarSetValue(cvar->name, min);
+    }
+}
+
+//
 // M_DoDefaults
 //
 
@@ -3915,8 +3896,8 @@ static void M_DoDefaults(int choice)
         CON_CvarSetValue(v_width.name, 640);
         CON_CvarSetValue(v_height.name, 480);
         
-        R_DumpTextures();
-        R_GLSetFilter();
+        GL_DumpTextures();
+        GL_SetTextureFilter();
     }
 
     S_StartSound(NULL, sfx_switch2);
@@ -3991,23 +3972,24 @@ static void M_DrawSmbString(const char* text, menu_t* menu, int item)
     
     x = menu->x + 128;
     y = menu->y + (ST_FONTWHSIZE + 1) * item;
-    M_DrawText(x, y, MENUCOLORWHITE, 1.0f, false, text);
+    Draw_Text(x, y, MENUCOLORWHITE, 1.0f, false, text);
 }
 
 //
+// M_StringWidth
 // Find string width from hu_font chars
 //
 
 static int M_StringWidth(const char* string)
 {
-    int             i;
-    int             w = 0;
-    int             c;
+    int i;
+    int w = 0;
+    int c;
     
-    for (i = 0;i < (int)dstrlen(string);i++)
+    for (i = 0; i < dstrlen(string); i++)
     {
         c = toupper(string[i]) - ST_FONTSTART;
-        if (c < 0 || c >= ST_FONTSIZE)
+        if(c < 0 || c >= ST_FONTSIZE)
             w += 4;
         else
             w += ST_FONTWHSIZE;
@@ -4019,21 +4001,313 @@ static int M_StringWidth(const char* string)
 
 
 //
+// M_StringHeight
 // Find string height from hu_font chars
 //
 
 static int M_StringHeight(const char* string)
 {
-    int             i;
-    int             h;
-    int             height = ST_FONTWHSIZE;
+    int i;
+    int h;
+    int height = ST_FONTWHSIZE;
     
     h = height;
-    for (i = 0;i < (int)dstrlen(string);i++)
-        if (string[i] == '\n')
+
+    for(i = 0; i < dstrlen(string); i++)
+    {
+        if(string[i] == '\n')
             h += height;
+    }
+    
+    return h;
+}
+
+//
+// M_BigStringWidth
+// Find string width from bigfont chars
+//
+
+static int M_BigStringWidth(const char* string)
+{
+    int width = 0;
+    char t = 0;
+    int id = 0;
+    int len = 0;
+    int i = 0;
+    
+    len = dstrlen(string);
+    
+    for(i = 0; i < len; i++)
+    {
+        t = string[i];
         
-        return h;
+        switch(t)
+        {
+        case 0x20: width += 6;
+            break;
+        case '-': width += symboldata[SM_MISCFONT].w;
+            break;
+        case '%': width += symboldata[SM_MISCFONT + 1].w;
+            break;
+        case '!': width += symboldata[SM_MISCFONT + 2].w;
+            break;
+        case '.': width += symboldata[SM_MISCFONT + 3].w;
+            break;
+        case '?': width += symboldata[SM_MISCFONT + 4].w;
+            break;
+        case ':': width += symboldata[SM_MISCFONT + 5].w;
+            break;
+        default:
+            if(t >= 'A' && t <= 'Z')
+            {
+                id = t - 'A';
+                width += symboldata[SM_FONT1 + id].w;
+            }
+            if(t >= 'a' && t <= 'z')
+            {
+                id = t - 'a';
+                width += symboldata[SM_FONT2 + id].w;
+            }
+            if(t >= '0' && t <= '9')
+            {
+                id = t - '0';
+                width += symboldata[SM_NUMBERS + id].w;
+            }
+            break;
+        }
+    }
+
+    return width;
+}
+
+//
+// M_Scroll
+//
+// Allow scrolling through multi-page menus via mouse wheel
+//
+
+static void M_Scroll(menu_t* menu, dboolean up)
+{
+    if(menu->numpageitems != -1)
+    {
+        if(!up)
+        {
+            menu->menupageoffset++;
+            if(menu->numpageitems + menu->menupageoffset >=
+                menu->numitems)
+            {
+                menu->menupageoffset = 
+                    menu->numitems - menu->numpageitems;
+            }
+            else if(++itemOn >= menu->numitems)
+            {
+                itemOn = menu->numitems - 1;
+            }
+        }
+        else
+        {
+            menu->menupageoffset--;
+            if(menu->menupageoffset < 0)
+            {
+                menu->menupageoffset = 0;
+                if(itemOn < 0)
+                    itemOn = 0;
+            }
+            else if(--itemOn < 0)
+            {
+                itemOn = 0;
+            }
+        }
+    }
+}
+
+//
+// M_CheckDragThermoBar
+//
+// Allow user to click and drag thermo bar
+//
+// To be fair, this is a horrid mess and a awful hack...
+// Really need a better and more efficient menu system
+//
+
+static void M_CheckDragThermoBar(event_t* ev, menu_t* menu)
+{
+    menuthermobar_t *bar;
+    float startx;
+    float scrny;
+    int x;
+    int y;
+    int i;
+    float mx;
+    float my;
+    float width;
+    float scalex;
+    float scaley;
+    float value;
+    float lineheight;
+
+    // must be a mouse held event and menu must have thermobar settings
+    if(ev->type != ev_mouse || menu->thermobars == NULL)
+        return;
+
+    // mouse buttons must be held and moving
+    if(!(ev->data1 & 1) || !(ev->data2 | ev->data3))
+        return;
+
+    bar = menu->thermobars;
+    x = menu->x;
+    y = menu->y;
+    mx = (float)mouse_x;
+    my = (float)mouse_y;
+    scalex = ((float)video_width /
+        ((float)SCREENHEIGHT * video_ratio)) * menu->scale;
+    scaley = ((float)video_height /
+        (float)SCREENHEIGHT) * menu->scale;
+    startx = (float)x * scalex;
+    width = startx + (100.0f * scalex);
+
+    // check if cursor is within range
+    for(i = 0; bar[i].item != -1; i++)
+    {
+        lineheight = (float)(LINEHEIGHT * bar[i].item);
+        scrny = ((float)y + lineheight + 10) * scaley;
+
+        if(my < scrny)
+        {
+            scrny = ((float)y + lineheight + 2) * scaley;
+            if(my >= scrny)
+            {
+                // dragged all the way to the left?
+                if(mx < startx)
+                {
+                    CON_CvarSetValue(bar[i].mitem->name, 0);
+                    return;
+                }
+
+                // dragged all the way to the right?
+                if(mx > width)
+                {
+                    CON_CvarSetValue(bar[i].mitem->name, bar[i].width);
+                    return;
+                }
+
+                // convert mouse x coordinate into thermo bar position
+                // set cvar as well
+                value = (mx / scalex) - x;
+                CON_CvarSetValue(bar[i].mitem->name,
+                    value * (bar[i].width / 100.0f));
+
+                return;
+            }
+        }
+    }
+}
+
+//
+// M_CursorHighlightItem
+//
+// Highlight effects when positioning mouse cursor
+// over menu item
+//
+// To be fair, this is a horrid mess and a awful hack...
+// Really need a better and more efficient menu system
+//
+
+static dboolean M_CursorHighlightItem(menu_t* menu)
+{
+    float scrnx;
+    float scrny;
+    float mx;
+    float my;
+    int width;
+    int height;
+    float scalex;
+    float scaley;
+    int item;
+    int max;
+    int start;
+    int x;
+    int y;
+    int lineheight;
+
+    start = menu->menupageoffset;
+    max = (menu->numpageitems == -1) ? menu->numitems : menu->numpageitems;
+    x = menu->x;
+    y = menu->y;
+    mx = (float)mouse_x;
+    my = (float)mouse_y;
+    scalex = ((float)video_width /
+        ((float)SCREENHEIGHT * video_ratio)) * menu->scale;
+    scaley = ((float)video_height /
+        (float)SCREENHEIGHT) * menu->scale;
+
+    if(menu->textonly)
+        lineheight = TEXTLINEHEIGHT;
+    else
+        lineheight = LINEHEIGHT;
+    
+    if(menu->smallfont)
+        lineheight /= 2;
+
+    itemSelected = -1;
+
+    for(item = start; item < max + start; item++)
+    {
+        // skip hidden items
+        if(menu->menuitems[item].status == -3)
+            continue;
+
+        if(menu == &PasswordDef)
+        {
+            if(item > 0)
+            {
+                if(!(item & 7))
+                {
+                    y += lineheight;
+                    x = menu->x;
+                }
+                else
+                    x += TEXTLINEHEIGHT;
+            }
+        }
+
+        // highlight non-static items
+        if(menu->menuitems[item].status != -1)
+        {
+            // guess the bounding box size based on string length and font type
+            width = (menu->smallfont ?
+                M_StringWidth(menu->menuitems[item].name) :
+                M_BigStringWidth(menu->menuitems[item].name));
+            height = (menu->smallfont ? 8 : LINEHEIGHT);
+            scrnx = (float)(x + width) * scalex;
+            scrny = (float)(y + height) * scaley;
+
+            // do extra checks for columns if we're in the password menu
+            // otherwise we'll just care about rows
+
+            if(mx < scrnx || menu != &PasswordDef)
+            {
+                scrnx = (float)x * scalex;
+                if(mx >= scrnx || menu != &PasswordDef)
+                {
+                    if(my < scrny)
+                    {
+                        scrny = (float)y * scaley;
+                        if(my >= scrny)
+                        {
+                            itemSelected = item;
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+
+        if(menu != &PasswordDef)
+            y += lineheight;
+    }
+
+    return false;
 }
 
 //
@@ -4098,8 +4372,8 @@ static void M_DrawThermo(int x, int y, int thermWidth, float thermDot)
 {
     float slope = 100.0f / (float)thermWidth;
     
-    M_DrawSmbText(x, y, MENUCOLORWHITE, "/t");
-    M_DrawSmbText(x + (int)(thermDot * slope) * (symboldata[SM_THERMO].w / 100), y, MENUCOLORWHITE, "/s");
+    Draw_BigText(x, y, MENUCOLORWHITE, "/t");
+    Draw_BigText(x + (int)(thermDot * slope) * (symboldata[SM_THERMO].w / 100), y, MENUCOLORWHITE, "/s");
 }
 
 //
@@ -4136,7 +4410,7 @@ static dboolean M_SetThumbnail(int which)
         dglGenTextures(1, &thumbnail);
         dglBindTexture(GL_TEXTURE_2D, thumbnail);
 
-        R_GLSetFilter();
+        GL_SetTextureFilter();
 
         dglTexImage2D(
             GL_TEXTURE_2D,
@@ -4154,7 +4428,7 @@ static dboolean M_SetThumbnail(int which)
     {
         dglBindTexture(GL_TEXTURE_2D, thumbnail);
 
-        R_GLSetFilter();
+        GL_SetTextureFilter();
 
         dglTexSubImage2D(
             GL_TEXTURE_2D,
@@ -4180,8 +4454,8 @@ static dboolean M_SetThumbnail(int which)
 
 static void M_DrawSaveGameFrontend(menu_t* def)
 {
-    R_GLToggleBlend(1);
-    R_GLEnable2D(0);
+    GL_SetState(GLSTATE_BLEND, 1);
+    GL_SetOrtho(0);
 
     dglDisable(GL_TEXTURE_2D);
 
@@ -4256,7 +4530,7 @@ static void M_DrawSaveGameFrontend(menu_t* def)
     // 20120404 villsa - reset active textures just to make sure
     // we don't end up seeing that thumbnail texture on a wall or something
     //
-    R_ResetTextures();
+    GL_ResetTextures();
 
     //
     // draw thumbnail texture and stats
@@ -4281,20 +4555,20 @@ static void M_DrawSaveGameFrontend(menu_t* def)
 
         curgfx = -1;
 
-        R_GLSetOrthoScale(0.35f);
+        GL_SetOrthoScale(0.35f);
 
-        M_DrawSmbText(def->x + 444, def->y + 244, MENUCOLORWHITE, thumbnail_date);
+        Draw_BigText(def->x + 444, def->y + 244, MENUCOLORWHITE, thumbnail_date);
 
         sprintf(string, "Skill: %s", NewGameMenu[thumbnail_skill].name);
-        M_DrawSmbText(def->x + 444, def->y + 268, MENUCOLORWHITE, string);
+        Draw_BigText(def->x + 444, def->y + 268, MENUCOLORWHITE, string);
 
         sprintf(string, "Map: %s", P_GetMapInfo(thumbnail_map)->mapname);
-        M_DrawSmbText(def->x + 444, def->y + 292, MENUCOLORWHITE, string);
+        Draw_BigText(def->x + 444, def->y + 292, MENUCOLORWHITE, string);
 
-        R_GLSetOrthoScale(def->scale);
+        GL_SetOrthoScale(def->scale);
     }
 
-    R_GLToggleBlend(0);
+    GL_SetState(GLSTATE_BLEND, 0);
 }
 
 
@@ -4387,7 +4661,7 @@ void M_DrawXInputButton(int x, int y, int button)
         return;
     }
 
-    pic = R_BindGfxTexture("BUTTONS", true);
+    pic = GL_BindGfxTexture("BUTTONS", true);
 
     width = (float)gfxwidth[pic];
     height = (float)gfxheight[pic];
@@ -4398,7 +4672,7 @@ void M_DrawXInputButton(int x, int y, int button)
     dglEnable(GL_BLEND);
     dglSetVertex(vtx);
 
-    R_GLEnable2D(0);
+    GL_SetOrtho(0);
     
     vx1 = (float)x;
     vy1 = (float)y;
@@ -4408,7 +4682,7 @@ void M_DrawXInputButton(int x, int y, int button)
     ty1 = ((float)xinputbutons[index].y / height) + 0.005f;
     ty2 = (ty1 + (((float)xinputbutons[index].h / height))) - 0.008f;
 
-    R_GLSetupVertex(
+    GL_Set2DQuad(
         vtx,
         vx1,
         vy1,
@@ -4425,7 +4699,7 @@ void M_DrawXInputButton(int x, int y, int button)
     dglTriangle(3, 2, 1);
     dglDrawGeometry(4, vtx);
     
-    R_GLDisable2D();
+    GL_ResetViewport();
     dglDisable(GL_BLEND);
 }
 
@@ -4490,28 +4764,11 @@ dboolean M_Responder(event_t* ev)
 {
     int ch;
     int i;
-    int mousewait = 0;
     
     ch = -1;
     
     if(menufadefunc || !allowmenu || demoplayback)
         return false;
-    
-    
-    if(MenuBindActive == true)//key Bindings
-    {
-        if(ev->data1 == KEY_ESCAPE)
-        {
-            MenuBindActive = false;
-            M_BuildControlMenu();
-        }
-        else if(G_BindActionByEvent(ev, messageBindCommand))
-        {
-            MenuBindActive = false;
-            M_BuildControlMenu();
-        }
-        return true;
-    }
 
 #ifdef _USE_XINPUT  // XINPUT
     if(ev->type == ev_gamepad && !ev->data3)
@@ -4550,25 +4807,17 @@ dboolean M_Responder(event_t* ev)
     else
 #endif
     {
-        if(ev->type == ev_mouse)
+        if(ev->type == ev_mousedown)
         {
-            if(mousewait < I_GetTime())
+            if(ev->data1 & 1)
             {
-                if(ev->data1 & 1)
-                {
-                    ch = KEY_ENTER;
-                    mousewait = I_GetTime() + 15;
-                }
-            
-                if(ev->data1 & 2)
-                {
-                    ch = KEY_BACKSPACE;
-                    mousewait = I_GetTime() + 15;
-                }
+                ch = KEY_ENTER;
             }
-
-            if(ev->data2 || ev->data3)
-                SDL_GetMouseState(&m_mousex, &m_mousey);
+        
+            if(ev->data1 & 4)
+            {
+                ch = KEY_BACKSPACE;
+            }
         }
         else if(ev->type == ev_keydown)
         {
@@ -4586,11 +4835,35 @@ dboolean M_Responder(event_t* ev)
                 shiftdown = false;
             }
         }
+        else if(ev->type == ev_mouse && (ev->data2 | ev->data3))
+        {
+            // handle mouse-over selection
+            if(m_menumouse.value)
+            {
+                M_CheckDragThermoBar(ev, currentMenu);
+                if(M_CursorHighlightItem(currentMenu))
+                    itemOn = itemSelected;
+            }
+        }
     }
     
     if(ch == -1)
         return false;
-    
+
+    if(MenuBindActive == true)//key Bindings
+    {
+        if(ev->data1 == KEY_ESCAPE)
+        {
+            MenuBindActive = false;
+            M_BuildControlMenu();
+        }
+        else if(G_BindActionByEvent(ev, messageBindCommand))
+        {
+            MenuBindActive = false;
+            M_BuildControlMenu();
+        }
+        return true;
+    }
     
     // save game / player name string input
     if(inputEnter)
@@ -4657,6 +4930,7 @@ dboolean M_Responder(event_t* ev)
     
     // F-Keys
     if(!menuactive)
+    {
         switch(ch)
         {
           case KEY_F2:            // Save
@@ -4685,209 +4959,225 @@ dboolean M_Responder(event_t* ev)
               M_ChangeGammaLevel(2);
               return true;
         }
+    }
         
         
-        // Pop-up menu?
-        if(!menuactive)
+    // Pop-up menu?
+    if(!menuactive)
+    {
+        if (ch == KEY_ESCAPE && !st_chatOn)
         {
-            if (ch == KEY_ESCAPE && !st_chatOn)
+            M_StartControlPanel(false);
+            return true;
+        }
+        return false;
+    }
+    
+    
+    // Keys usable within menu
+    switch (ch)
+    {
+    case KEY_DOWNARROW:
+        S_StartSound(NULL,sfx_switch1);
+        if(currentMenu == &PasswordDef)
+        {
+            itemOn = ((itemOn + 8) & 31);
+            return true;
+        }
+        else
+        {
+            do
             {
-                M_StartControlPanel(false);
-                return true;
-            }
-            return false;
+                if(itemOn+1 > currentMenu->numitems-1)
+                    itemOn = 0;
+                else itemOn++;
+            } while(currentMenu->menuitems[itemOn].status==-1 ||
+                currentMenu->menuitems[itemOn].status==-3);
+            return true;
         }
         
-        
-        // Keys usable within menu
-        switch (ch)
+    case KEY_UPARROW:
+        S_StartSound(NULL,sfx_switch1);
+        if(currentMenu == &PasswordDef)
         {
-        case KEY_DOWNARROW:
+            itemOn = ((itemOn - 8) & 31);
+            return true;
+        }
+        else
+        {
+            do
+            {
+                if(!itemOn)
+                    itemOn = currentMenu->numitems-1;
+                else itemOn--;
+            } while(currentMenu->menuitems[itemOn].status==-1 ||
+                currentMenu->menuitems[itemOn].status==-3);
+            return true;
+        }
+        
+    case KEY_LEFTARROW:
+        if(currentMenu == &PasswordDef)
+        {
             S_StartSound(NULL,sfx_switch1);
-            if(currentMenu == &PasswordDef)
+            do
             {
-                itemOn = ((itemOn + 8) & 31);
-                return true;
-            }
-            else
+                if(!itemOn)
+                    itemOn = currentMenu->numitems-1;
+                else itemOn--;
+            } while(currentMenu->menuitems[itemOn].status==-1);
+            return true;
+        }
+        else
+        {
+            if (currentMenu->menuitems[itemOn].routine &&
+                currentMenu->menuitems[itemOn].status >= 2)
             {
-                do
-                {
-                    if(itemOn+1 > currentMenu->numitems-1)
-                        itemOn = 0;
-                    else itemOn++;
-                } while(currentMenu->menuitems[itemOn].status==-1 ||
-                    currentMenu->menuitems[itemOn].status==-3);
-                return true;
+                currentMenu->menuitems[itemOn].routine(0);
+                
+                if(currentMenu->menuitems[itemOn].status == 3)
+                    thermowait = 1;
             }
-            
-        case KEY_UPARROW:
+            return true;
+        }
+        
+    case KEY_RIGHTARROW:
+        if(currentMenu == &PasswordDef)
+        {
             S_StartSound(NULL,sfx_switch1);
-            if(currentMenu == &PasswordDef)
+            do
             {
-                itemOn = ((itemOn - 8) & 31);
-                return true;
+                if(itemOn+1 > currentMenu->numitems-1)
+                    itemOn = 0;
+                else itemOn++;
+            } while(currentMenu->menuitems[itemOn].status==-1);
+            return true;
+        }
+        else
+        {
+            if (currentMenu->menuitems[itemOn].routine &&
+                currentMenu->menuitems[itemOn].status >= 2)
+            {
+                currentMenu->menuitems[itemOn].routine(1);
+                
+                if(currentMenu->menuitems[itemOn].status == 3)
+                    thermowait = -1;
             }
-            else
+            return true;
+        }
+        
+    case KEY_ENTER:
+        if(itemOn != itemSelected &&
+            ev->type == ev_mousedown)
+            return false;
+
+        if(currentMenu == &PasswordDef)
+        {
+            M_PasswordSelect();
+            return true;
+        }
+        else
+        {
+            if(currentMenu->menuitems[itemOn].routine &&
+                currentMenu->menuitems[itemOn].status)
             {
-                do
+                if(currentMenu->menuitems[itemOn].routine == M_Return)
                 {
-                    if(!itemOn)
-                        itemOn = currentMenu->numitems-1;
-                    else itemOn--;
-                } while(currentMenu->menuitems[itemOn].status==-1 ||
-                    currentMenu->menuitems[itemOn].status==-3);
-                return true;
-            }
-            
-        case KEY_LEFTARROW:
-            if(currentMenu == &PasswordDef)
-            {
-                S_StartSound(NULL,sfx_switch1);
-                do
-                {
-                    if(!itemOn)
-                        itemOn = currentMenu->numitems-1;
-                    else itemOn--;
-                } while(currentMenu->menuitems[itemOn].status==-1);
-                return true;
-            }
-            else
-            {
-                if (currentMenu->menuitems[itemOn].routine &&
-                    currentMenu->menuitems[itemOn].status >= 2)
-                {
-                    currentMenu->menuitems[itemOn].routine(0);
-                    
-                    if(currentMenu->menuitems[itemOn].status == 3)
-                        thermowait = 1;
+                    M_Return(0);
+                    return true;
                 }
-                return true;
-            }
-            
-        case KEY_RIGHTARROW:
-            if(currentMenu == &PasswordDef)
-            {
-                S_StartSound(NULL,sfx_switch1);
-                do
+                
+                currentMenu->lastOn = itemOn;
+                if(currentMenu == &featuresDef)
                 {
-                    if(itemOn+1 > currentMenu->numitems-1)
-                        itemOn = 0;
-                    else itemOn++;
-                } while(currentMenu->menuitems[itemOn].status==-1);
-                return true;
-            }
-            else
-            {
-                if (currentMenu->menuitems[itemOn].routine &&
-                    currentMenu->menuitems[itemOn].status >= 2)
-                {
-                    currentMenu->menuitems[itemOn].routine(1);
-                    
-                    if(currentMenu->menuitems[itemOn].status == 3)
-                        thermowait = -1;
-                }
-                return true;
-            }
-            
-        case KEY_ENTER:
-            if(currentMenu == &PasswordDef)
-            {
-                M_PasswordSelect();
-                return true;
-            }
-            else
-            {
-                if(currentMenu->menuitems[itemOn].routine &&
-                    currentMenu->menuitems[itemOn].status)
-                {
-                    if(currentMenu->menuitems[itemOn].routine == M_Return)
+                    if(currentMenu->menuitems[itemOn].routine == M_DoFeature && 
+                        itemOn == features_levels)
                     {
-                        M_Return(0);
+                        gameaction = ga_warplevel;
+                        gamemap = nextmap = levelwarp + 1;
+                        M_ClearMenus();
+                        dmemset(passwordData, 0xff, 16);
                         return true;
                     }
-                    
-                    currentMenu->lastOn = itemOn;
-                    if(currentMenu == &featuresDef)
+                }
+                else if(currentMenu->menuitems[itemOn].status >= 2 ||
+                    currentMenu->menuitems[itemOn].status == -2)
+                {
+                    currentMenu->menuitems[itemOn].routine(2);
+                }
+                else
+                {
+                    if(currentMenu == &ControlsDef)
                     {
-                        if(currentMenu->menuitems[itemOn].routine == M_DoFeature && 
-                            itemOn == features_levels)
-                        {
-                            gameaction = ga_warplevel;
-                            gamemap = nextmap = levelwarp + 1;
-                            M_ClearMenus();
-                            dmemset(passwordData, 0xff, 16);
-                            return true;
-                        }
-                    }
-                    else if(currentMenu->menuitems[itemOn].status >= 2 ||
-                        currentMenu->menuitems[itemOn].status == -2)
-                    {
-                        currentMenu->menuitems[itemOn].routine(1);      // right arrow
+                        // don't do the fade effect and jump straight to the next screen
+                        M_ChangeKeyBinding(itemOn);
                     }
                     else
                     {
-                        if(currentMenu == &ControlsDef)
-                        {
-                            // don't do the fade effect and jump straight to the next screen
-                            M_ChangeKeyBinding(itemOn);
-                        }
-                        else
-                        {
-                            currentMenu->menuitems[itemOn].routine(itemOn);
-                        }
-                        
-                        S_StartSound(NULL, sfx_pistol);
+                        currentMenu->menuitems[itemOn].routine(itemOn);
                     }
+                    
+                    S_StartSound(NULL, sfx_pistol);
                 }
+            }
+            return true;
+        }
+        
+    case KEY_ESCAPE:
+        //villsa
+        if(gamestate == GS_SKIPPABLE || demoplayback)
+            return false;
+
+        M_ReturnInstant();
+        return true;
+        
+    case KEY_DEL:
+        if(currentMenu == &ControlsDef)
+        {
+            if(currentMenu->menuitems[itemOn].routine)
+            {
+                G_UnbindAction(PlayerActions[itemOn].action);
+                M_BuildControlMenu();
+            }
+        }
+        return true;
+        
+    case KEY_BACKSPACE:
+        if(currentMenu == &PasswordDef)
+            M_PasswordDeSelect();
+        else
+            M_Return(0);
+        return true;
+
+    case KEY_MWHEELUP:
+        M_Scroll(currentMenu, true);
+        return true;
+
+    case KEY_MWHEELDOWN:
+        M_Scroll(currentMenu, false);
+        return true;
+        
+    default:
+        for(i = itemOn+1; i < currentMenu->numitems; i++)
+        {
+            if(currentMenu->menuitems[i].status != -1 
+                && currentMenu->menuitems[i].alphaKey == ch)
+            {
+                itemOn = i;
+                S_StartSound(NULL, sfx_switch1);
                 return true;
             }
-            
-        case KEY_ESCAPE:
-            //villsa
-            if(gamestate == GS_SKIPPABLE || demoplayback)
-                return false;
-
-            M_ReturnInstant();
-            return true;
-            
-        case KEY_DEL:
-            if(currentMenu == &ControlsDef)
+        }
+        for(i = 0; i <= itemOn; i++)
+        {
+            if(currentMenu->menuitems[i].status != -1 
+                && currentMenu->menuitems[i].alphaKey == ch)
             {
-                if(currentMenu->menuitems[itemOn].routine)
-                {
-                    G_UnbindAction(PlayerActions[itemOn].action);
-                    M_BuildControlMenu();
-                }
+                itemOn = i;
+                S_StartSound(NULL, sfx_switch1);
+                return true;
             }
-            return true;
-            
-        case KEY_BACKSPACE:
-            if(currentMenu == &PasswordDef)
-                M_PasswordDeSelect();
-            else
-                M_Return(0);
-            return true;
-            
-        default:
-            for (i = itemOn+1;i < currentMenu->numitems;i++)
-                if (currentMenu->menuitems[i].status != -1 
-                    && currentMenu->menuitems[i].alphaKey == ch)
-                {
-                    itemOn = i;
-                    S_StartSound(NULL, sfx_switch1);
-                    return true;
-                }
-                for (i = 0;i <= itemOn;i++)
-                    if (currentMenu->menuitems[i].status != -1 
-                        && currentMenu->menuitems[i].alphaKey == ch)
-                    {
-                        itemOn = i;
-                        S_StartSound(NULL, sfx_switch1);
-                        return true;
-                    }
-                    break;
-                    
+        }
+        break;
     }
     
     return false;
@@ -4919,95 +5209,6 @@ void M_StartControlPanel(dboolean forcenext)
     S_PauseSound();
 }
 
-
-#if 0
-
-//
-// M_CursorHighlightItem
-//
-// Highlight effects when positioning mouse cursor
-// over menu item
-//
-// Big text just highlights to a brighter color and small text
-// displays a highlight box over them
-//
-
-static dboolean M_CursorHighlightItem(int x, int y, menu_t* menu, int item)
-{
-    float scrnx;
-    float scrny;
-    int centerwidth;
-    int width;
-    int height;
-
-    //
-    // don't highlight static items
-    //
-    if(menu->menuitems[item].status == -1)
-        return false;
-
-    //
-    // determine size of highlight box
-    //
-    centerwidth = menu->smallfont ?
-        160 - M_StringWidth(menu->menuitems[item].name) / 2 :
-    M_CenterSmbText(menu->menuitems[item].name);
-
-    scrnx = (float)video_width / (float)SCREENWIDTH;
-    scrny = (float)video_height / (float)SCREENHEIGHT;
-    width = menu == &ControlsDef ? SCREENWIDTH : (160 - centerwidth) * 2;
-    height = menu->smallfont ? 8 : 14;
-
-    if(m_mousex >= ((float)x * scrnx) && m_mousex <= ((float)(x + width) * scrnx))
-    {
-        if(m_mousey >= ((float)y * scrny) && m_mousey <= (((float)y + height) * scrny))
-        {
-            vtx_t vertex[4];
-
-            if(menu == &PasswordDef || !menu->smallfont)
-                return true;
-
-            R_GLToggleBlend(1);
-            R_GLEnable2D(0);
-
-            R_GLSetupVertex(vertex, (float)x - 1, (float)y - 1,
-                width + 2, height + 2, 0, 1, 0, 1, 0);
-
-            //
-            // draw highlight box for small fonts
-            //
-            dglDisable(GL_TEXTURE_2D);
-            dglBegin(GL_POLYGON);
-            dglColor4ub(192, 224, 255, (96 * menualphacolor) / 0xff);
-            dglVertex2f(vertex[0].x, vertex[0].y);
-            dglVertex2f(vertex[1].x, vertex[1].y);
-            dglColor4ub(32, 48, 64, (96 * menualphacolor) / 0xff);
-            dglVertex2f(vertex[3].x, vertex[3].y);
-            dglVertex2f(vertex[2].x, vertex[2].y);
-            dglEnd();
-            dglColor4ub(255, 255, 255, (0xff * menualphacolor) / 0xff);
-            dglPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-            dglBegin(GL_POLYGON);
-            dglVertex2f(vertex[0].x, vertex[0].y);
-            dglVertex2f(vertex[1].x, vertex[1].y);
-            dglVertex2f(vertex[3].x, vertex[3].y);
-            dglVertex2f(vertex[2].x, vertex[2].y);
-            dglEnd();
-            dglPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-            dglEnable(GL_TEXTURE_2D);
-
-            R_GLDisable2D();
-            R_GLToggleBlend(0);
-
-            return true;
-        }
-    }
-
-    return false;
-}
-
-#endif
-
 //
 // M_DrawMenuSkull
 //
@@ -5030,7 +5231,7 @@ static void M_DrawMenuSkull(int x, int y)
     vtx_t vtx[4];
     const rcolor color = MENUCOLORWHITE;
     
-    pic = R_BindGfxTexture("SYMBOLS", true);
+    pic = GL_BindGfxTexture("SYMBOLS", true);
 
     dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, DGL_CLAMP);
     dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, DGL_CLAMP);
@@ -5038,7 +5239,7 @@ static void M_DrawMenuSkull(int x, int y)
     dglEnable(GL_BLEND);
     dglSetVertex(vtx);
 
-    R_GLEnable2D(0);
+    GL_SetOrtho(0);
     
     index = (whichSkull & 7) + SM_SKULLS;
     
@@ -5053,7 +5254,7 @@ static void M_DrawMenuSkull(int x, int y)
     ty1 = ((float)symboldata[index].y / smbheight) + 0.005f;
     ty2 = (ty1 + (((float)symboldata[index].h / smbheight))) - 0.008f;
 
-    R_GLSetupVertex(
+    GL_Set2DQuad(
         vtx,
         vx1,
         vy1,
@@ -5070,8 +5271,37 @@ static void M_DrawMenuSkull(int x, int y)
     dglTriangle(3, 2, 1);
     dglDrawGeometry(4, vtx);
     
-    R_GLDisable2D();
+    GL_ResetViewport();
     dglDisable(GL_BLEND);
+}
+
+//
+// M_DrawCursor
+//
+
+static void M_DrawCursor(int x, int y)
+{
+    if(m_menumouse.value)
+    {
+        int gfxIdx;
+        float factor;
+        float scale;
+
+        scale = ((m_cursorscale.value + 25.0f) / 100.0f);
+        gfxIdx = GL_BindGfxTexture("CURSOR", true);
+        factor = (((float)SCREENHEIGHT * video_ratio) / (float)video_width) / scale;
+
+        dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, DGL_CLAMP);
+        dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, DGL_CLAMP);
+
+        GL_SetOrthoScale(scale);
+        GL_SetState(GLSTATE_BLEND, 1);
+        GL_SetupAndDraw2DQuad((float)x * factor, (float)y * factor, 
+            gfxwidth[gfxIdx], gfxheight[gfxIdx], 0, 1.0f, 0, 1.0f, WHITE, 0);
+
+        GL_SetState(GLSTATE_BLEND, 0);
+        GL_SetOrthoScale(1.0f);
+    }
 }
 
 //
@@ -5081,7 +5311,7 @@ static void M_DrawMenuSkull(int x, int y)
 // but before it has been blitted.
 //
 
-void M_Drawer (void)
+void M_Drawer(void)
 {
     short x;
     short y;
@@ -5089,25 +5319,24 @@ void M_Drawer (void)
     short max;
     int start;
     int height;
-    dboolean highlighted;
 
     if(currentMenu != &MainDef)
         ST_FlashingScreen(0, 0, 0, 96);
     
     if(MenuBindActive)
     {
-        M_DrawSmbText(-1, 64, MENUCOLORWHITE, "Press New Key For");
-        M_DrawSmbText(-1, 80, MENUCOLORRED, MenuBindMessage);
+        Draw_BigText(-1, 64, MENUCOLORWHITE, "Press New Key For");
+        Draw_BigText(-1, 80, MENUCOLORRED, MenuBindMessage);
         return;
     }
     
     if(!menuactive)
         return;
     
-    M_DrawSmbText(-1, 16, MENUCOLORRED, currentMenu->title);
+    Draw_BigText(-1, 16, MENUCOLORRED, currentMenu->title);
 
     if(currentMenu->scale != 1)
-        R_GLSetOrthoScale(currentMenu->scale);
+        GL_SetOrthoScale(currentMenu->scale);
 
     if(currentMenu->routine)
         currentMenu->routine();         // call Draw routine
@@ -5138,8 +5367,6 @@ void M_Drawer (void)
         if(currentMenu->menuitems[i].status == -3)
             continue;
 
-        highlighted = false;
-
         if(currentMenu == &PasswordDef)
         {
             if(i > 0)
@@ -5153,19 +5380,6 @@ void M_Drawer (void)
                     x += TEXTLINEHEIGHT;
             }
         }
-
-#if 0
-        //
-        // draw highlights
-        //
-        if(m_menumouse.value)
-        {
-            highlighted = M_CursorHighlightItem(x, y, currentMenu, i);
-
-            if(highlighted)
-                itemOn = i;
-        }
-#endif
         
         if(currentMenu->menuitems[i].status != -1)
         {
@@ -5179,14 +5393,17 @@ void M_Drawer (void)
             {
                 rcolor fontcolor = MENUCOLORRED;
 
-                if(highlighted)
+                if(itemSelected == i)
                     fontcolor += D_RGBA(0, 128, 8, 0);
 
-                M_DrawSmbText(x, y, fontcolor, currentMenu->menuitems[i].name);
+                Draw_BigText(x, y, fontcolor, currentMenu->menuitems[i].name);
             }
             else
             {
                 rcolor color = MENUCOLORWHITE;
+
+                if(itemSelected == i)
+                    color = D_RGBA(255, 255, 0, menualphacolor);
 
                 //
                 // tint the non-bindable key items to a shade of red
@@ -5197,7 +5414,7 @@ void M_Drawer (void)
                         color = D_RGBA(255, 192, 192, menualphacolor);
                 }
 
-                M_DrawText(
+                Draw_Text(
                 x,
                 y,
                 color,
@@ -5210,7 +5427,7 @@ void M_Drawer (void)
                 // nasty hack to re-set the scale after a drawtext call
                 //
                 if(currentMenu->scale != 1)
-                    R_GLSetOrthoScale(currentMenu->scale);
+                    GL_SetOrthoScale(currentMenu->scale);
             }
         }
         //
@@ -5221,7 +5438,7 @@ void M_Drawer (void)
         {
             if(!currentMenu->smallfont)
             {
-                M_DrawSmbText(
+                Draw_BigText(
                     -1,
                     y,
                     MENUCOLORWHITE,
@@ -5232,7 +5449,7 @@ void M_Drawer (void)
             {
                 int strwidth = M_StringWidth(currentMenu->menuitems[i].name);
 
-                M_DrawText(
+                Draw_Text(
                     ((int)(160.0f / currentMenu->scale) - (strwidth / 2)),
                     y,
                     D_RGBA(255, 0, 0, menualphacolor),
@@ -5245,7 +5462,7 @@ void M_Drawer (void)
                 // nasty hack to re-set the scale after a drawtext call
                 //
                 if(currentMenu->scale != 1)
-                    R_GLSetOrthoScale(currentMenu->scale);
+                    GL_SetOrthoScale(currentMenu->scale);
             }
         }
         
@@ -5261,13 +5478,13 @@ void M_Drawer (void)
         if(currentMenu->menupageoffset)
         {
             //up arrow
-            M_DrawSmbText(currentMenu->x, currentMenu->y - 24, MENUCOLORWHITE, "/u More...");
+            Draw_BigText(currentMenu->x, currentMenu->y - 24, MENUCOLORWHITE, "/u More...");
         }
         
         if(currentMenu->menupageoffset + currentMenu->numpageitems < currentMenu->numitems)
         {
             //down arrow
-            M_DrawSmbText(currentMenu->x, (currentMenu->y - 2 + (currentMenu->numpageitems-1) * height) + 24,
+            Draw_BigText(currentMenu->x, (currentMenu->y - 2 + (currentMenu->numpageitems-1) * height) + 24,
                 MENUCOLORWHITE, "/d More...");
         }
     }
@@ -5277,7 +5494,7 @@ void M_Drawer (void)
     //
     if(currentMenu == &PasswordDef)
     {
-        M_DrawSmbText((currentMenu->x + ((itemOn & 7) * height)) - 4,
+        Draw_BigText((currentMenu->x + ((itemOn & 7) * height)) - 4,
             currentMenu->y + ((int)(itemOn / 8) * height) + 3, MENUCOLORWHITE, "/b");
     }
     else
@@ -5308,14 +5525,14 @@ void M_Drawer (void)
         //
         else
         {
-            M_DrawSmbText(x - 12, 
+            Draw_BigText(x - 12, 
                 currentMenu->y - 4 + (itemOn - currentMenu->menupageoffset) * height,
                 MENUCOLORWHITE, "/l");
         }
     }
 
     if(currentMenu->scale != 1)
-        R_GLSetOrthoScale(1.0f);
+        GL_SetOrthoScale(1.0f);
 
 #ifdef _USE_XINPUT  // XINPUT
     if(xgamepad.connected && currentMenu != &MainDef)
@@ -5323,19 +5540,21 @@ void M_Drawer (void)
         if(currentMenu == &PasswordDef)
         {
             M_DrawXInputButton(4, 184, XINPUT_GAMEPAD_B);
-            M_DrawText(22, 188, MENUCOLORWHITE, 1.0f, false, "Change");
+            Draw_Text(22, 188, MENUCOLORWHITE, 1.0f, false, "Change");
         }
 
         M_DrawXInputButton(4, 200, XINPUT_GAMEPAD_A);
-        M_DrawText(22, 204, MENUCOLORWHITE, 1.0f, false, "Select");
+        Draw_Text(22, 204, MENUCOLORWHITE, 1.0f, false, "Select");
 
         if(currentMenu != &PauseDef)
         {
             M_DrawXInputButton(5, 216, XINPUT_GAMEPAD_START);
-            M_DrawText(22, 220, MENUCOLORWHITE, 1.0f, false, "Return");
+            Draw_Text(22, 220, MENUCOLORWHITE, 1.0f, false, "Return");
         }
     }
 #endif
+
+    M_DrawCursor(mouse_x, mouse_y);
 }
 
 
@@ -5347,6 +5566,13 @@ void M_ClearMenus (void)
 {
     if(!allowclearmenu)
         return;
+
+    // center mouse before clearing menu
+    // so the input code won't try to
+    // re-center the mouse; which can
+    // cause the player's view to warp
+    if(gamestate == GS_LEVEL)
+        I_CenterMouse();
 
     menufadefunc = NULL;
     nextmenu = NULL;
@@ -5394,8 +5620,10 @@ void M_SetupNextMenu(menu_t *menudef)
 
 void M_MenuFadeIn(void)
 {
-    if((menualphacolor + (int)m_menufadetime.value) < 0xff)
-        menualphacolor += (int)m_menufadetime.value;
+    int fadetime = (int)(m_menufadetime.value + 20);
+
+    if((menualphacolor + fadetime) < 0xff)
+        menualphacolor += fadetime;
     else 
     {
         menualphacolor = 0xff;
@@ -5412,8 +5640,10 @@ void M_MenuFadeIn(void)
 
 void M_MenuFadeOut(void)
 {
-    if(menualphacolor > (int)m_menufadetime.value)
-        menualphacolor -= (int)m_menufadetime.value;
+    int fadetime = (int)(m_menufadetime.value + 20);
+
+    if(menualphacolor > fadetime)
+        menualphacolor -= fadetime;
     else
     {
         menualphacolor = 0;
@@ -5549,6 +5779,7 @@ void M_Init(void)
     currentMenu = &MainDef;
     menuactive = 0;
     itemOn = currentMenu->lastOn;
+    itemSelected = -1;
     whichSkull = 0;
     skullAnimCounter = 4;
     quickSaveSlot = -1;
@@ -5611,10 +5842,8 @@ void M_RegisterCvars(void)
 {
     CON_CvarRegister(&m_regionblood);
     CON_CvarRegister(&m_menufadetime);
-
-#if 0
     CON_CvarRegister(&m_menumouse);
-#endif
+    CON_CvarRegister(&m_cursorscale);
 }
 
 

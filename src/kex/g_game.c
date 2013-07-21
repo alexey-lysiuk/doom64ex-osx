@@ -1,32 +1,30 @@
-// Emacs style mode select	 -*- C++ -*-
+// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
-// $Id: g_game.c 1100 2012-04-08 19:17:31Z svkaiser $
+// Copyright(C) 1993-1997 Id Software, Inc.
+// Copyright(C) 2007-2012 Samuel Villarreal
 //
-// Copyright (C) 1993-1996 by id Software, Inc.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
 //
-// This source is available for distribution and/or modification
-// only under the terms of the DOOM Source Code License as
-// published by id Software. All rights reserved.
-//
-// The source is distributed in the hope that it will be useful,
+// This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// FITNESS FOR A PARTICULAR PURPOSE. See the DOOM Source Code License
-// for more details.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 //
-// $Log: g_game.c,v $
-// Revision 1.1  2008/05/18 22:28:33  svkaiser
-// Initial submission
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+// 02111-1307, USA.
+//
+//-----------------------------------------------------------------------------
 //
 //
 // DESCRIPTION:  none
 //
 //-----------------------------------------------------------------------------
-
-#ifdef RCSID
-static const char
-rcsid[] = "$Id: g_game.c 1100 2012-04-08 19:17:31Z svkaiser $";
-#endif
 
 #include <stdlib.h>
 #include <stdarg.h>
@@ -59,6 +57,7 @@ rcsid[] = "$Id: g_game.c 1100 2012-04-08 19:17:31Z svkaiser $";
 #include "con_console.h"
 #include "g_local.h"
 #include "m_password.h"
+#include "i_video.h"
 
 #define DCLICK_TIME     20
 #define DEMOMARKER      0x80
@@ -151,11 +150,21 @@ NETCVAR(sv_skill, 2);
 
 NETCVAR_CMD(sv_damagescale, 1)
 {
+    if(cvar->value > 3)
+        cvar->value = 3;
+    if(cvar->value < 1)
+        cvar->value = 1;
+
     damagescale = (int)cvar->value;
 }
 
 NETCVAR_CMD(sv_healthscale, 1)
 {
+    if(cvar->value > 3)
+        cvar->value = 3;
+    if(cvar->value < 1)
+        cvar->value = 1;
+
     healthscale = (int)cvar->value;
 }
 
@@ -174,6 +183,8 @@ CVAR_EXTERNAL(v_mlookinvert);
 CVAR_EXTERNAL(p_autorun);
 CVAR_EXTERNAL(p_fdoubleclick);
 CVAR_EXTERNAL(p_sdoubleclick);
+CVAR_EXTERNAL(v_msensitivityx);
+CVAR_EXTERNAL(v_msensitivityy);
 
 //
 // G_RegisterCvars
@@ -197,6 +208,388 @@ void G_RegisterCvars(void)
     CON_CvarRegister(&compat_collision);
     CON_CvarRegister(&compat_mobjpass);
     CON_CvarRegister(&compat_limitpain);
+}
+
+//
+// G_CmdButton
+//
+
+static CMD(Button)
+{
+    playercontrols_t *pc;
+    int64 key;
+    
+    pc = &Controls;
+    
+    key = data & PCKF_COUNTMASK;
+    
+    if (data & PCKF_UP)
+    {
+        if((pc->key[key] & PCKF_COUNTMASK) > 0)
+            pc->key[key]--;
+
+        if(ButtonAction)
+            pc->key[key] &= ~PCKF_DOUBLEUSE;
+    }
+    else
+    {
+        pc->key[key]++;
+
+        if(ButtonAction)
+            pc->key[key] |= PCKF_DOUBLEUSE;
+    }
+}
+
+//
+// G_CmdNextWeapon
+//
+
+static CMD(NextWeapon)
+{
+    playercontrols_t *pc;
+    
+    pc = &Controls;
+    pc->flags |= PCF_NEXTWEAPON;
+}
+
+//
+// G_CmdPrevWeapon
+//
+
+static CMD(PrevWeapon)
+{
+    playercontrols_t *pc;
+    
+    pc = &Controls;
+    pc->flags |= PCF_PREVWEAPON;
+}
+
+//
+// G_CmdWeapon
+//
+
+static CMD(Weapon)
+{
+    playercontrols_t *pc;
+    int id;
+    
+    if(!(param[0]))
+        return;
+    
+    id = datoi(param[0]);
+    
+    if((id > NUMWEAPONS) || (id < 1))
+        return;
+    
+    pc = &Controls;
+    pc->nextweapon = id - 1;
+}
+
+//
+// G_CmdBind
+//
+
+static CMD(Bind)
+{
+    if(!param[0])
+        return;
+    
+    if(!param[1])
+    {
+        G_ShowBinding(param[0]);
+        return;
+    }
+
+    G_BindActionByName(param[0], param[1]);
+}
+
+//
+// G_CmdSeta
+//
+
+static CMD(Seta)
+{
+    if(!param[0] || !param[1])
+        return;
+
+    CON_CvarSet(param[0], param[1]);
+
+    if(netgame)
+    {
+        if(playeringame[0] && consoleplayer == 0)
+            NET_SV_UpdateCvars(CON_CvarGet(param[0]));
+    }
+}
+
+//
+// G_CmdAutorun
+//
+
+static CMD(Autorun)
+{
+    if(gamestate != GS_LEVEL)
+        return;
+
+    if(p_autorun.value == 0)
+    {
+        CON_CvarSetValue(p_autorun.name, 1);
+        players[consoleplayer].message = GGAUTORUNON;
+    }
+    else
+    {
+        CON_CvarSetValue(p_autorun.name, 0);
+        players[consoleplayer].message = GGAUTORUNOFF;
+    }
+}
+
+//
+// G_CmdQuit
+//
+
+static CMD(Quit)
+{
+    I_Quit();
+}
+
+//
+// G_CmdExec
+//
+
+static CMD(Exec)
+{
+    G_ExecuteFile(param[0]);
+}
+
+//
+// G_CmdList
+//
+
+static CMD(List)
+{
+    int cmds;
+    
+    CON_Printf(GREEN, "Available commands:\n");
+    cmds = G_ListCommands();
+    CON_Printf(GREEN, "(%d commands)\n", cmds);
+}
+
+//
+// G_CmdCheat
+//
+
+static CMD(Cheat)
+{
+    player_t *player;
+
+    if(gamestate != GS_LEVEL)
+        return;
+    
+    player = &players[consoleplayer];
+    switch(data)
+    {
+    case 0:
+        M_CheatGod(player, NULL);
+        break;
+    case 1:
+        M_CheatClip(player, NULL);
+        break;
+    case 2:
+        if(param[0] == NULL)
+        {
+            CON_Printf(GREEN, "Available give cheats:\n");
+            CON_Printf(GREEN, "-------------------------\n");
+            CON_Printf(AQUA, "all\n");
+            CON_Printf(AQUA, "weapon\n");
+            CON_Printf(AQUA, "artifact\n");
+            CON_Printf(AQUA, "key\n");
+            return;
+        }
+
+        if(!dstricmp(param[0], "all"))
+        {
+            M_CheatKfa(player, NULL);
+        }
+        else if(!dstricmp(param[0], "weapon"))
+        {
+            if(param[1] == NULL)
+            {
+                CON_Printf(GREEN, "Weapons:\n");
+                CON_Printf(GREEN, "-------------------------\n");
+                CON_Printf(AQUA, "1: Chainsaw\n");
+                CON_Printf(AQUA, "2: Shotgun\n");
+                CON_Printf(AQUA, "3: Super Shotgun\n");
+                CON_Printf(AQUA, "4: Chaingun\n");
+                CON_Printf(AQUA, "5: Rocket Launcher\n");
+                CON_Printf(AQUA, "6: Plasma Rifle\n");
+                CON_Printf(AQUA, "7: BFG 9000\n");
+                CON_Printf(AQUA, "8: Demon Artifact\n");
+                return;
+            }
+
+            if(dstrlen(param[1]) == 1)
+            {
+                M_CheatGiveWeapon(player, param[1]);
+            }
+        }
+        else if(!dstricmp(param[0], "artifact"))
+        {
+            if(param[1] == NULL)
+            {
+                CON_Printf(GREEN, "Artifacts:\n");
+                CON_Printf(GREEN, "-------------------------\n");
+                CON_Printf(AQUA, "1: Red\n");
+                CON_Printf(AQUA, "2: Aqua\n");
+                CON_Printf(AQUA, "3: Violet\n");
+                return;
+            }
+
+            if(dstrlen(param[1]) == 1)
+            {
+                M_CheatArtifacts(player, param[1]);
+            }
+        }
+        else if(!dstricmp(param[0], "key"))
+        {
+            if(param[1] == NULL)
+            {
+                CON_Printf(GREEN, "Keys:\n");
+                CON_Printf(GREEN, "-------------------------\n");
+                CON_Printf(AQUA, "1: Blue Card\n");
+                CON_Printf(AQUA, "2: Yellow Card\n");
+                CON_Printf(AQUA, "3: Red Card\n");
+                CON_Printf(AQUA, "4: Blue Skull\n");
+                CON_Printf(AQUA, "5: Yellow Skull\n");
+                CON_Printf(AQUA, "6: Red Skull\n");
+                return;
+            }
+
+            if(dstrlen(param[1]) == 1)
+            {
+                M_CheatGiveKey(player, param[1]);
+            }
+        }
+        break;
+    case 3:
+        M_CheatBoyISuck(player, NULL);
+        break;
+    case 4:
+        if(amCheating) amCheating = 0;
+        else if(!amCheating) amCheating = 2;
+        break;
+    }
+}
+
+//
+// G_CmdPause
+//
+
+static CMD(Pause)
+{
+    sendpause = true;
+}
+
+//
+// G_CmdSpawnThing
+//
+
+static CMD(SpawnThing)
+{
+    int id = 0;
+    player_t *player;
+    mobj_t *thing;
+    fixed_t x, y, z;
+
+    if(gamestate != GS_LEVEL)
+        return;
+    
+    if(!param[0])
+        return;
+    
+    if(netgame)
+        return;
+    
+    id = datoi(param[0]);
+    if(id >= NUMMOBJTYPES || id < 0)
+        return;
+    
+    player = &players[consoleplayer];
+    x = player->mo->x + FixedMul(INT2F(64) + mobjinfo[id].radius, dcos(player->mo->angle));
+    y = player->mo->y + FixedMul(INT2F(64) + mobjinfo[id].radius, dsin(player->mo->angle));
+    z = player->mo->z;
+    
+    thing = P_SpawnMobj(x, y, z, id);
+
+    if(thing->info->spawnstate == S_000)
+    {
+        P_RemoveMobj(thing);
+        return;
+    }
+
+    thing->angle = player->mo->angle;
+}
+
+//
+// G_CmdExitLevel
+//
+
+static CMD(ExitLevel)
+{
+    if(gamestate != GS_LEVEL)
+        return;
+
+    if(demoplayback)
+        return;
+    
+    if(!param[0])
+        G_ExitLevel();
+    else
+        G_SecretExitLevel(datoi(param[0]));
+}
+
+//
+// G_CmdTriggerSpecial
+//
+
+static CMD(TriggerSpecial)
+{
+    line_t junk;
+
+    if(gamestate != GS_LEVEL)
+        return;
+    
+    if(!param[0])
+        return;
+    
+    dmemset(&junk, 0, sizeof(line_t));
+    junk.special = datoi(param[0]);
+    junk.tag = datoi(param[1]);
+    
+    P_DoSpecialLine(players[consoleplayer].mo, &junk, 0);
+}
+
+//
+// G_CmdPlayerCamera
+//
+
+static CMD(PlayerCamera)
+{
+    player_t *player;
+
+    if(gamestate != GS_LEVEL)
+        return;
+    
+    player = &players[consoleplayer];
+
+    switch(data)
+    {
+    case 0:
+        P_SetStaticCamera(player);
+        break;
+
+    case 1:
+        P_SetFollowCamera(player);
+        break;
+    }
 }
 
 
@@ -436,6 +829,19 @@ void G_BuildTiccmd(ticcmd_t* cmd)
         sendsave = false;
         cmd->buttons = BT_SPECIAL | BTS_SAVEGAME | (savegameslot << BTS_SAVESHIFT);
     }
+}
+
+//
+// G_DoCmdMouseMove
+//
+
+void G_DoCmdMouseMove(int x, int y)
+{
+    playercontrols_t *pc;
+    
+    pc = &Controls;
+    pc->mousex += ((I_MouseAccel(x) * (int)v_msensitivityx.value) / 128);
+    pc->mousey += ((I_MouseAccel(y) * (int)v_msensitivityy.value) / 128);
 }
 
 
@@ -715,6 +1121,8 @@ void G_PlayerFinishLevel(int player)
     p->damagecount = 0; 		// no palette changes
     p->bonuscount = 0;
     p->bfgcount = 0;
+
+    P_ClearUserCamera(p);
 }
 
 //
@@ -1088,6 +1496,8 @@ void G_LoadGame(const char* name)
 
 void G_DoLoadGame(void)
 {
+    CON_DPrintf("--------Loading game--------\n");
+
     if(!P_ReadSaveGame(savename))
     {
         gameaction = ga_nothing;
@@ -1116,6 +1526,8 @@ void G_SaveGame(int slot, const char* description)
 
 void G_DoSaveGame (void)
 {
+    CON_DPrintf("--------Saving game--------\n");
+
     if(!P_WriteSaveGame(savedescription, savegameslot))
     {
         players[consoleplayer].message = "couldn't save game!";
@@ -1147,8 +1559,59 @@ void G_DeferedInitNew(skill_t skill, int map)
 
 void G_Init(void)
 {
+    G_InitActions();
+
     dmemset(playeringame, 0, sizeof(playeringame));
     G_ClearInput();
+
+    G_AddCommand("+fire", CMD_Button, PCKEY_ATTACK);
+    G_AddCommand("-fire", CMD_Button, PCKEY_ATTACK|PCKF_UP);
+    G_AddCommand("+strafe", CMD_Button, PCKEY_STRAFE);
+    G_AddCommand("-strafe", CMD_Button, PCKEY_STRAFE|PCKF_UP);
+    G_AddCommand("+use", CMD_Button, PCKEY_USE);
+    G_AddCommand("-use", CMD_Button, PCKEY_USE|PCKF_UP);
+    G_AddCommand("+run", CMD_Button, PCKEY_RUN);
+    G_AddCommand("-run", CMD_Button, PCKEY_RUN|PCKF_UP);
+    G_AddCommand("+jump", CMD_Button, PCKEY_JUMP);
+    G_AddCommand("-jump", CMD_Button, PCKEY_JUMP|PCKF_UP);
+    G_AddCommand("weapon", CMD_Weapon, 0);
+    G_AddCommand("nextweap", CMD_NextWeapon, 0);
+    G_AddCommand("prevweap", CMD_PrevWeapon, 0);
+    G_AddCommand("+forward", CMD_Button, PCKEY_FORWARD);
+    G_AddCommand("-forward", CMD_Button, PCKEY_FORWARD|PCKF_UP);
+    G_AddCommand("+back", CMD_Button, PCKEY_BACK);
+    G_AddCommand("-back", CMD_Button, PCKEY_BACK|PCKF_UP);
+    G_AddCommand("+left", CMD_Button, PCKEY_LEFT);
+    G_AddCommand("-left", CMD_Button, PCKEY_LEFT|PCKF_UP);
+    G_AddCommand("+right", CMD_Button, PCKEY_RIGHT);
+    G_AddCommand("-right", CMD_Button, PCKEY_RIGHT|PCKF_UP);
+    G_AddCommand("+lookup", CMD_Button, PCKEY_LOOKUP);
+    G_AddCommand("-lookup", CMD_Button, PCKEY_LOOKUP|PCKF_UP);
+    G_AddCommand("+lookdown", CMD_Button, PCKEY_LOOKDOWN);
+    G_AddCommand("-lookdown", CMD_Button, PCKEY_LOOKDOWN|PCKF_UP);
+    G_AddCommand("+center",  CMD_Button, PCKEY_CENTER);
+    G_AddCommand("-center",  CMD_Button, PCKEY_CENTER|PCKF_UP);
+    G_AddCommand("autorun",  CMD_Autorun, 0);
+    G_AddCommand("+strafeleft", CMD_Button, PCKEY_STRAFELEFT);
+    G_AddCommand("-strafeleft", CMD_Button, PCKEY_STRAFELEFT|PCKF_UP);
+    G_AddCommand("+straferight", CMD_Button, PCKEY_STRAFERIGHT);
+    G_AddCommand("-straferight", CMD_Button, PCKEY_STRAFERIGHT|PCKF_UP);
+    G_AddCommand("bind", CMD_Bind, 0);
+    G_AddCommand("seta", CMD_Seta, 0);
+    G_AddCommand("quit", CMD_Quit, 0);
+    G_AddCommand("exec", CMD_Exec, 0);
+    G_AddCommand("listcmd", CMD_List, 0);
+    G_AddCommand("god",  CMD_Cheat, 0);
+    G_AddCommand("noclip", CMD_Cheat, 1);
+    G_AddCommand("give", CMD_Cheat, 2);
+    G_AddCommand("killall", CMD_Cheat, 3);
+    G_AddCommand("mapall", CMD_Cheat, 4);
+    G_AddCommand("pause", CMD_Pause, 0);
+    G_AddCommand("spawnthing", CMD_SpawnThing, 0);
+    G_AddCommand("exitlevel", CMD_ExitLevel, 0);
+    G_AddCommand("trigger", CMD_TriggerSpecial, 0);
+    G_AddCommand("setcamerastatic", CMD_PlayerCamera, 0);
+    G_AddCommand("setcamerachase", CMD_PlayerCamera, 1);
 }
 
 //
@@ -1294,6 +1757,8 @@ void G_RecordDemo(const char* name)
     dstrcpy(demoname, name);
     dstrcat(demoname, ".lmp");
 
+    CON_DPrintf("--------Recording %s--------\n", demoname);
+
     maxsize = 0x20000;
     i = M_CheckParm("-maxdemo");
 
@@ -1344,11 +1809,12 @@ void G_PlayDemo(const char* name)
     if(p && p < myargc-1)
     {
         // 20120107 bkw: add .lmp extension if missing.
-        if(strchr(myargv[p+1], '.'))
-            strcpy(filename, myargv[p+1]);
+        if(dstrrchr(myargv[p+1], '.'))
+            dstrcpy(filename, myargv[p+1]);
         else
-            sprintf(filename, "%s.lmp", myargv[p+1]);
+            dsprintf(filename, "%s.lmp", myargv[p+1]);
         
+        CON_DPrintf("--------Reading demo %s--------\n", filename);
         if(M_ReadFile(filename, &demobuffer) == -1)
         {
             gameaction = ga_exitdemo;
@@ -1364,7 +1830,8 @@ void G_PlayDemo(const char* name)
             gameaction = ga_exitdemo;
             return;
         }
-        
+
+        CON_DPrintf("--------Playing demo %s--------\n", name);
         demobuffer = demo_p = W_CacheLumpName(name, PU_STATIC);
     }
 

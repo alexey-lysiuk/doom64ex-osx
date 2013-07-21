@@ -1,32 +1,29 @@
-// Emacs style mode select   -*- C++ -*-
+// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
-// $Id: i_system.c 1101 2012-04-08 19:48:22Z svkaiser $
+// Copyright(C) 1993-1997 Id Software, Inc.
+// Copyright(C) 2007-2012 Samuel Villarreal
 //
-// Copyright (C) 1993-1996 by id Software, Inc.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
 //
-// This source is available for distribution and/or modification
-// only under the terms of the DOOM Source Code License as
-// published by id Software. All rights reserved.
-//
-// The source is distributed in the hope that it will be useful,
+// This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// FITNESS FOR A PARTICULAR PURPOSE. See the DOOM Source Code License
-// for more details.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 //
-// $Author: svkaiser $
-// $Revision: 1101 $
-// $Date: 2012-04-08 22:48:22 +0300 (нд, 08 кві 2012) $
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+// 02111-1307, USA.
 //
+//-----------------------------------------------------------------------------
 //
 // DESCRIPTION: System Interface
 //
 //-----------------------------------------------------------------------------
-#ifdef RCSID
-static const char
-rcsid[] = "$Id: i_system.c 1101 2012-04-08 19:48:22Z svkaiser $";
-#endif
-
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -48,6 +45,7 @@ rcsid[] = "$Id: i_system.c 1101 2012-04-08 19:48:22Z svkaiser $";
 #include "z_zone.h"
 #include "i_system.h"
 #include "i_audio.h"
+#include "gl_draw.h"
 
 #ifdef _WIN32
 #include "i_xinput.h"
@@ -495,9 +493,9 @@ void I_Error(char* string, ...)
     {
         while(1)
         {
-            R_GLClearFrame(0xFF000000);
-            M_DrawText(0, 0, WHITE, 1, 1, "Error - %s\n", buff);
-            R_GLFinish();
+            GL_ClearView(0xFF000000);
+            Draw_Text(0, 0, WHITE, 1, 1, "Error - %s\n", buff);
+            GL_SwapBuffers();
 
             if(I_ShutdownWait())
                 break;
@@ -594,7 +592,7 @@ void I_Printf(char* string, ...)
 #endif
 
     printf(buff);
-    if(ConsoleInitialized)
+    if(console_initialized)
         CON_AddText(buff);
 }
 

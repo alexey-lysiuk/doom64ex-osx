@@ -1,33 +1,32 @@
-// Emacs style mode select   -*- C++ -*-
+// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
-// $Id: p_setup.c 1091 2012-03-17 23:58:49Z svkaiser $
+// Copyright(C) 1993-1997 Id Software, Inc.
+// Copyright(C) 1997 Midway Home Entertainment, Inc
+// Copyright(C) 2007-2012 Samuel Villarreal
 //
-// Copyright (C) 1993-1996 by id Software, Inc.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
 //
-// This source is available for distribution and/or modification
-// only under the terms of the DOOM Source Code License as
-// published by id Software. All rights reserved.
-//
-// The source is distributed in the hope that it will be useful,
+// This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// FITNESS FOR A PARTICULAR PURPOSE. See the DOOM Source Code License
-// for more details.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 //
-// $Author: svkaiser $
-// $Revision: 1091 $
-// $Date: 2012-03-18 01:58:49 +0200 (нд, 18 бер 2012) $
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+// 02111-1307, USA.
 //
+//-----------------------------------------------------------------------------
 //
 // DESCRIPTION:
 //      Do all the WAD I/O, get map description,
 //      set up initial state and misc. LUTs.
 //
 //-----------------------------------------------------------------------------
-#ifdef RCSID
-static const char
-rcsid[] = "$Id: p_setup.c 1091 2012-03-17 23:58:49Z svkaiser $";
-#endif
 
 #include <math.h>
 
@@ -46,7 +45,7 @@ rcsid[] = "$Id: p_setup.c 1091 2012-03-17 23:58:49Z svkaiser $";
 #include "m_misc.h"
 #include "tables.h"
 #include "r_local.h"
-#include "r_texture.h"
+#include "gl_texture.h"
 #include "r_sky.h"
 #include "con_console.h"
 #include "m_random.h"
@@ -193,6 +192,7 @@ void P_LoadVertexes(int lump)
     vertex_t*           li;
     
     numvertexes = W_MapLumpLength(lump) / sizeof(mapvertex_t);
+    CON_DPrintf("%i vertexes\n", numvertexes);
     
     // Allocate zone memory for buffer.
     vertexes = Z_Malloc (numvertexes * sizeof(vertex_t),PU_LEVEL,0);
@@ -229,6 +229,8 @@ void P_LoadSegs(int lump)
     numsegs = W_MapLumpLength (lump) / sizeof(mapseg_t);
     segs = Z_Malloc (numsegs*sizeof(seg_t),PU_LEVEL,0);
     dmemset (segs, 0, numsegs*sizeof(seg_t));
+
+    CON_DPrintf("%i segs\n", numsegs);
     
     ml = (mapseg_t *)W_GetMapLump(lump);
     li = segs;
@@ -272,6 +274,8 @@ void P_LoadSubsectors(int lump)
     
     numsubsectors = W_MapLumpLength (lump) / sizeof(mapsubsector_t);
     subsectors = Z_Malloc (numsubsectors*sizeof(subsector_t),PU_LEVEL,0);
+
+    CON_DPrintf("%i subsectors\n", numsubsectors);
     
     ms = (mapsubsector_t *)W_GetMapLump(lump);
     dmemset (subsectors,0, numsubsectors*sizeof(subsector_t));
@@ -301,6 +305,8 @@ void P_LoadSectors(int lump)
     numsectors = W_MapLumpLength(lump) / sizeof(mapsector_t);
     sectors = Z_Malloc (numsectors*sizeof(sector_t),PU_LEVEL,0);
     dmemset (sectors, 0, numsectors*sizeof(sector_t));
+
+    CON_DPrintf("%i sectors\n", numsectors);
     
     ms = (mapsector_t *)W_GetMapLump(lump);
     ss = sectors;
@@ -347,6 +353,8 @@ void P_LoadLights(int lump)
     numlights = (W_MapLumpLength(lump) / sizeof(maplights_t)) + 256;
     lights = Z_Malloc(numlights * sizeof(light_t), PU_LEVEL, NULL);
     dmemset(lights, 0, numlights * sizeof(light_t));
+
+    CON_DPrintf("%i lights\n", numlights);
     
     ml = (maplights_t*)W_GetMapLump(lump);
     
@@ -402,6 +410,8 @@ void P_LoadMacros(int lump)
     macros.macrocount = SHORT(*data++);
     macros.specialcount = SHORT(*data++);
     macros.def = Z_Calloc(macros.macrocount * sizeof(macrodef_t), PU_LEVEL, NULL);
+
+    CON_DPrintf("%i macros\n", macros.macrocount);
     
     for(i = 0; i < macros.macrocount; i++)
     {
@@ -439,6 +449,8 @@ void P_LoadNodes(int lump)
     
     numnodes = W_MapLumpLength (lump) / sizeof(mapnode_t);
     nodes = Z_Malloc (numnodes*sizeof(node_t),PU_LEVEL,0);
+
+    CON_DPrintf("%i nodes\n", numnodes);
     
     mn = (mapnode_t *)W_GetMapLump(lump);
     no = nodes;
@@ -565,6 +577,8 @@ void P_LoadThings(int lump)
     numthings = W_MapLumpLength (lump) / sizeof(mapthing_t);
     mt = (mapthing_t *)W_GetMapLump(lump);
 
+    CON_DPrintf("%i things\n", numthings);
+
     for(i = 0, j = 0; i < numthings; i++)
     {
         if(SHORT(mt[i].options) & MTF_SPAWN)
@@ -609,6 +623,7 @@ void P_LoadThings(int lump)
                 mt->x = x;
                 mt->y = y;
                 P_SpawnMapThing(mt);
+                CON_Warnf("No free spot for player 2\n");
             }
 
             if(!p3start)
@@ -617,6 +632,7 @@ void P_LoadThings(int lump)
                 mt->x = x;
                 mt->y = y;
                 P_SpawnMapThing(mt);
+                CON_Warnf("No free spot for player 3\n");
             }
 
             if(!p4start)
@@ -625,6 +641,7 @@ void P_LoadThings(int lump)
                 mt->x = x;
                 mt->y = y;
                 P_SpawnMapThing(mt);
+                CON_Warnf("No free spot for player 4\n");
             }
         }
     }
@@ -647,6 +664,8 @@ void P_LoadLineDefs(int lump)
     numlines = W_MapLumpLength (lump) / sizeof(maplinedef_t);
     lines = Z_Malloc (numlines*sizeof(line_t),PU_LEVEL,0);
     dmemset (lines, 0, numlines*sizeof(line_t));
+
+    CON_DPrintf("%i linedefs\n", numlines);
     
     mld = (maplinedef_t *)W_GetMapLump(lump);
     ld = lines;
@@ -729,6 +748,8 @@ void P_LoadSideDefs(int lump)
     numsides = W_MapLumpLength(lump) / sizeof(mapsidedef_t);
     sides = Z_Malloc (numsides*sizeof(side_t),PU_LEVEL,0);
     dmemset (sides, 0, numsides*sizeof(side_t));
+
+    CON_DPrintf("%i sidedefs\n", numsides);
     
     msd = (mapsidedef_t *)W_GetMapLump(lump);
     sd = sides;
@@ -1038,6 +1059,8 @@ void P_SetupPlanes(void)
 void P_SetupLevel(int map, int playermask, skill_t skill)
 {
     int i;
+
+    CON_DPrintf("--------P_SetupLevel--------\n");
     
     // [kex] 12/26/11 - don't reset total stats when loading a savegame
     if(gameaction != ga_loadgame)
@@ -1123,8 +1146,7 @@ void P_SetupLevel(int map, int playermask, skill_t skill)
 
     Z_CheckHeap();
     
-    if(devparm)
-        CON_Printf(WHITE, "P_SetupLevel: Used memory: %d kb\n", Z_FreeMemory() >> 10);
+    CON_DPrintf("Used memory: %d kb\n", Z_FreeMemory() >> 10);
 }
 
 //
@@ -1338,6 +1360,9 @@ static void P_InitMapInfo(void)
     }
 
     sc_parser.close();
+
+    CON_DPrintf("%i map definitions\n", nummapdef);
+    CON_DPrintf("%i cluster definitions\n", numclusterdef);
 }
 
 //
@@ -1463,6 +1488,8 @@ static void P_InitSkyDef(void)
     }
 
     sc_parser.close();
+
+    CON_DPrintf("%i sky definitions\n", numskydef);
 }
 
 

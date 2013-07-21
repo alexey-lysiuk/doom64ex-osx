@@ -34,6 +34,11 @@
 		8A4A61E71567875C005A781F /* libgthread-2.0.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 8A4A61E31567875C005A781F /* libgthread-2.0.a */; };
 		8A4A61E81567875C005A781F /* libintl.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 8A4A61E41567875C005A781F /* libintl.a */; };
 		8A4A620515678838005A781F /* libpng.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 8A4A61DF15678749005A781F /* libpng.a */; };
+		8A60DB8C179BF45D00F95FAB /* gl_draw.c in Sources */ = {isa = PBXBuildFile; fileRef = 8A60DB83179BF45D00F95FAB /* gl_draw.c */; };
+		8A60DB8D179BF45D00F95FAB /* gl_main.c in Sources */ = {isa = PBXBuildFile; fileRef = 8A60DB85179BF45D00F95FAB /* gl_main.c */; };
+		8A60DB8E179BF45D00F95FAB /* gl_texture.c in Sources */ = {isa = PBXBuildFile; fileRef = 8A60DB87179BF45D00F95FAB /* gl_texture.c */; };
+		8A60DB8F179BF45D00F95FAB /* r_drawlist.c in Sources */ = {isa = PBXBuildFile; fileRef = 8A60DB89179BF45D00F95FAB /* r_drawlist.c */; };
+		8A60DB90179BF45D00F95FAB /* r_scene.c in Sources */ = {isa = PBXBuildFile; fileRef = 8A60DB8B179BF45D00F95FAB /* r_scene.c */; };
 		8A6E9A7C14123A31007BDF4B /* DeflateN64.c in Sources */ = {isa = PBXBuildFile; fileRef = 8A6E9A5E14123A31007BDF4B /* DeflateN64.c */; };
 		8A6E9A7D14123A31007BDF4B /* Files.c in Sources */ = {isa = PBXBuildFile; fileRef = 8A6E9A6014123A31007BDF4B /* Files.c */; };
 		8A6E9A7E14123A31007BDF4B /* Gfx.c in Sources */ = {isa = PBXBuildFile; fileRef = 8A6E9A6214123A31007BDF4B /* Gfx.c */; };
@@ -69,7 +74,6 @@
 		8AC96F321412791200718A9D /* md5.c in Sources */ = {isa = PBXBuildFile; fileRef = 8AC96EA11412791200718A9D /* md5.c */; };
 		8AC96F341412791200718A9D /* f_finale.c in Sources */ = {isa = PBXBuildFile; fileRef = 8AC96EA51412791200718A9D /* f_finale.c */; };
 		8AC96F351412791200718A9D /* g_actions.c in Sources */ = {isa = PBXBuildFile; fileRef = 8AC96EA71412791200718A9D /* g_actions.c */; };
-		8AC96F361412791200718A9D /* g_cmds.c in Sources */ = {isa = PBXBuildFile; fileRef = 8AC96EA91412791200718A9D /* g_cmds.c */; };
 		8AC96F371412791200718A9D /* g_game.c in Sources */ = {isa = PBXBuildFile; fileRef = 8AC96EAB1412791200718A9D /* g_game.c */; };
 		8AC96F381412791200718A9D /* g_settings.c in Sources */ = {isa = PBXBuildFile; fileRef = 8AC96EAE1412791200718A9D /* g_settings.c */; };
 		8AC96F391412791200718A9D /* i_audio.c in Sources */ = {isa = PBXBuildFile; fileRef = 8AC96EB01412791200718A9D /* i_audio.c */; };
@@ -111,14 +115,10 @@
 		8AC96F601412791200718A9D /* psnprntf.c in Sources */ = {isa = PBXBuildFile; fileRef = 8AC96EF01412791200718A9D /* psnprntf.c */; };
 		8AC96F611412791200718A9D /* r_bsp.c in Sources */ = {isa = PBXBuildFile; fileRef = 8AC96EF21412791200718A9D /* r_bsp.c */; };
 		8AC96F621412791200718A9D /* r_clipper.c in Sources */ = {isa = PBXBuildFile; fileRef = 8AC96EF41412791200718A9D /* r_clipper.c */; };
-		8AC96F631412791200718A9D /* r_gl.c in Sources */ = {isa = PBXBuildFile; fileRef = 8AC96EF61412791200718A9D /* r_gl.c */; };
-		8AC96F641412791200718A9D /* r_glExt.c in Sources */ = {isa = PBXBuildFile; fileRef = 8AC96EF81412791200718A9D /* r_glExt.c */; };
 		8AC96F651412791200718A9D /* r_lights.c in Sources */ = {isa = PBXBuildFile; fileRef = 8AC96EFA1412791200718A9D /* r_lights.c */; };
 		8AC96F661412791200718A9D /* r_main.c in Sources */ = {isa = PBXBuildFile; fileRef = 8AC96EFD1412791200718A9D /* r_main.c */; };
 		8AC96F671412791200718A9D /* r_sky.c in Sources */ = {isa = PBXBuildFile; fileRef = 8AC96EFF1412791200718A9D /* r_sky.c */; };
-		8AC96F681412791200718A9D /* r_texture.c in Sources */ = {isa = PBXBuildFile; fileRef = 8AC96F011412791200718A9D /* r_texture.c */; };
 		8AC96F691412791200718A9D /* r_things.c in Sources */ = {isa = PBXBuildFile; fileRef = 8AC96F031412791200718A9D /* r_things.c */; };
-		8AC96F6A1412791200718A9D /* r_vertices.c in Sources */ = {isa = PBXBuildFile; fileRef = 8AC96F051412791200718A9D /* r_vertices.c */; };
 		8AC96F6B1412791200718A9D /* r_wipe.c in Sources */ = {isa = PBXBuildFile; fileRef = 8AC96F071412791200718A9D /* r_wipe.c */; };
 		8AC96F6C1412791200718A9D /* s_sound.c in Sources */ = {isa = PBXBuildFile; fileRef = 8AC96F0A1412791200718A9D /* s_sound.c */; };
 		8AC96F6D1412791200718A9D /* sc_main.c in Sources */ = {isa = PBXBuildFile; fileRef = 8AC96F0C1412791200718A9D /* sc_main.c */; };
@@ -189,6 +189,15 @@
 		8A4A61E31567875C005A781F /* libgthread-2.0.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libgthread-2.0.a"; path = "thirdparty/fluidsynth/lib/libgthread-2.0.a"; sourceTree = SOURCE_ROOT; };
 		8A4A61E41567875C005A781F /* libintl.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libintl.a; path = thirdparty/fluidsynth/lib/libintl.a; sourceTree = SOURCE_ROOT; };
 		8A4A622115678A0F005A781F /* version.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = version.h; sourceTree = "<group>"; };
+		8A60DB83179BF45D00F95FAB /* gl_draw.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = gl_draw.c; sourceTree = "<group>"; };
+		8A60DB84179BF45D00F95FAB /* gl_draw.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = gl_draw.h; sourceTree = "<group>"; };
+		8A60DB85179BF45D00F95FAB /* gl_main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = gl_main.c; sourceTree = "<group>"; };
+		8A60DB86179BF45D00F95FAB /* gl_main.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = gl_main.h; sourceTree = "<group>"; };
+		8A60DB87179BF45D00F95FAB /* gl_texture.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = gl_texture.c; sourceTree = "<group>"; };
+		8A60DB88179BF45D00F95FAB /* gl_texture.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = gl_texture.h; sourceTree = "<group>"; };
+		8A60DB89179BF45D00F95FAB /* r_drawlist.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = r_drawlist.c; sourceTree = "<group>"; };
+		8A60DB8A179BF45D00F95FAB /* r_drawlist.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = r_drawlist.h; sourceTree = "<group>"; };
+		8A60DB8B179BF45D00F95FAB /* r_scene.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = r_scene.c; sourceTree = "<group>"; };
 		8A6E9A5E14123A31007BDF4B /* DeflateN64.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = DeflateN64.c; sourceTree = "<group>"; };
 		8A6E9A5F14123A31007BDF4B /* DeflateN64.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DeflateN64.h; sourceTree = "<group>"; };
 		8A6E9A6014123A31007BDF4B /* Files.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = Files.c; sourceTree = "<group>"; };
@@ -272,7 +281,6 @@
 		8AC96EA61412791200718A9D /* f_finale.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = f_finale.h; sourceTree = "<group>"; };
 		8AC96EA71412791200718A9D /* g_actions.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = g_actions.c; sourceTree = "<group>"; };
 		8AC96EA81412791200718A9D /* g_actions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = g_actions.h; sourceTree = "<group>"; };
-		8AC96EA91412791200718A9D /* g_cmds.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = g_cmds.c; sourceTree = "<group>"; };
 		8AC96EAA1412791200718A9D /* g_controls.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = g_controls.h; sourceTree = "<group>"; };
 		8AC96EAB1412791200718A9D /* g_game.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = g_game.c; sourceTree = "<group>"; };
 		8AC96EAC1412791200718A9D /* g_game.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = g_game.h; sourceTree = "<group>"; };
@@ -285,7 +293,6 @@
 		8AC96EB31412791200718A9D /* i_cpu_posix.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = i_cpu_posix.c; sourceTree = "<group>"; };
 		8AC96EB41412791200718A9D /* i_exception.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = i_exception.c; sourceTree = "<group>"; };
 		8AC96EB51412791200718A9D /* i_main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = i_main.c; sourceTree = "<group>"; };
-		8AC96EB61412791200718A9D /* i_music.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = i_music.h; sourceTree = "<group>"; };
 		8AC96EB71412791200718A9D /* i_opndir.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = i_opndir.c; sourceTree = "<group>"; };
 		8AC96EB81412791200718A9D /* i_opndir.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = i_opndir.h; sourceTree = "<group>"; };
 		8AC96EB91412791200718A9D /* i_png.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = i_png.c; sourceTree = "<group>"; };
@@ -346,13 +353,8 @@
 		8AC96EF01412791200718A9D /* psnprntf.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = psnprntf.c; sourceTree = "<group>"; };
 		8AC96EF11412791200718A9D /* psnprntf.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = psnprntf.h; sourceTree = "<group>"; };
 		8AC96EF21412791200718A9D /* r_bsp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = r_bsp.c; sourceTree = "<group>"; };
-		8AC96EF31412791200718A9D /* r_bsp.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = r_bsp.h; sourceTree = "<group>"; };
 		8AC96EF41412791200718A9D /* r_clipper.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = r_clipper.c; sourceTree = "<group>"; };
 		8AC96EF51412791200718A9D /* r_clipper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = r_clipper.h; sourceTree = "<group>"; };
-		8AC96EF61412791200718A9D /* r_gl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = r_gl.c; sourceTree = "<group>"; };
-		8AC96EF71412791200718A9D /* r_gl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = r_gl.h; sourceTree = "<group>"; };
-		8AC96EF81412791200718A9D /* r_glExt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = r_glExt.c; sourceTree = "<group>"; };
-		8AC96EF91412791200718A9D /* r_glExt.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = r_glExt.h; sourceTree = "<group>"; };
 		8AC96EFA1412791200718A9D /* r_lights.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = r_lights.c; sourceTree = "<group>"; };
 		8AC96EFB1412791200718A9D /* r_lights.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = r_lights.h; sourceTree = "<group>"; };
 		8AC96EFC1412791200718A9D /* r_local.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = r_local.h; sourceTree = "<group>"; };
@@ -360,12 +362,8 @@
 		8AC96EFE1412791200718A9D /* r_main.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = r_main.h; sourceTree = "<group>"; };
 		8AC96EFF1412791200718A9D /* r_sky.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = r_sky.c; sourceTree = "<group>"; };
 		8AC96F001412791200718A9D /* r_sky.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = r_sky.h; sourceTree = "<group>"; };
-		8AC96F011412791200718A9D /* r_texture.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = r_texture.c; sourceTree = "<group>"; };
-		8AC96F021412791200718A9D /* r_texture.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = r_texture.h; sourceTree = "<group>"; };
 		8AC96F031412791200718A9D /* r_things.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = r_things.c; sourceTree = "<group>"; };
 		8AC96F041412791200718A9D /* r_things.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = r_things.h; sourceTree = "<group>"; };
-		8AC96F051412791200718A9D /* r_vertices.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = r_vertices.c; sourceTree = "<group>"; };
-		8AC96F061412791200718A9D /* r_vertices.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = r_vertices.h; sourceTree = "<group>"; };
 		8AC96F071412791200718A9D /* r_wipe.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = r_wipe.c; sourceTree = "<group>"; };
 		8AC96F081412791200718A9D /* r_wipe.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = r_wipe.h; sourceTree = "<group>"; };
 		8AC96F0A1412791200718A9D /* s_sound.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = s_sound.c; sourceTree = "<group>"; };
@@ -573,20 +571,24 @@
 				8AC96EA61412791200718A9D /* f_finale.h */,
 				8AC96EA71412791200718A9D /* g_actions.c */,
 				8AC96EA81412791200718A9D /* g_actions.h */,
-				8AC96EA91412791200718A9D /* g_cmds.c */,
 				8AC96EAA1412791200718A9D /* g_controls.h */,
 				8AC96EAB1412791200718A9D /* g_game.c */,
 				8AC96EAC1412791200718A9D /* g_game.h */,
 				8AC96EAD1412791200718A9D /* g_local.h */,
 				8AC96EAE1412791200718A9D /* g_settings.c */,
 				8AC96EAF1412791200718A9D /* g_settings.h */,
+				8A60DB83179BF45D00F95FAB /* gl_draw.c */,
+				8A60DB84179BF45D00F95FAB /* gl_draw.h */,
+				8A60DB85179BF45D00F95FAB /* gl_main.c */,
+				8A60DB86179BF45D00F95FAB /* gl_main.h */,
+				8A60DB87179BF45D00F95FAB /* gl_texture.c */,
+				8A60DB88179BF45D00F95FAB /* gl_texture.h */,
 				8AC96EB01412791200718A9D /* i_audio.c */,
 				8AC96EB11412791200718A9D /* i_audio.h */,
 				8AC96EB21412791200718A9D /* i_cpu.c */,
 				8AC96EB31412791200718A9D /* i_cpu_posix.c */,
 				8AC96EB41412791200718A9D /* i_exception.c */,
 				8AC96EB51412791200718A9D /* i_main.c */,
-				8AC96EB61412791200718A9D /* i_music.h */,
 				8AC96EB71412791200718A9D /* i_opndir.c */,
 				8AC96EB81412791200718A9D /* i_opndir.h */,
 				8AC96EB91412791200718A9D /* i_png.c */,
@@ -649,26 +651,20 @@
 				8AC96EF01412791200718A9D /* psnprntf.c */,
 				8AC96EF11412791200718A9D /* psnprntf.h */,
 				8AC96EF21412791200718A9D /* r_bsp.c */,
-				8AC96EF31412791200718A9D /* r_bsp.h */,
 				8AC96EF41412791200718A9D /* r_clipper.c */,
 				8AC96EF51412791200718A9D /* r_clipper.h */,
-				8AC96EF61412791200718A9D /* r_gl.c */,
-				8AC96EF71412791200718A9D /* r_gl.h */,
-				8AC96EF81412791200718A9D /* r_glExt.c */,
-				8AC96EF91412791200718A9D /* r_glExt.h */,
+				8A60DB89179BF45D00F95FAB /* r_drawlist.c */,
+				8A60DB8A179BF45D00F95FAB /* r_drawlist.h */,
 				8AC96EFA1412791200718A9D /* r_lights.c */,
 				8AC96EFB1412791200718A9D /* r_lights.h */,
 				8AC96EFC1412791200718A9D /* r_local.h */,
 				8AC96EFD1412791200718A9D /* r_main.c */,
 				8AC96EFE1412791200718A9D /* r_main.h */,
+				8A60DB8B179BF45D00F95FAB /* r_scene.c */,
 				8AC96EFF1412791200718A9D /* r_sky.c */,
 				8AC96F001412791200718A9D /* r_sky.h */,
-				8AC96F011412791200718A9D /* r_texture.c */,
-				8AC96F021412791200718A9D /* r_texture.h */,
 				8AC96F031412791200718A9D /* r_things.c */,
 				8AC96F041412791200718A9D /* r_things.h */,
-				8AC96F051412791200718A9D /* r_vertices.c */,
-				8AC96F061412791200718A9D /* r_vertices.h */,
 				8AC96F071412791200718A9D /* r_wipe.c */,
 				8AC96F081412791200718A9D /* r_wipe.h */,
 				8AC96F0A1412791200718A9D /* s_sound.c */,
@@ -914,9 +910,11 @@
 				8AC96F321412791200718A9D /* md5.c in Sources */,
 				8AC96F341412791200718A9D /* f_finale.c in Sources */,
 				8AC96F351412791200718A9D /* g_actions.c in Sources */,
-				8AC96F361412791200718A9D /* g_cmds.c in Sources */,
 				8AC96F371412791200718A9D /* g_game.c in Sources */,
 				8AC96F381412791200718A9D /* g_settings.c in Sources */,
+				8A60DB8C179BF45D00F95FAB /* gl_draw.c in Sources */,
+				8A60DB8D179BF45D00F95FAB /* gl_main.c in Sources */,
+				8A60DB8E179BF45D00F95FAB /* gl_texture.c in Sources */,
 				8AC96F391412791200718A9D /* i_audio.c in Sources */,
 				8AC96F3B1412791200718A9D /* i_cpu_posix.c in Sources */,
 				8AC96F3D1412791200718A9D /* i_main.c in Sources */,
@@ -957,14 +955,12 @@
 				8AC96F601412791200718A9D /* psnprntf.c in Sources */,
 				8AC96F611412791200718A9D /* r_bsp.c in Sources */,
 				8AC96F621412791200718A9D /* r_clipper.c in Sources */,
-				8AC96F631412791200718A9D /* r_gl.c in Sources */,
-				8AC96F641412791200718A9D /* r_glExt.c in Sources */,
+				8A60DB8F179BF45D00F95FAB /* r_drawlist.c in Sources */,
 				8AC96F651412791200718A9D /* r_lights.c in Sources */,
 				8AC96F661412791200718A9D /* r_main.c in Sources */,
+				8A60DB90179BF45D00F95FAB /* r_scene.c in Sources */,
 				8AC96F671412791200718A9D /* r_sky.c in Sources */,
-				8AC96F681412791200718A9D /* r_texture.c in Sources */,
 				8AC96F691412791200718A9D /* r_things.c in Sources */,
-				8AC96F6A1412791200718A9D /* r_vertices.c in Sources */,
 				8AC96F6B1412791200718A9D /* r_wipe.c in Sources */,
 				8AC96F6C1412791200718A9D /* s_sound.c in Sources */,
 				8AC96F6D1412791200718A9D /* sc_main.c in Sources */,

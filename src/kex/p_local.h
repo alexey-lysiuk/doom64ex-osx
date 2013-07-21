@@ -1,21 +1,23 @@
-// Emacs style mode select   -*- C++ -*-
+// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
-// $Id: p_local.h 987 2011-12-29 01:41:39Z svkaiser $
+// Copyright(C) 1993-1997 Id Software, Inc.
+// Copyright(C) 2007-2012 Samuel Villarreal
 //
-// Copyright (C) 1993-1996 by id Software, Inc.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
 //
-// This source is available for distribution and/or modification
-// only under the terms of the DOOM Source Code License as
-// published by id Software. All rights reserved.
-//
-// The source is distributed in the hope that it will be useful,
+// This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// FITNESS FOR A PARTICULAR PURPOSE. See the DOOM Source Code License
-// for more details.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 //
-// DESCRIPTION:
-//	Play functions, animation, global header.
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+// 02111-1307, USA.
 //
 //-----------------------------------------------------------------------------
 
@@ -135,13 +137,14 @@ void    P_Thrust(player_t* player, angle_t angle, fixed_t move );
 angle_t P_AdjustAngle(angle_t angle, angle_t newangle, int threshold);
 void    P_SetStaticCamera(player_t* player);
 void    P_SetFollowCamera(player_t* player);
+void    P_ClearUserCamera(player_t* player);
 
 
 //
 // P_MOBJ
 //
-#define ONFLOORZ        MININT
-#define ONCEILINGZ      MAXINT
+#define ONFLOORZ        D_MININT
+#define ONCEILINGZ      D_MAXINT
 
 extern mapthing_t*  spawnlist;
 extern int          numspawnlist;

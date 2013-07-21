@@ -1,29 +1,29 @@
-// Emacs style mode select	 -*- C++ -*-
+// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
-// $Id: r_bsp.c 1059 2012-02-24 04:34:01Z svkaiser $
+// Copyright(C) 1993-1997 Id Software, Inc.
+// Copyright(C) 2007-2012 Samuel Villarreal
 //
-// Copyright (C) 1993-1996 by id Software, Inc.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
 //
-// This source is available for distribution and/or modification
-// only under the terms of the DOOM Source Code License as
-// published by id Software. All rights reserved.
-//
-// The source is distributed in the hope that it will be useful,
+// This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// FITNESS FOR A PARTICULAR PURPOSE. See the DOOM Source Code License
-// for more details.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 //
-// $Author: svkaiser $
-// $Revision: 1059 $
-// $Date: 2012-02-24 06:34:01 +0200 (пт, 24 лют 2012) $
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+// 02111-1307, USA.
+//
+//-----------------------------------------------------------------------------
 //
 // DESCRIPTION: BSP rendering code. Seg/Subsector rendering
 //
 //-----------------------------------------------------------------------------
-#ifdef RCSID
-static const char rcsid[] = "$Id: r_bsp.c 1059 2012-02-24 04:34:01Z svkaiser $";
-#endif
 
 #include <math.h>
 
@@ -33,19 +33,20 @@ static const char rcsid[] = "$Id: r_bsp.c 1059 2012-02-24 04:34:01Z svkaiser $";
 #include "doomstat.h"
 #include "d_main.h"
 #include "m_misc.h"
-#include "r_texture.h"
 #include "z_zone.h"
 #include "r_sky.h"
-#include "r_vertices.h"
+#include "r_drawlist.h"
 #include "con_console.h"
 #include "p_local.h"
+#include "gl_texture.h"
 
 sector_t    *frontsector;
 
-vtx_t  *SSectorVertices = NULL;
+static vtx_t  *subsector_buffer = NULL;
 
-void R_AddLeaf(subsector_t *sub);
-void R_AddLine(seg_t *line);
+static void R_AddLeaf(subsector_t *sub);
+static void R_AddLine(seg_t *line);
+static void AddSegToDrawlist(drawlist_t *dl, seg_t *line, int texid, int sidetype);
 
 CVAR_EXTERNAL(i_interpolateframes);
 CVAR_EXTERNAL(r_texturecombiner);
@@ -149,11 +150,11 @@ dboolean R_CheckBBox(fixed_t* bspcoord)
 }
 
 //
-// R_AddSwitchLine
+// AddSwitchQuad
 // Draw the switch box on a linedef
 //
 
-static void R_AddSwitchLine(seg_t *line)
+static void AddSwitchQuad(seg_t *line)
 {
     int texid = 0;
     
@@ -176,7 +177,7 @@ static void R_AddSwitchLine(seg_t *line)
         texid = line->sidedef->midtexture;
     }
     
-    DL_PushSeg(&drawlist[DLT_WALL], line, texid, 3);
+    AddSegToDrawlist(&drawlist[DLT_WALL], line, texid, 3);
 }
 
 //
@@ -314,7 +315,7 @@ d_inline static void GetSideTopBottom(sector_t* sector, rfloat *top, rfloat *bot
 // R_GenerateLowerSegPlane
 //
 
-dboolean R_GenerateLowerSegPlane(seg_t *line, vtx_t* v)
+static dboolean R_GenerateLowerSegPlane(seg_t *line, vtx_t* v)
 {
     line_t*     linedef;
     side_t*     sidedef;
@@ -387,7 +388,7 @@ dboolean R_GenerateLowerSegPlane(seg_t *line, vtx_t* v)
 // R_GenerateUpperSegPlane
 //
 
-dboolean R_GenerateUpperSegPlane(seg_t *line, vtx_t* v)
+static dboolean R_GenerateUpperSegPlane(seg_t *line, vtx_t* v)
 {
     line_t*     linedef;
     side_t*     sidedef;
@@ -463,7 +464,7 @@ dboolean R_GenerateUpperSegPlane(seg_t *line, vtx_t* v)
 // R_GenerateMiddleSegPlane
 //
 
-dboolean R_GenerateMiddleSegPlane(seg_t *line, vtx_t* v)
+static dboolean R_GenerateMiddleSegPlane(seg_t *line, vtx_t* v)
 {
     line_t*     linedef;
     side_t*     sidedef;
@@ -481,6 +482,8 @@ dboolean R_GenerateMiddleSegPlane(seg_t *line, vtx_t* v)
     
     x = F2D3D(line->v1->x);
     y = F2D3D(line->v1->y);
+    btop = 0;
+    bbottom = 0;
     
     linedef = line->linedef;
     sidedef = line->sidedef;
@@ -560,10 +563,56 @@ dboolean R_GenerateMiddleSegPlane(seg_t *line, vtx_t* v)
 }
 
 //
+// AddSegToDrawlist
+//
+
+static void AddSegToDrawlist(drawlist_t *dl, seg_t *line, int texid, int sidetype)
+{
+    vtxlist_t *list;
+    
+    list = DL_AddVertexList(dl);
+    list->data = (seg_t*)line;
+
+    switch(sidetype)
+    {
+    case 0:
+        list->callback = R_GenerateLowerSegPlane;
+        break;
+    case 1:
+        list->callback = R_GenerateUpperSegPlane;
+        break;
+    case 2:
+        list->callback = R_GenerateMiddleSegPlane;
+        break;
+    case 3:
+        list->callback = R_GenerateSwitchPlane;
+        break;
+    default:
+        return;
+    }
+
+    if(line->linedef->flags & ML_HMIRROR)
+        list->flags |= DLF_MIRRORS;
+    
+    if(line->linedef->flags & ML_VMIRROR)
+        list->flags |= DLF_MIRRORT;
+    
+    if(line->frontsector->lightlevel)
+    {
+        // add seg's gamma glow values
+        
+        list->flags |= DLF_GLOW;
+        list->params = line->frontsector->lightlevel;
+    }
+    
+    list->texid = (list->flags << 16) | texid;
+}
+
+//
 // R_AddLine
 //
 
-void R_AddLine(seg_t *line)
+static void R_AddLine(seg_t *line)
 {
     vtx_t       v[4];
     line_t*     linedef;
@@ -610,8 +659,8 @@ void R_AddLine(seg_t *line)
             {
                 if(R_FrustrumTestVertex(v, 4))
                 {
-                    DL_PushSeg(&drawlist[DLT_WALL], line, sidedef->bottomtexture, 0);
-                    R_AddSwitchLine(line);
+                    AddSegToDrawlist(&drawlist[DLT_WALL], line, sidedef->bottomtexture, 0);
+                    AddSwitchQuad(line);
                 }
             }
             
@@ -630,8 +679,8 @@ void R_AddLine(seg_t *line)
             {
                 if(R_FrustrumTestVertex(v, 4))
                 {
-                    DL_PushSeg(&drawlist[DLT_WALL], line, sidedef->toptexture, 1);
-                    R_AddSwitchLine(line);
+                    AddSegToDrawlist(&drawlist[DLT_WALL], line, sidedef->toptexture, 1);
+                    AddSwitchQuad(line);
                 }
             }
             
@@ -658,8 +707,8 @@ void R_AddLine(seg_t *line)
         
         if(!(line->linedef->flags & ML_SWITCHX02 && line->linedef->flags & ML_SWITCHX04))
         {
-            DL_PushSeg(&drawlist[DLT_WALL], line, sidedef->midtexture, 2);
-            R_AddSwitchLine(line);
+            AddSegToDrawlist(&drawlist[DLT_WALL], line, sidedef->midtexture, 2);
+            AddSwitchQuad(line);
         }
     }
 }
@@ -676,6 +725,7 @@ void R_Subsector(int num)
     frontsector = sub->sector;
 
     R_AddLeaf(sub);
+    R_AddSprites(sub);
 }
 
 //
@@ -717,16 +767,17 @@ void R_RenderBSPNode(int bspnum)
 }
 
 //
-// R_CountSubsectorVerts
-// Gather how many vertices to draw a subsector polygon
+// R_AllocSubsectorBuffer
+// Allocate a large enough buffer to hold vertex data
+// for a subsector
 //
 
-int maxSubVerts = 0;
-void R_CountSubsectorVerts(void)
+void R_AllocSubsectorBuffer(void)
 {
     int             i;
     subsector_t*    sub;
     int             numverts;
+    int             maxSubVerts = 0;
     
     numverts = 0;
     for(i = 0, sub = subsectors; i < numsubsectors; i++, sub++)
@@ -735,23 +786,49 @@ void R_CountSubsectorVerts(void)
             numverts = sub->numleafs;
     }
     if(numverts <= 2)
-        I_Error("R_CountSubsectorVerts: Subsector has incomplete vertices");
+        I_Error("R_AllocSubsectorBuffer: Subsector has incomplete vertices");
     
     if(numverts > maxSubVerts)
     {
-        if(SSectorVertices)
-            Z_Free(SSectorVertices);
+        if(subsector_buffer)
+            Z_Free(subsector_buffer);
         
-        SSectorVertices = (vtx_t *)Z_Malloc(numverts * sizeof(vtx_t), PU_STATIC, NULL);
+        subsector_buffer = (vtx_t *)Z_Malloc(numverts * sizeof(vtx_t), PU_STATIC, NULL);
         maxSubVerts = numverts;
     }
+}
+
+//
+// AddLeafToDrawlist
+//
+
+static void AddLeafToDrawlist(drawlist_t *dl, subsector_t *sub, int texid)
+{
+    vtxlist_t *list;
+    sector_t *sector;
+    
+    list = DL_AddVertexList(dl);
+    list->data = (subsector_t*)sub;
+    list->callback = NULL;
+
+    sector = sub->sector;
+    
+    if(sector->lightlevel)
+    {
+        // add subsector's gamma glow values
+        
+        list->flags |= DLF_GLOW;
+        list->params = sector->lightlevel;
+    }
+    
+    list->texid = (list->flags << 16) | texid;
 }
 
 //
 // R_AddLeaf
 //
 
-void R_AddLeaf(subsector_t *sub)
+static void R_AddLeaf(subsector_t *sub)
 {
     int             i;
     int             count;
@@ -764,7 +841,7 @@ void R_AddLeaf(subsector_t *sub)
         return;
 
     count = sub->numleafs;
-    v = SSectorVertices;
+    v = subsector_buffer;
     i = 0;
 
     while(count--)
@@ -788,21 +865,21 @@ void R_AddLeaf(subsector_t *sub)
     
     if(sub->sector->floorpic != skyflatnum)
     {
-        if(R_FrustrumTestVertex(SSectorVertices, sub->numleafs) &&
+        if(R_FrustrumTestVertex(subsector_buffer, sub->numleafs) &&
             viewz > sub->sector->floorheight)
         {
             drawlist_t *dl = &drawlist[DLT_FLAT];
 
             if(sub->sector->flags & MS_LIQUIDFLOOR)
             {
-                DL_PushLeaf(dl, sub, sub->sector->floorpic);
+                AddLeafToDrawlist(dl, sub, sub->sector->floorpic);
                 dl->list[dl->index - 1].flags |= DLF_WATER1;
 
-                DL_PushLeaf(dl, sub, sub->sector->floorpic + 1);
+                AddLeafToDrawlist(dl, sub, sub->sector->floorpic + 1);
                 dl->list[dl->index - 1].flags |= DLF_WATER2;
             }
             else
-                DL_PushLeaf(dl, sub, sub->sector->floorpic);
+                AddLeafToDrawlist(dl, sub, sub->sector->floorpic);
         }
     }
     else
@@ -816,25 +893,22 @@ void R_AddLeaf(subsector_t *sub)
         {
             leaf = &leafs[(sub->leaf + (sub->numleafs - 1)) - i];
             
-            SSectorVertices[i].z = F2D3D(sub->sector->ceilingheight);
-            SSectorVertices[i].x = F2D3D(leaf->vertex->x);
-            SSectorVertices[i].y = F2D3D(leaf->vertex->y);
+            subsector_buffer[i].z = F2D3D(sub->sector->ceilingheight);
+            subsector_buffer[i].x = F2D3D(leaf->vertex->x);
+            subsector_buffer[i].y = F2D3D(leaf->vertex->y);
         }
         
-        if(R_FrustrumTestVertex(SSectorVertices, sub->numleafs) &&
+        if(R_FrustrumTestVertex(subsector_buffer, sub->numleafs) &&
             viewz < sub->sector->ceilingheight)
         {
             drawlist_t *dl = &drawlist[DLT_FLAT];
 
-            DL_PushLeaf(dl, sub, sub->sector->ceilingpic);
+            AddLeafToDrawlist(dl, sub, sub->sector->ceilingpic);
             dl->list[dl->index - 1].flags |= DLF_CEILING;
         }
     }
     else
         bRenderSky = true;
-    
-    // sprite is visible in this subsector
-    R_AddSprites(sub);
 }
 
 

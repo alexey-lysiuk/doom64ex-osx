@@ -1,30 +1,30 @@
-// Emacs style mode select   -*- C++ -*-
+// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
-// $Id: am_map.c 1101 2012-04-08 19:48:22Z svkaiser $
+// Copyright(C) 1993-1997 Id Software, Inc.
+// Copyright(C) 1997 Midway Home Entertainment, Inc
+// Copyright(C) 2007-2012 Samuel Villarreal
 //
-// Copyright (C) 1993-1996 by id Software, Inc.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
 //
-// This source is available for distribution and/or modification
-// only under the terms of the DOOM Source Code License as
-// published by id Software. All rights reserved.
-//
-// The source is distributed in the hope that it will be useful,
+// This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// FITNESS FOR A PARTICULAR PURPOSE. See the DOOM Source Code License
-// for more details.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 //
-// $Author: svkaiser $
-// $Revision: 1101 $
-// $Date: 2012-04-08 22:48:22 +0300 (нд, 08 кві 2012) $
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+// 02111-1307, USA.
+//
+//-----------------------------------------------------------------------------
 //
 // DESCRIPTION:  the automap code (new and improved)
 //
 //-----------------------------------------------------------------------------
-#ifdef RCSID
-static const char
-rcsid[] = "$Id: am_map.c 1101 2012-04-08 19:48:22Z svkaiser $";
-#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -45,29 +45,12 @@ rcsid[] = "$Id: am_map.c 1101 2012-04-08 19:48:22Z svkaiser $";
 #include "am_draw.h"
 #include "m_misc.h"
 #include "m_random.h"
+#include "gl_draw.h"
+#include "g_actions.h"
+#include "g_controls.h"
 
 #ifdef _WIN32
 #include "i_xinput.h"
-#include "g_controls.h"
-#endif
-
-// automap cvars
-
-CVAR(am_lines, 1);
-CVAR(am_nodes, 0);
-CVAR(am_ssect, 0);
-CVAR(am_fulldraw, 0);
-CVAR(am_showkeycolors, 0);
-CVAR(am_showkeymarkers, 0);
-CVAR(am_drawobjects, 0);
-CVAR(am_overlay, 0);
-
-CVAR_EXTERNAL(v_msensitivityx);
-CVAR_EXTERNAL(v_msensitivityy);
-
-#ifdef _USE_XINPUT  // XINPUT
-CVAR_EXTERNAL(i_rsticksensitivity);
-CVAR_EXTERNAL(i_xinputscheme);
 #endif
 
 // automap flags
@@ -107,6 +90,104 @@ static int      mpany;
 static angle_t  autoprevangle   = 0;
 static fixed_t  automapprevx    = 0;
 static fixed_t  automapprevy    = 0;
+
+void AM_Start(void);
+
+// automap cvars
+
+CVAR(am_lines, 1);
+CVAR(am_nodes, 0);
+CVAR(am_ssect, 0);
+CVAR(am_fulldraw, 0);
+CVAR(am_showkeycolors, 0);
+CVAR(am_showkeymarkers, 0);
+CVAR(am_drawobjects, 0);
+CVAR(am_overlay, 0);
+
+CVAR_EXTERNAL(v_msensitivityx);
+CVAR_EXTERNAL(v_msensitivityy);
+
+#ifdef _USE_XINPUT  // XINPUT
+CVAR_EXTERNAL(i_rsticksensitivity);
+CVAR_EXTERNAL(i_xinputscheme);
+#endif
+
+//
+// CMD_Automap
+//
+
+static CMD(Automap)
+{
+    if(gamestate != GS_LEVEL)
+        return;
+
+    if(!automapactive)
+    {
+        AM_Start();
+    }
+    else
+    {
+        if(++amModeCycle >= 2)
+        {
+            amModeCycle = 0;
+            AM_Stop();
+        }
+    }
+}
+
+//
+// CMD_AutomapSetFlag
+//
+
+static CMD(AutomapSetFlag)
+{
+    if(gamestate != GS_LEVEL)
+        return;
+
+    if(!automapactive)
+        return;
+
+    if(data & PCKF_UP)
+    {
+        int64 flags = (data ^ PCKF_UP);
+
+        am_flags &= ~flags;
+
+        if(flags & AF_PANMODE)
+            automappany = automappanx = 0;
+    }
+    else
+    {
+        am_flags |= data;
+    }
+}
+
+//
+// CMD_AutomapFollow
+//
+
+static CMD(AutomapFollow)
+{
+    if(gamestate != GS_LEVEL)
+        return;
+
+    if(!automapactive)
+        return;
+
+    followplayer = !followplayer;
+    plr->message = followplayer ? AMSTR_FOLLOWON : AMSTR_FOLLOWOFF;
+
+    if(!followplayer)
+    {
+        automapx = plr->mo->x;
+        automapy = plr->mo->y;
+        automapangle = plr->mo->angle;
+    }
+    else
+    {
+        automappany = automappanx = 0;
+    }
+}
 
 //
 // AM_Reset
@@ -253,17 +334,14 @@ dboolean AM_Responder(event_t* ev)
     
     if(!automapactive)
     {
-        if((ev->type == ev_keydown && ev->data1 == KEY_TAB)
-
 #ifdef _USE_XINPUT  // XINPUT
-            || (ev->type == ev_gamepad && !ev->data3 &&
+        if(ev->type == ev_gamepad && !ev->data3 &&
             I_XInputTicButtonPress(ev->data1, XINPUT_GAMEPAD_BACK, 5000))
-#endif
-            )
         {
             AM_Start();
             rc = true;
         }
+#endif
     }
     else if(ev->type == ev_mouse && am_flags & AF_PANMODE)
     {
@@ -290,117 +368,6 @@ dboolean AM_Responder(event_t* ev)
         }
 
         rc = true;
-    }
-    else if(ev->type == ev_keydown)
-    {
-        rc = true;
-        switch(ev->data1)
-        {
-        case KEY_TAB:
-            if(!automapactive)
-                automapactive = true;
-            else
-            {
-                if(++amModeCycle >= 2)
-                {
-                    amModeCycle = 0;
-                    AM_Stop();
-                }
-            }
-            break;
-
-        case KEY_KEYPADPLUS:
-        case '=':
-            am_flags |= AF_ZOOMIN;
-            break;
-
-        case KEY_KEYPADMINUS:
-        case '-':
-            am_flags |= AF_ZOOMOUT;
-            break;
-
-        case 'f':
-            followplayer = !followplayer;
-            plr->message = followplayer ? AMSTR_FOLLOWON : AMSTR_FOLLOWOFF;
-
-            if(!followplayer)
-            {
-                automapx = plr->mo->x;
-                automapy = plr->mo->y;
-                automapangle = plr->mo->angle;
-            }
-            else
-            {
-                automappany = automappanx = 0;
-            }
-            break;
-
-        case KEY_LEFTARROW:
-            am_flags |= AF_PANLEFT;
-            rc = followplayer ? false : true;
-            break;
-
-        case KEY_RIGHTARROW:
-            am_flags |= AF_PANRIGHT;
-            rc = followplayer ? false : true;
-            break;
-
-        case KEY_UPARROW:
-            am_flags |= AF_PANTOP;
-            rc = followplayer ? false : true;
-            break;
-
-        case KEY_DOWNARROW:
-            am_flags |= AF_PANBOTTOM;
-            rc = followplayer ? false : true;
-            break;
-
-        case KEY_SPACEBAR:
-            am_flags |= AF_PANMODE;
-            am_flags &= ~AF_PANGAMEPAD;
-            rc = true;
-            break;
-
-        default:
-            rc = false;
-        }
-    }
-    else if(ev->type == ev_keyup)
-    {
-        rc = false;
-        switch (ev->data1)
-        {
-        case KEY_KEYPADPLUS:
-        case '=':
-            am_flags &= ~AF_ZOOMIN;
-            break;
-
-        case KEY_KEYPADMINUS:
-        case '-':
-            am_flags &= ~AF_ZOOMOUT;
-            break;
-
-        case KEY_LEFTARROW:
-            am_flags &= ~AF_PANLEFT;
-            break;
-
-        case KEY_RIGHTARROW:
-            am_flags &= ~AF_PANRIGHT;
-            break;
-
-        case KEY_UPARROW:
-            am_flags &= ~AF_PANTOP;
-            break;
-
-        case KEY_DOWNARROW:
-            am_flags &= ~AF_PANBOTTOM;
-            break;
-
-        case KEY_SPACEBAR:
-            am_flags &= ~AF_PANMODE;
-            automappany = automappanx = 0;
-            break;
-        }
     }
 #ifdef _USE_XINPUT  // XINPUT
 
@@ -724,75 +691,77 @@ static void AM_DrawNodes(void)
     for(i = 0; i < numnodes; i++)
     {
         if(am_nodes.value < 4)
+        {
             node = &nodes[i];
-        
-        if(am_nodes.value == 1 || am_nodes.value >= 3)
-        {
-            x1 = node->bbox[0][BOXLEFT];
-            y1 = node->bbox[0][BOXTOP];
-            x2 = node->bbox[0][BOXRIGHT];
-            y2 = node->bbox[0][BOXTOP];
             
-            AM_DrawLine(x1, x2, y1, y2, scale, 0x00FFFFFF);
+            if(am_nodes.value == 1 || am_nodes.value >= 3)
+            {
+                x1 = node->bbox[0][BOXLEFT];
+                y1 = node->bbox[0][BOXTOP];
+                x2 = node->bbox[0][BOXRIGHT];
+                y2 = node->bbox[0][BOXTOP];
+                
+                AM_DrawLine(x1, x2, y1, y2, scale, 0x00FFFFFF);
+                
+                x1 = node->bbox[0][BOXRIGHT];
+                y1 = node->bbox[0][BOXTOP];
+                x2 = node->bbox[0][BOXRIGHT];
+                y2 = node->bbox[0][BOXBOTTOM];
+                
+                AM_DrawLine(x1, x2, y1, y2, scale, 0x00FFFFFF);
+                
+                x1 = node->bbox[0][BOXRIGHT];
+                y1 = node->bbox[0][BOXBOTTOM];
+                x2 = node->bbox[0][BOXLEFT];
+                y2 = node->bbox[0][BOXBOTTOM];
+                
+                AM_DrawLine(x1, x2, y1, y2, scale, 0x00FFFFFF);
+                
+                x1 = node->bbox[0][BOXLEFT];
+                y1 = node->bbox[0][BOXBOTTOM];
+                x2 = node->bbox[0][BOXLEFT];
+                y2 = node->bbox[0][BOXTOP];
+                
+                AM_DrawLine(x1, x2, y1, y2, scale, 0x00FFFFFF);
+                
+                x1 = node->bbox[1][BOXLEFT];
+                y1 = node->bbox[1][BOXTOP];
+                x2 = node->bbox[1][BOXRIGHT];
+                y2 = node->bbox[1][BOXTOP];
+                
+                AM_DrawLine(x1, x2, y1, y2, scale, 0x00FF00FF);
+                
+                x1 = node->bbox[1][BOXRIGHT];
+                y1 = node->bbox[1][BOXTOP];
+                x2 = node->bbox[1][BOXRIGHT];
+                y2 = node->bbox[1][BOXBOTTOM];
+                
+                AM_DrawLine(x1, x2, y1, y2, scale, 0x00FF00FF);
+                
+                x1 = node->bbox[1][BOXRIGHT];
+                y1 = node->bbox[1][BOXBOTTOM];
+                x2 = node->bbox[1][BOXLEFT];
+                y2 = node->bbox[1][BOXBOTTOM];
+                
+                AM_DrawLine(x1, x2, y1, y2, scale, 0x00FF00FF);
+                
+                x1 = node->bbox[1][BOXLEFT];
+                y1 = node->bbox[1][BOXBOTTOM];
+                x2 = node->bbox[1][BOXLEFT];
+                y2 = node->bbox[1][BOXTOP];
+                
+                AM_DrawLine(x1, x2, y1, y2, scale, 0x00FF00FF);
+            }
             
-            x1 = node->bbox[0][BOXRIGHT];
-            y1 = node->bbox[0][BOXTOP];
-            x2 = node->bbox[0][BOXRIGHT];
-            y2 = node->bbox[0][BOXBOTTOM];
-            
-            AM_DrawLine(x1, x2, y1, y2, scale, 0x00FFFFFF);
-            
-            x1 = node->bbox[0][BOXRIGHT];
-            y1 = node->bbox[0][BOXBOTTOM];
-            x2 = node->bbox[0][BOXLEFT];
-            y2 = node->bbox[0][BOXBOTTOM];
-            
-            AM_DrawLine(x1, x2, y1, y2, scale, 0x00FFFFFF);
-            
-            x1 = node->bbox[0][BOXLEFT];
-            y1 = node->bbox[0][BOXBOTTOM];
-            x2 = node->bbox[0][BOXLEFT];
-            y2 = node->bbox[0][BOXTOP];
-            
-            AM_DrawLine(x1, x2, y1, y2, scale, 0x00FFFFFF);
-            
-            x1 = node->bbox[1][BOXLEFT];
-            y1 = node->bbox[1][BOXTOP];
-            x2 = node->bbox[1][BOXRIGHT];
-            y2 = node->bbox[1][BOXTOP];
-            
-            AM_DrawLine(x1, x2, y1, y2, scale, 0x00FF00FF);
-            
-            x1 = node->bbox[1][BOXRIGHT];
-            y1 = node->bbox[1][BOXTOP];
-            x2 = node->bbox[1][BOXRIGHT];
-            y2 = node->bbox[1][BOXBOTTOM];
-            
-            AM_DrawLine(x1, x2, y1, y2, scale, 0x00FF00FF);
-            
-            x1 = node->bbox[1][BOXRIGHT];
-            y1 = node->bbox[1][BOXBOTTOM];
-            x2 = node->bbox[1][BOXLEFT];
-            y2 = node->bbox[1][BOXBOTTOM];
-            
-            AM_DrawLine(x1, x2, y1, y2, scale, 0x00FF00FF);
-            
-            x1 = node->bbox[1][BOXLEFT];
-            y1 = node->bbox[1][BOXBOTTOM];
-            x2 = node->bbox[1][BOXLEFT];
-            y2 = node->bbox[1][BOXTOP];
-            
-            AM_DrawLine(x1, x2, y1, y2, scale, 0x00FF00FF);
-        }
-        
-        if(am_nodes.value == 2 || am_nodes.value >= 3)
-        {
-            x1 = node->x;
-            y1 = node->y;
-            x2 = (node->x + node->dx);
-            y2 = (node->y + node->dy);
-            
-            AM_DrawLine(x1, x2, y1, y2, scale, 0xFFFF00FF);
+            if(am_nodes.value == 2 || am_nodes.value >= 3)
+            {
+                x1 = node->x;
+                y1 = node->y;
+                x2 = (node->x + node->dx);
+                y2 = (node->y + node->dy);
+                
+                AM_DrawLine(x1, x2, y1, y2, scale, 0xFFFF00FF);
+            }
         }
         
         if(am_nodes.value >= 4)
@@ -1031,6 +1000,9 @@ void AM_drawThings(void)
                         g = 0;
                         b = 224;
                         break;
+                    default:
+                        r = g = b = 255;
+                        break;
                     }
 
                     if(am_drawobjects.value != 1)
@@ -1103,19 +1075,19 @@ void AM_Drawer(void)
         
         if(plr->artifacts & (1<<ART_TRIPLE))
         {
-            R_DrawHudSprite(SPR_ART3, 0, 0, x, 255, 1.0f, 0, WHITEALPHA(0x80));
+            Draw_Sprite2D(SPR_ART3, 0, 0, x, 255, 1.0f, 0, WHITEALPHA(0x80));
             x -= 40;
         }
         
         if(plr->artifacts & (1<<ART_DOUBLE))
         {
-            R_DrawHudSprite(SPR_ART2, 0, 0, x, 255, 1.0f, 0, WHITEALPHA(0x80));
+            Draw_Sprite2D(SPR_ART2, 0, 0, x, 255, 1.0f, 0, WHITEALPHA(0x80));
             x -= 40;
         }
         
         if(plr->artifacts & (1<<ART_FAST))
         {
-            R_DrawHudSprite(SPR_ART1, 0, 0, x, 255, 1.0f, 0, WHITEALPHA(0x80));
+            Draw_Sprite2D(SPR_ART1, 0, 0, x, 255, 1.0f, 0, WHITEALPHA(0x80));
             x -= 40;
         }
     }
@@ -1137,5 +1109,22 @@ void AM_RegisterCvars(void)
     CON_CvarRegister(&am_showkeymarkers);
     CON_CvarRegister(&am_drawobjects);
     CON_CvarRegister(&am_overlay);
+
+    G_AddCommand("automap", CMD_Automap, 0);
+    G_AddCommand("+automap_in", CMD_AutomapSetFlag, AF_ZOOMIN);
+    G_AddCommand("-automap_in", CMD_AutomapSetFlag, AF_ZOOMIN|PCKF_UP);
+    G_AddCommand("+automap_out", CMD_AutomapSetFlag, AF_ZOOMOUT);
+    G_AddCommand("-automap_out", CMD_AutomapSetFlag, AF_ZOOMOUT|PCKF_UP);
+    G_AddCommand("+automap_left", CMD_AutomapSetFlag, AF_PANLEFT);
+    G_AddCommand("-automap_left", CMD_AutomapSetFlag, AF_PANLEFT|PCKF_UP);
+    G_AddCommand("+automap_right", CMD_AutomapSetFlag, AF_PANRIGHT);
+    G_AddCommand("-automap_right", CMD_AutomapSetFlag, AF_PANRIGHT|PCKF_UP);
+    G_AddCommand("+automap_up", CMD_AutomapSetFlag, AF_PANTOP);
+    G_AddCommand("-automap_up", CMD_AutomapSetFlag, AF_PANTOP|PCKF_UP);
+    G_AddCommand("+automap_down", CMD_AutomapSetFlag, AF_PANBOTTOM);
+    G_AddCommand("-automap_down", CMD_AutomapSetFlag, AF_PANBOTTOM|PCKF_UP);
+    G_AddCommand("+automap_freepan", CMD_AutomapSetFlag, AF_PANMODE);
+    G_AddCommand("-automap_freepan", CMD_AutomapSetFlag, AF_PANMODE|PCKF_UP);
+    G_AddCommand("automap_follow", CMD_AutomapFollow, 0);
 }
 

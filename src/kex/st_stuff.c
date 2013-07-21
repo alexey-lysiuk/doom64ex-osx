@@ -1,23 +1,26 @@
-// Emacs style mode select   -*- C++ -*-
+// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
-// $Id: st_stuff.c 1085 2012-03-11 04:47:16Z svkaiser $
+// Copyright(C) 1993-1997 Id Software, Inc.
+// Copyright(C) 1997 Midway Home Entertainment, Inc
+// Copyright(C) 2007-2012 Samuel Villarreal
 //
-// Copyright (C) 1993-1996 by id Software, Inc.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
 //
-// This source is available for distribution and/or modification
-// only under the terms of the DOOM Source Code License as
-// published by id Software. All rights reserved.
-//
-// The source is distributed in the hope that it will be useful,
+// This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// FITNESS FOR A PARTICULAR PURPOSE. See the DOOM Source Code License
-// for more details.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 //
-// $Author: svkaiser $
-// $Revision: 1085 $
-// $Date: 2012-03-11 06:47:16 +0200 (нд, 11 бер 2012) $
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+// 02111-1307, USA.
 //
+//-----------------------------------------------------------------------------
 //
 // DESCRIPTION:
 //  Status bar code.
@@ -26,31 +29,27 @@
 //	Handles hud and chat messages
 //
 //-----------------------------------------------------------------------------
-#ifdef RCSID
-static const char
-rcsid[] = "$Id: st_stuff.c 1085 2012-03-11 04:47:16Z svkaiser $";
-#endif
-
 
 #include <stdio.h>
 #include "doomdef.h"
 #include "g_game.h"
 #include "st_stuff.h"
+#include "r_main.h"
 #include "p_local.h"
 #include "m_cheat.h"
 #include "s_sound.h"
 #include "doomstat.h"
 #include "d_englsh.h"
 #include "sounds.h"
-#include "m_misc.h"
 #include "m_shift.h"
 #include "con_console.h"
 #include "i_system.h"
 #include "am_map.h"
-#include "r_texture.h"
+#include "gl_texture.h"
 #include "g_actions.h"
 #include "z_zone.h"
 #include "p_setup.h"
+#include "gl_draw.h"
 
 #ifdef _WIN32
 #include "i_xinput.h"
@@ -71,6 +70,7 @@ CVAR(st_showstats, 0);
 
 CVAR_EXTERNAL(p_usecontext);
 CVAR_EXTERNAL(p_damageindicator);
+CVAR_EXTERNAL(r_texturecombiner);
 
 //
 // STATUS BAR DATA
@@ -268,8 +268,8 @@ static void ST_DrawDamageMarkers(void)
         float angle;
         byte alpha;
 
-        R_GLToggleBlend(1);
-        R_GLEnable2D(0);
+        GL_SetState(GLSTATE_BLEND, 1);
+        GL_SetOrtho(0);
 
         alpha = (dmgmarker->tics << 3);
 
@@ -301,8 +301,8 @@ static void ST_DrawDamageMarkers(void)
         dglEnable(GL_TEXTURE_2D);
         dglPopMatrix();
     
-        R_GLDisable2D();
-        R_GLToggleBlend(0);
+        GL_ResetViewport();
+        GL_SetState(GLSTATE_BLEND, 0);
     }
 }
 
@@ -330,7 +330,7 @@ static void ST_DrawPendingWeapon(void)
     if(!st_wpndisplay_show)
         return;
 
-    R_GLSetOrthoScale(0.5f);
+    GL_SetOrthoScale(0.5f);
 
     for(i = 0; i < NUMWEAPONS; i++)
     {
@@ -341,7 +341,7 @@ static void ST_DrawPendingWeapon(void)
         else
             color = WHITEALPHA(st_wpndisplay_alpha);
 
-        M_DrawNumber(245 + x, 400, i, 0, color);
+        Draw_Number(245 + x, 400, i, 0, color);
         x += 16;
 
     }
@@ -351,9 +351,9 @@ static void ST_DrawPendingWeapon(void)
     else
         wpn = plyr->pendingweapon;
 
-    M_DrawSmbText(235 + (wpn * 16), 404, WHITEALPHA(st_wpndisplay_alpha), "/b");
+    Draw_BigText(235 + (wpn * 16), 404, WHITEALPHA(st_wpndisplay_alpha), "/b");
 
-    R_GLSetOrthoScale(1.0f);
+    GL_SetOrthoScale(1.0f);
 }
 
 //
@@ -439,7 +439,7 @@ void ST_Ticker (void)
     //
     // flashes
     //
-    if(plyr->cameratarget == plyr->mo)
+    if(plyr->cameratarget == plyr->mo || !(plyr->cheats & CF_LOCKCAM))
         ST_UpdateFlash();
     
     //
@@ -485,15 +485,15 @@ void ST_FlashingScreen(byte r, byte g, byte b, byte a)
 {
     rcolor c = D_RGBA(r, g, b, a);
 
-    R_GLToggleBlend(1);
-    R_GLEnable2D(1);
+    GL_SetState(GLSTATE_BLEND, 1);
+    GL_SetOrtho(1);
     
     dglDisable(GL_TEXTURE_2D);
     dglColor4ubv((byte*)&c);
     dglRecti(SCREENWIDTH, SCREENHEIGHT, 0, 0);
     dglEnable(GL_TEXTURE_2D);
     
-    R_GLToggleBlend(0);
+    GL_SetState(GLSTATE_BLEND, 0);
 }
 
 //
@@ -602,8 +602,8 @@ static void ST_DrawStatus(void)
     float   uv[4][2];
     const rcolor color = D_RGBA(0x68, 0x68, 0x68, 0x90);
 
-    R_GLToggleBlend(1);
-    lump = R_BindGfxTexture("STATUS", true);
+    GL_SetState(GLSTATE_BLEND, 1);
+    lump = GL_BindGfxTexture("STATUS", true);
 
     width = (float)gfxwidth[lump];
     height = (float)gfxheight[lump];
@@ -612,9 +612,9 @@ static void ST_DrawStatus(void)
     dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, DGL_CLAMP);
 
     if(st_drawhud.value >= 2)
-        R_GLSetOrthoScale(0.725f);
+        GL_SetOrthoScale(0.725f);
 
-    R_GLEnable2D(0);
+    GL_SetOrtho(0);
 
     dglSetVertex(st_vtx);
     st_vtxcount = 0;
@@ -678,11 +678,11 @@ static void ST_DrawStatus(void)
     
     dglDrawGeometry(st_vtxcount, st_vtx);
 
-    R_GLDisable2D();
-    R_GLToggleBlend(0);
+    GL_ResetViewport();
+    GL_SetState(GLSTATE_BLEND, 0);
 
     if(st_drawhud.value >= 2)
-        R_GLSetOrthoScale(1.0f);
+        GL_SetOrthoScale(1.0f);
 }
 
 //
@@ -703,8 +703,8 @@ void ST_DrawCrosshair(int x, int y, int slot, byte scalefactor, rcolor color)
 
     index = slot - 1;
 
-    R_BindGfxTexture("CRSHAIRS", true);
-    R_GLToggleBlend(1);
+    GL_BindGfxTexture("CRSHAIRS", true);
+    GL_SetState(GLSTATE_BLEND, 1);
 
     dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, DGL_CLAMP);
     dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, DGL_CLAMP);
@@ -712,10 +712,10 @@ void ST_DrawCrosshair(int x, int y, int slot, byte scalefactor, rcolor color)
     u = 1.0f / st_crosshairs;
     scale = scalefactor == 0 ? ST_CROSSHAIRSIZE : (ST_CROSSHAIRSIZE / (1 << scalefactor));
 
-    R_GLDraw2DStrip((float)x, (float)y, scale, scale,
+    GL_SetupAndDraw2DQuad((float)x, (float)y, scale, scale,
         u*index, u + (u*index), 0, 1, color, 0);
 
-    R_GLToggleBlend(0);
+    GL_SetState(GLSTATE_BLEND, 0);
 }
 
 //
@@ -726,15 +726,15 @@ static void ST_DrawJMessage(int pic)
 {
     int lump = st_jmessages[pic];
 
-    R_BindGfxTexture(lumpinfo[lump].name, true);
-    R_GLToggleBlend(1);
+    GL_BindGfxTexture(lumpinfo[lump].name, true);
+    GL_SetState(GLSTATE_BLEND, 1);
 
     dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, DGL_CLAMP);
     dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, DGL_CLAMP);
     dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     dglTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 
-    R_GLDraw2DStrip(
+    GL_SetupAndDraw2DQuad(
         20,
         20,
         gfxwidth[lump - g_start],
@@ -747,7 +747,7 @@ static void ST_DrawJMessage(int pic)
         false
         );
 
-    R_GLToggleBlend(0);
+    GL_SetState(GLSTATE_BLEND, 0);
 }
 
 //
@@ -762,8 +762,12 @@ void ST_Drawer(void)
     // flash overlay
     //
 
-    if(st_flashoverlay.value && flashcolor)
+    if((st_flashoverlay.value ||
+        gl_max_texture_units <= 2 ||
+        r_texturecombiner.value <= 0) && flashcolor)
+    {
         ST_FlashingScreen(st_flash_r, st_flash_g, st_flash_b, st_flash_a);
+    }
 
     if(demoplayback)
         return;
@@ -784,13 +788,13 @@ void ST_Drawer(void)
         {
             //Draw Ammo counter
             if(weaponinfo[plyr->readyweapon].ammo != am_noammo)
-                M_DrawNumber(160, 215, plyr->ammo[weaponinfo[plyr->readyweapon].ammo], 0, REDALPHA(0x7f));
+                Draw_Number(160, 215, plyr->ammo[weaponinfo[plyr->readyweapon].ammo], 0, REDALPHA(0x7f));
         
             //Draw Health
-            M_DrawNumber(49, 215, plyr->health, 0, REDALPHA(0x7f));
+            Draw_Number(49, 215, plyr->health, 0, REDALPHA(0x7f));
         
             //Draw Armor
-            M_DrawNumber(271, 215, plyr->armorpoints, 0, REDALPHA(0x7f));
+            Draw_Number(271, 215, plyr->armorpoints, 0, REDALPHA(0x7f));
         }
         // arranged hud layout
         else if(st_drawhud.value >= 2)
@@ -806,48 +810,48 @@ void ST_Drawer(void)
             switch(weaponinfo[wpn].ammo)
             {
                 case am_clip:
-                    R_DrawHudSprite(SPR_CLIP, 0, 0, 524, 460, 0.5f, 0, WHITEALPHA(0xC0));
+                    Draw_Sprite2D(SPR_CLIP, 0, 0, 524, 460, 0.5f, 0, WHITEALPHA(0xC0));
                     break;
                 case am_shell:
-                    R_DrawHudSprite(SPR_SHEL, 0, 0, 524, 460, 0.5f, 0, WHITEALPHA(0xC0));
+                    Draw_Sprite2D(SPR_SHEL, 0, 0, 524, 460, 0.5f, 0, WHITEALPHA(0xC0));
                     break;
                 case am_misl:
-                    R_DrawHudSprite(SPR_RCKT, 0, 0, 524, 464, 0.5f, 0, WHITEALPHA(0xC0));
+                    Draw_Sprite2D(SPR_RCKT, 0, 0, 524, 464, 0.5f, 0, WHITEALPHA(0xC0));
                     break;
                 case am_cell:
-                    R_DrawHudSprite(SPR_CELL, 0, 0, 524, 464, 0.5f, 0, WHITEALPHA(0xC0));
+                    Draw_Sprite2D(SPR_CELL, 0, 0, 524, 464, 0.5f, 0, WHITEALPHA(0xC0));
                     break;
             }
 
             // display artifact sprites
             if(plyr->artifacts & (1<<ART_TRIPLE))
-                R_DrawHudSprite(SPR_ART3, 0, 0, 260, 872, 0.275f, 0, WHITEALPHA(0xC0));
+                Draw_Sprite2D(SPR_ART3, 0, 0, 260, 872, 0.275f, 0, WHITEALPHA(0xC0));
     
             if(plyr->artifacts & (1<<ART_DOUBLE))
-                R_DrawHudSprite(SPR_ART2, 0, 0, 296, 872, 0.275f, 0, WHITEALPHA(0xC0));
+                Draw_Sprite2D(SPR_ART2, 0, 0, 296, 872, 0.275f, 0, WHITEALPHA(0xC0));
     
             if(plyr->artifacts & (1<<ART_FAST))
-                R_DrawHudSprite(SPR_ART1, 0, 0, 332, 872, 0.275f, 0, WHITEALPHA(0xC0));
+                Draw_Sprite2D(SPR_ART1, 0, 0, 332, 872, 0.275f, 0, WHITEALPHA(0xC0));
 
             // display medkit/armor
-            R_DrawHudSprite(SPR_MEDI, 0, 0, 50, 662, 0.35f, 0, WHITEALPHA(0xC0));
-            R_DrawHudSprite(SPR_ARM1, 0, 0, 50, 632, 0.35f, 0, WHITEALPHA(0xC0));
+            Draw_Sprite2D(SPR_MEDI, 0, 0, 50, 662, 0.35f, 0, WHITEALPHA(0xC0));
+            Draw_Sprite2D(SPR_ARM1, 0, 0, 50, 632, 0.35f, 0, WHITEALPHA(0xC0));
 
-            R_GLSetOrthoScale(0.5f);
+            GL_SetOrthoScale(0.5f);
 
             //Draw Health
-            M_DrawNumber(96, 448, plyr->health, 2, REDALPHA(0xC0));
-            M_DrawSmbText(104, 450, REDALPHA(0xC0), "%");
+            Draw_Number(96, 448, plyr->health, 2, REDALPHA(0xC0));
+            Draw_BigText(104, 450, REDALPHA(0xC0), "%");
 
             //Draw Armor
-            M_DrawNumber(96, 424, plyr->armorpoints, 2, REDALPHA(0xC0));
-            M_DrawSmbText(104, 426, REDALPHA(0xC0), "%");
+            Draw_Number(96, 424, plyr->armorpoints, 2, REDALPHA(0xC0));
+            Draw_BigText(104, 426, REDALPHA(0xC0), "%");
 
             //Draw Ammo counter
             if(weaponinfo[wpn].ammo != am_noammo)
-                M_DrawNumber(550, 448, plyr->ammo[weaponinfo[wpn].ammo], 1, REDALPHA(0xC0));
+                Draw_Number(550, 448, plyr->ammo[weaponinfo[wpn].ammo], 1, REDALPHA(0xC0));
 
-            R_GLSetOrthoScale(1.0f);
+            GL_SetOrthoScale(1.0f);
         }
     }
     
@@ -861,7 +865,7 @@ void ST_Drawer(void)
     }
     else if(st_msg && (int)m_messages.value)
     {
-        M_DrawText(20, 20, ST_MSGCOLOR(automapactive ? 0xff : st_msgalpha), 1, false, st_msg);
+        Draw_Text(20, 20, ST_MSGCOLOR(automapactive ? 0xff : st_msgalpha), 1, false, st_msg);
     }
     else if(automapactive)
     {
@@ -877,7 +881,7 @@ void ST_Drawer(void)
             else
                 sprintf(str, "Level %i: %s", gamemap, map->mapname);
 
-            M_DrawText(20, 20, ST_MSGCOLOR(0xff), 1, false, str);
+            Draw_Text(20, 20, ST_MSGCOLOR(0xff), 1, false, str);
         }
     }
     
@@ -936,7 +940,7 @@ void ST_Drawer(void)
             if(xgamepad.connected)
             {
                 M_DrawXInputButton(140, 156, XINPUT_GAMEPAD_A);
-                M_DrawText(213, 214, WHITEALPHA(0xA0), 0.75, false, "Use");
+                Draw_Text(213, 214, WHITEALPHA(0xA0), 0.75, false, "Use");
             }
             else
 #endif
@@ -946,7 +950,7 @@ void ST_Drawer(void)
 
                 x = (160 / 0.75f) - ((dstrlen(contextstring) * 8) / 2);
 
-                M_DrawText((int)x, 214, WHITEALPHA(0xA0), 0.75f, false, contextstring);
+                Draw_Text((int)x, 214, WHITEALPHA(0xA0), 0.75f, false, contextstring);
             }
         }
     }
@@ -971,13 +975,13 @@ void ST_Drawer(void)
 
     if(st_showstats.value && automapactive)
     {
-        M_DrawText(20, 430, WHITE, 0.5f, false,
+        Draw_Text(20, 430, WHITE, 0.5f, false,
             "Monsters:  %i / %i", plyr->killcount, totalkills);
-        M_DrawText(20, 440, WHITE, 0.5f, false,
+        Draw_Text(20, 440, WHITE, 0.5f, false,
             "Items:     %i / %i", plyr->itemcount, totalitems);
-        M_DrawText(20, 450, WHITE, 0.5f, false,
+        Draw_Text(20, 450, WHITE, 0.5f, false,
             "Secrets:   %i / %i", plyr->secretcount, totalsecret);
-        M_DrawText(20, 460, WHITE, 0.5f, false,
+        Draw_Text(20, 460, WHITE, 0.5f, false,
             "Time:      %2.2d:%2.2d", (leveltime / TICRATE) / 60, (leveltime / TICRATE) % 60);
     }
 }
@@ -1206,7 +1210,7 @@ static void ST_DrawChatText(void)
         if(stchat[current].msg[0] && stchat[current].tics)
         {
             
-            M_DrawText(STCHATX, y, stchat[current].color, 0.5f, false, stchat[current].msg);
+            Draw_Text(STCHATX, y, stchat[current].color, 0.5f, false, stchat[current].msg);
             y -= 8;
         }
         
@@ -1223,7 +1227,7 @@ static void ST_DrawChatText(void)
         char tmp[MAXCHATSIZE];
         
         sprintf(tmp, "%s_", st_chatstring[consoleplayer]);
-        M_DrawText(STCHATX, STCHATY + 8, WHITE, 0.5f, false, tmp);
+        Draw_Text(STCHATX, STCHATY + 8, WHITE, 0.5f, false, tmp);
     }
 }
 
@@ -1495,7 +1499,7 @@ static void ST_DisplayName(int playernum)
 
     // display player name
     dsnprintf(name, MAXPLAYERNAME, "%s", player_names[playernum]);
-    M_DrawText(screenx, screeny, color, 1.0f, 0, name);
+    Draw_Text(screenx, screeny, color, 1.0f, 0, name);
 }
 
 
