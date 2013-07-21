@@ -136,6 +136,16 @@
 		8AE7902E142F35AA00041764 /* Carbon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8AE7902D142F35AA00041764 /* Carbon.framework */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		8A60DB6D179BCBFA00F95FAB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 8DD76F620486A84900D96B5E;
+			remoteInfo = wadgen;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		8A316A4E156812CE004DEB47 /* d64bsp */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = d64bsp; sourceTree = BUILT_PRODUCTS_DIR; };
 		8A316A53156812E9004DEB47 /* analyze.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = analyze.c; sourceTree = "<group>"; };
@@ -166,14 +176,14 @@
 		8A4A612B15678001005A781F /* libiconv.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libiconv.dylib; path = usr/lib/libiconv.dylib; sourceTree = SDKROOT; };
 		8A4A612D15678016005A781F /* CoreMIDI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreMIDI.framework; path = System/Library/Frameworks/CoreMIDI.framework; sourceTree = SDKROOT; };
 		8A4A613815678029005A781F /* CoreAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAudio.framework; path = System/Library/Frameworks/CoreAudio.framework; sourceTree = SDKROOT; };
-		8A4A61D915678725005A781F /* libSDL_net.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libSDL_net.a; path = ../thirdparty/SDL/lib/libSDL_net.a; sourceTree = SOURCE_ROOT; };
-		8A4A61DA15678725005A781F /* libSDL.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libSDL.a; path = ../thirdparty/SDL/lib/libSDL.a; sourceTree = SOURCE_ROOT; };
-		8A4A61DB15678725005A781F /* libSDLmain.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libSDLmain.a; path = ../thirdparty/SDL/lib/libSDLmain.a; sourceTree = SOURCE_ROOT; };
-		8A4A61DF15678749005A781F /* libpng.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libpng.a; path = ../thirdparty/libpng/lib/libpng.a; sourceTree = SOURCE_ROOT; };
-		8A4A61E11567875C005A781F /* libfluidsynth.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libfluidsynth.a; path = ../thirdparty/fluidsynth/lib/libfluidsynth.a; sourceTree = SOURCE_ROOT; };
-		8A4A61E21567875C005A781F /* libglib-2.0.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libglib-2.0.a"; path = "../thirdparty/fluidsynth/lib/libglib-2.0.a"; sourceTree = SOURCE_ROOT; };
-		8A4A61E31567875C005A781F /* libgthread-2.0.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libgthread-2.0.a"; path = "../thirdparty/fluidsynth/lib/libgthread-2.0.a"; sourceTree = SOURCE_ROOT; };
-		8A4A61E41567875C005A781F /* libintl.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libintl.a; path = ../thirdparty/fluidsynth/lib/libintl.a; sourceTree = SOURCE_ROOT; };
+		8A4A61D915678725005A781F /* libSDL_net.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libSDL_net.a; path = thirdparty/SDL/lib/libSDL_net.a; sourceTree = SOURCE_ROOT; };
+		8A4A61DA15678725005A781F /* libSDL.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libSDL.a; path = thirdparty/SDL/lib/libSDL.a; sourceTree = SOURCE_ROOT; };
+		8A4A61DB15678725005A781F /* libSDLmain.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libSDLmain.a; path = thirdparty/SDL/lib/libSDLmain.a; sourceTree = SOURCE_ROOT; };
+		8A4A61DF15678749005A781F /* libpng.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libpng.a; path = thirdparty/libpng/lib/libpng.a; sourceTree = SOURCE_ROOT; };
+		8A4A61E11567875C005A781F /* libfluidsynth.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libfluidsynth.a; path = thirdparty/fluidsynth/lib/libfluidsynth.a; sourceTree = SOURCE_ROOT; };
+		8A4A61E21567875C005A781F /* libglib-2.0.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libglib-2.0.a"; path = "thirdparty/fluidsynth/lib/libglib-2.0.a"; sourceTree = SOURCE_ROOT; };
+		8A4A61E31567875C005A781F /* libgthread-2.0.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = "libgthread-2.0.a"; path = "thirdparty/fluidsynth/lib/libgthread-2.0.a"; sourceTree = SOURCE_ROOT; };
+		8A4A61E41567875C005A781F /* libintl.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libintl.a; path = thirdparty/fluidsynth/lib/libintl.a; sourceTree = SOURCE_ROOT; };
 		8A4A621F15678A0F005A781F /* m_math.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = m_math.c; sourceTree = "<group>"; };
 		8A4A622015678A0F005A781F /* m_math.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = m_math.h; sourceTree = "<group>"; };
 		8A4A622115678A0F005A781F /* version.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = version.h; sourceTree = "<group>"; };
@@ -188,7 +198,6 @@
 		8A6E9A6714123A31007BDF4B /* Mem.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = Mem.c; sourceTree = "<group>"; };
 		8A6E9A6814123A31007BDF4B /* Mem.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Mem.h; sourceTree = "<group>"; };
 		8A6E9A6914123A31007BDF4B /* Png.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = Png.c; sourceTree = "<group>"; };
-		8A6E9A6A14123A31007BDF4B /* resource.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = resource.h; sourceTree = "<group>"; };
 		8A6E9A6B14123A31007BDF4B /* Rom.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = Rom.c; sourceTree = "<group>"; };
 		8A6E9A6C14123A31007BDF4B /* Rom.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Rom.h; sourceTree = "<group>"; };
 		8A6E9A6D14123A31007BDF4B /* SndFont.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SndFont.c; sourceTree = "<group>"; };
@@ -205,7 +214,7 @@
 		8A6E9A7914123A31007BDF4B /* WadGen.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WadGen.h; sourceTree = "<group>"; };
 		8AC96E411412769200718A9D /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = usr/lib/libz.dylib; sourceTree = SDKROOT; };
 		8AC96E69141278E700718A9D /* Doom64EX.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Doom64EX.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		8AC96E6B141278E700718A9D /* Doom64EX-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Doom64EX-Info.plist"; sourceTree = "<group>"; };
+		8AC96E6B141278E700718A9D /* Doom64EX.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Doom64EX.plist; sourceTree = "<group>"; };
 		8AC96E701412791200718A9D /* am_draw.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = am_draw.c; sourceTree = "<group>"; };
 		8AC96E711412791200718A9D /* am_draw.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = am_draw.h; sourceTree = "<group>"; };
 		8AC96E721412791200718A9D /* am_map.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = am_map.c; sourceTree = "<group>"; };
@@ -437,7 +446,7 @@
 				08FB7795FE84155DC02AAC07 /* Source */,
 				C6859E8C029090F304C91782 /* Dependencies */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
-				8AC96E6B141278E700718A9D /* Doom64EX-Info.plist */,
+				8AC96E6B141278E700718A9D /* Doom64EX.plist */,
 			);
 			name = doom64ex;
 			sourceTree = "<group>";
@@ -490,7 +499,8 @@
 				8A316A6E156812E9004DEB47 /* wad.c */,
 				8A316A6F156812E9004DEB47 /* wad.h */,
 			);
-			path = d64bsp;
+			name = d64bsp;
+			path = src/d64bsp;
 			sourceTree = "<group>";
 		};
 		8A6E9A5314123A31007BDF4B /* wadgen */ = {
@@ -507,7 +517,6 @@
 				8A6E9A6714123A31007BDF4B /* Mem.c */,
 				8A6E9A6814123A31007BDF4B /* Mem.h */,
 				8A6E9A6914123A31007BDF4B /* Png.c */,
-				8A6E9A6A14123A31007BDF4B /* resource.h */,
 				8A6E9A6B14123A31007BDF4B /* Rom.c */,
 				8A6E9A6C14123A31007BDF4B /* Rom.h */,
 				8A6E9A6D14123A31007BDF4B /* SndFont.c */,
@@ -524,7 +533,7 @@
 				8A6E9A7914123A31007BDF4B /* WadGen.h */,
 			);
 			name = wadgen;
-			path = WadGen;
+			path = src/wadgen;
 			sourceTree = "<group>";
 		};
 		8AC96E6F1412791200718A9D /* kex */ = {
@@ -684,7 +693,8 @@
 				8AC96F1E1412791200718A9D /* z_zone.c */,
 				8AC96F1F1412791200718A9D /* z_zone.h */,
 			);
-			path = kex;
+			name = kex;
+			path = src/kex;
 			sourceTree = "<group>";
 		};
 		8AC96E8A1412791200718A9D /* Ext */ = {
@@ -774,13 +784,14 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 8AC96E6E141278E800718A9D /* Build configuration list for PBXNativeTarget "Doom64EX" */;
 			buildPhases = (
-				8AC96E65141278E700718A9D /* Resources */,
 				8AC96E66141278E700718A9D /* Sources */,
 				8AC96E67141278E700718A9D /* Frameworks */,
+				8AC96E65141278E700718A9D /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				8A60DB6E179BCBFA00F95FAB /* PBXTargetDependency */,
 			);
 			name = Doom64EX;
 			productName = doom64ex;
@@ -854,7 +865,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "rsync -a \"${SRCROOT}/wadgen/Content\" \"${CONFIGURATION_BUILD_DIR}\"";
+			shellScript = "rsync -a \"${SRCROOT}/src/wadgen/Content\" \"${CONFIGURATION_BUILD_DIR}\"";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -990,19 +1001,25 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		8A60DB6E179BCBFA00F95FAB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 8DD76F620486A84900D96B5E /* wadgen */;
+			targetProxy = 8A60DB6D179BCBFA00F95FAB /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
 		1DEB923208733DC60010E9CD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = "";
 				GCC_OPTIMIZATION_LEVEL = 0;
-				HEADER_SEARCH_PATHS = ../thirdparty/libpng/include;
+				HEADER_SEARCH_PATHS = thirdparty/libpng/include;
 				INSTALL_PATH = /usr/local/bin;
-				LIBRARY_SEARCH_PATHS = ../thirdparty/libpng/lib;
+				LIBRARY_SEARCH_PATHS = thirdparty/libpng/lib;
 				PRODUCT_NAME = wadgen;
 			};
 			name = Debug;
@@ -1010,12 +1027,11 @@
 		1DEB923308733DC60010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = "";
-				HEADER_SEARCH_PATHS = ../thirdparty/libpng/include;
+				HEADER_SEARCH_PATHS = thirdparty/libpng/include;
 				INSTALL_PATH = /usr/local/bin;
-				LIBRARY_SEARCH_PATHS = ../thirdparty/libpng/lib;
+				LIBRARY_SEARCH_PATHS = thirdparty/libpng/lib;
 				PRODUCT_NAME = wadgen;
 			};
 			name = Release;
@@ -1023,16 +1039,11 @@
 		1DEB923608733DC60010E9CD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = i386;
-				GCC_C_LANGUAGE_STANDARD = gnu99;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_VERSION = 4.2;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.5;
 				ONLY_ACTIVE_ARCH = YES;
-				PREBINDING = NO;
-				SDKROOT = macosx10.5;
-				SYMROOT = ../build;
 				VALID_ARCHS = i386;
 			};
 			name = Debug;
@@ -1040,15 +1051,10 @@
 		1DEB923708733DC60010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = i386;
-				GCC_C_LANGUAGE_STANDARD = gnu99;
-				GCC_VERSION = 4.2;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.5;
 				ONLY_ACTIVE_ARCH = YES;
-				PREBINDING = NO;
-				SDKROOT = macosx10.5;
-				SYMROOT = ../build;
 				VALID_ARCHS = i386;
 			};
 			name = Release;
@@ -1056,9 +1062,7 @@
 		8A316A50156812CE004DEB47 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -1072,7 +1076,6 @@
 		8A316A51156812CE004DEB47 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -1088,27 +1091,23 @@
 		8AC96E6C141278E700718A9D /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = "";
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = "dprintf=dprintf_posix";
 				HEADER_SEARCH_PATHS = (
-					../thirdparty/SDL/include,
-					../thirdparty/libpng/include,
-					../thirdparty/fluidsynth/include,
-					kex,
+					thirdparty/SDL/include,
+					thirdparty/libpng/include,
+					thirdparty/fluidsynth/include,
+					src/kex,
 				);
-				INFOPLIST_FILE = "Doom64EX-Info.plist";
+				INFOPLIST_FILE = Doom64EX.plist;
 				INSTALL_PATH = "$(HOME)/Applications";
 				LIBRARY_SEARCH_PATHS = (
-					../thirdparty/SDL/lib,
-					../thirdparty/libpng/lib,
-					../thirdparty/fluidsynth/lib,
-					"\"$(SRCROOT)/../thirdparty/SDL/lib\"",
-					"\"$(SRCROOT)/../thirdparty/libpng/lib\"",
-					"\"$(SRCROOT)/../thirdparty/fluidsynth/lib\"",
+					thirdparty/SDL/lib,
+					thirdparty/libpng/lib,
+					thirdparty/fluidsynth/lib,
 				);
 				PREBINDING = NO;
 				PRODUCT_NAME = Doom64EX;
@@ -1118,26 +1117,23 @@
 		8AC96E6D141278E700718A9D /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = "";
+				GCC_PREPROCESSOR_DEFINITIONS = "dprintf=dprintf_posix";
 				HEADER_SEARCH_PATHS = (
-					../thirdparty/SDL/include,
-					../thirdparty/libpng/include,
-					../thirdparty/fluidsynth/include,
-					kex,
+					thirdparty/SDL/include,
+					thirdparty/libpng/include,
+					thirdparty/fluidsynth/include,
+					src/kex,
 				);
-				INFOPLIST_FILE = "Doom64EX-Info.plist";
+				INFOPLIST_FILE = Doom64EX.plist;
 				INSTALL_PATH = "$(HOME)/Applications";
 				LIBRARY_SEARCH_PATHS = (
-					../thirdparty/SDL/lib,
-					../thirdparty/libpng/lib,
-					../thirdparty/fluidsynth/lib,
-					"\"$(SRCROOT)/../thirdparty/SDL/lib\"",
-					"\"$(SRCROOT)/../thirdparty/libpng/lib\"",
-					"\"$(SRCROOT)/../thirdparty/fluidsynth/lib\"",
+					thirdparty/SDL/lib,
+					thirdparty/libpng/lib,
+					thirdparty/fluidsynth/lib,
 				);
 				PREBINDING = NO;
 				PRODUCT_NAME = Doom64EX;
