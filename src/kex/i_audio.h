@@ -23,13 +23,16 @@
 #ifndef __I_AUDIO_H__
 #define __I_AUDIO_H__
 
-// 20120107 bkw: Linux users can change the default FluidSynth backend here:
-#ifndef _WIN32
-#define DEFAULT_FLUID_DRIVER "sndio"
-
 // 20120203 villsa: add default for windows
-#else
+#ifdef _WIN32
 #define DEFAULT_FLUID_DRIVER "dsound"
+
+#elif defined __APPLE__
+#define DEFAULT_FLUID_DRIVER "coreaudio"
+
+// 20120107 bkw: Linux users can change the default FluidSynth backend here:
+#else
+#define DEFAULT_FLUID_DRIVER "sndio"
 
 #endif
 
