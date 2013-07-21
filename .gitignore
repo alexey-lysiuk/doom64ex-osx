@@ -1,0 +1,8 @@
+syntax: glob
+.DS_Store
+build/
+DerivedData/
+xcuserdata/
+*.mode1v3
+*.pbxuser
+*.xccheckout
