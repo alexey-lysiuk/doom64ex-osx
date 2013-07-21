@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: Wad.c 983 2011-12-27 22:30:53Z svkaiser $
+// $Id: Wad.c 1150 2012-06-11 00:18:31Z svkaiser $
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -18,15 +18,15 @@
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
 // $Author: svkaiser $
-// $Revision: 983 $
-// $Date: 2011-12-28 00:30:53 +0200 (ср, 28 гру 2011) $
+// $Revision: 1150 $
+// $Date: 2012-06-11 03:18:31 +0300 (пн, 11 чер 2012) $
 //
 // DESCRIPTION: General Wad handling mechanics.
 //				Wad output and sprite/gfx/data writing also included
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
-static const char rcsid[] = "$Id: Wad.c 983 2011-12-27 22:30:53Z svkaiser $";
+static const char rcsid[] = "$Id: Wad.c 1150 2012-06-11 00:18:31Z svkaiser $";
 #endif
 
 #include "WadGen.h"
@@ -57,14 +57,10 @@ static const iwadRomInfo_t IwadRomInfo[4] =
 	{	0x63dc0,	'E',	1	}
 };
 
-#ifdef USE_PNG
-
 char weaponName[4] = { 'N', 'U', 'L', 'L' };
 cache png;
 dPalette_t pngpal[256];
 int pngsize;
-
-#endif
 
 //**************************************************************
 //**************************************************************
@@ -350,27 +346,41 @@ void Wad_WriteOutput(path outFile)
 void Wad_AddOutputLump(const char* name, int size, cache data)
 {
 	int padSize = 0;
+    wadheader_t* header;
+    lump_t* lump;
+
+    header = &outWadFile.header;
+    lump = &outWadFile.lump[header->lmpcount];
 
 	//Update Lump
-	outWadFile.lump[outWadFile.header.lmpcount].filepos = outWadFile.header.lmpdirpos;
-	outWadFile.lump[outWadFile.header.lmpcount].size = size;
-	strncpy(outWadFile.lump[outWadFile.header.lmpcount].name, name, 8);
-	if(outWadFile.lump[outWadFile.header.lmpcount].name[0] & 0x80)
-		outWadFile.lump[outWadFile.header.lmpcount].name[0] -= (char)0x80;
+	lump->filepos = header->lmpdirpos;
+	lump->size = size;
+
+	strncpy(lump->name, name, 8);
+	if(lump->name[0] & 0x80)
+		lump->name[0] -= (char)0x80;
+
+    WGen_UpdateProgress("Adding Lump: %s...", lump->name);
 
 	if(size)
 	{
+        char* cache;
+
 		padSize = size;
         _PAD4(padSize);
 
 		//Allocate Cache
-		outWadFile.lumpcache[outWadFile.header.lmpcount] = (byte*)Mem_Alloc(padSize);
-		memcpy(outWadFile.lumpcache[outWadFile.header.lmpcount], data, size);
+		cache = (byte*)Mem_Alloc(padSize);
+		memcpy(cache, data, size);
+
+        outWadFile.lumpcache[header->lmpcount] = cache;
 	}
 
+    WGen_AddDigest(lump->name, header->lmpcount, size);
+
 	//Update header
-	outWadFile.header.lmpcount++;
-	outWadFile.header.lmpdirpos += padSize;
+	header->lmpcount++;
+	header->lmpdirpos += padSize;
 }
 
 //**************************************************************
@@ -447,6 +457,11 @@ void Wad_AddOutputSprite(d64ExSpriteLump_t* sprite)
 	size = (sizeof(d64ExSprite_t) + sprite->size);
 	if(!sprite->sprite.useExtPal)
 		size += (sizeof(dPalette_t)*CMPPALCOUNT);
+    else if(sprite->sprite.useExtPal && sprite->lumpRef > Wad_GetLumpNum("RECTO0"))
+    {
+        sprite->sprite.useExtPal = 2;
+        size += (sizeof(dPalette_t)*256);
+    }
 
 	strncpy(name, romWadFile.lump[sprite->lumpRef].name, 8);
 
@@ -460,6 +475,23 @@ void Wad_AddOutputSprite(d64ExSpriteLump_t* sprite)
 
 	if(!sprite->sprite.useExtPal)
 		memcpy((data+pos), sprite->palette, sizeof(dPalette_t)*CMPPALCOUNT);
+    else if(sprite->sprite.useExtPal && sprite->lumpRef > Wad_GetLumpNum("RECTO0"))
+    {
+        d64RawSprite_t* raw;
+
+		// weapon palettes appears to be stored only in the first frame
+		// preserve the current cached weapon palette if next sprite is the next weapon frame
+		if(strncmp(weaponName, name, 4))
+		{
+			raw = (d64RawSprite_t*)romWadFile.lumpcache[sprite->lumpRef];
+			WGen_ConvertN64Pal(pngpal, (word*)(romWadFile.lumpcache[sprite->lumpRef] +
+				(raw->width*raw->height) + 16), 256);
+
+			strncpy(weaponName, name, 4);
+		}
+
+        memcpy((data+pos), pngpal, sizeof(dPalette_t)*256);
+    }
 
 	Wad_AddOutputLump(name, size, data);
 

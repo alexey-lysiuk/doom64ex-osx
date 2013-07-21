@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: Level.c 916 2011-08-12 00:54:53Z svkaiser $
+// $Id: Level.c 1097 2012-04-01 22:24:04Z svkaiser $
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -18,14 +18,14 @@
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
 // $Author: svkaiser $
-// $Revision: 916 $
-// $Date: 2011-08-12 03:54:53 +0300 (пт, 12 сер 2011) $
+// $Revision: 1097 $
+// $Date: 2012-04-02 01:24:04 +0300 (пн, 02 кві 2012) $
 //
 // DESCRIPTION: Level extraction routines
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
-static const char rcsid[] = "$Id: Level.c 916 2011-08-12 00:54:53Z svkaiser $";
+static const char rcsid[] = "$Id: Level.c 1097 2012-04-01 22:24:04Z svkaiser $";
 #endif
 
 #ifndef _WIN32
@@ -184,9 +184,11 @@ void Level_GetMapWad(int num)
     lump_t          *l = NULL;
     int             lump = 0;
     int             i = 0;
-    FILE            *f;
     byte            *buffer;
+#ifdef DUMPMAPWAD
+    FILE            *f;
     path            wadfile;
+#endif
     
     sprintf(name, "MAP%02d", num+1);
     name[8] = 0;
@@ -211,6 +213,7 @@ void Level_GetMapWad(int num)
 
 #endif
     
+#ifdef DUMPMAPWAD
     sprintf(wadfile, "MAP%02d.wad", num+1);
     f = fopen(wadfile, "wb");
     if(f == NULL)
@@ -222,13 +225,10 @@ void Level_GetMapWad(int num)
     Mem_Free((void**)&buffer);
     
     levelSize[num] = File_Read(wadfile, &levelData[num]);
-    
+
     Sleep(100);	// Let everything get caught up
-    
-#ifndef DUMPMAPWAD
-
-    remove(wadfile);
-
+#else
+    levelData[num] = buffer;
 #endif
 }
 
@@ -240,11 +240,11 @@ void Level_GetMapWad(int num)
 
 void Level_Setup(void)
 {
-    int i = 0;
+    int i;
     
     for(i = 0; i < MAXLEVELWADS; i++)
     {
         Level_GetMapWad(i);
-        WGen_UpdateProgress();
+        WGen_UpdateProgress("Decompressing MAP%02d...", i);
     }
 }

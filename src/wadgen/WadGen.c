@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: WadGen.c 954 2011-08-24 03:40:42Z svkaiser $
+// $Id: WadGen.c 1230 2013-03-04 06:18:10Z svkaiser $
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -18,14 +18,14 @@
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
 // $Author: svkaiser $
-// $Revision: 954 $
-// $Date: 2011-08-24 06:40:42 +0300 (ср, 24 сер 2011) $
+// $Revision: 1230 $
+// $Date: 2013-03-04 08:18:10 +0200 (пн, 04 бер 2013) $
 //
 // DESCRIPTION: Global stuff and main application functions
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
-static const char rcsid[] = "$Id: WadGen.c 954 2011-08-24 03:40:42Z svkaiser $";
+static const char rcsid[] = "$Id: WadGen.c 1230 2013-03-04 06:18:10Z svkaiser $";
 #endif
 
 #include "WadGen.h"
@@ -63,7 +63,7 @@ bool __stdcall LoadingDlgProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
     switch(uMsg)
     {
     case WM_INITDIALOG:
-        hwndLoadBar = GetDlgItem(hWnd, IDC_PROGRESS);
+        hwndLoadBar = GetDlgItem(hWnd, IDC_PROGRESS1);
         SendMessage(hwndLoadBar, PBM_SETRANGE, 0, MAKELPARAM(0, TOTALSTEPS));
         SendMessage(hwndLoadBar, PBM_SETSTEP, (WPARAM)(int)1, 0);
         return TRUE;
@@ -89,14 +89,19 @@ bool __stdcall LoadingDlgProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
 //**************************************************************
 //**************************************************************
 
-void WGen_AddLumpFile(const char* name)
+static void WGen_AddLumpFile(const char* name)
 {
     path file;
     int size;
     cache data;
     char lumpname[16];
     
+#ifdef _WIN32
     sprintf(file, "%s/Content/%s", wgenfile.basePath, name);
+#else
+	 // on *NIX, File_Read searches a couple of places besides current dir
+    sprintf(file, "Content/%s", name);
+#endif
     size = File_Read(file, &data);
     
     strncpy(lumpname, name, 16);
@@ -105,8 +110,26 @@ void WGen_AddLumpFile(const char* name)
     Wad_AddOutputLump(lumpname, size, data);
     
     Mem_Free((void**)&data);
+}
 
-    WGen_UpdateProgress();
+//**************************************************************
+//**************************************************************
+//	WGen_AddDigest
+//**************************************************************
+//**************************************************************
+
+static md5_context_t md5_context;
+
+void WGen_AddDigest(char* name, int lump, int size)
+{
+    char buf[9];
+
+    strncpy(buf, name, 8);
+    buf[8] = '\0';
+
+    MD5_UpdateString(&md5_context, buf);
+    MD5_UpdateInt32(&md5_context, lump);
+    MD5_UpdateInt32(&md5_context, size);
 }
 
 //**************************************************************
@@ -128,6 +151,7 @@ void WGen_Process(void)
     int i = 0;
     char name[9];
     path outFile;
+    md5_digest_t digest;
     
     Rom_Open();
     
@@ -138,53 +162,46 @@ void WGen_Process(void)
     Level_Setup();
     
     Wad_CreateOutput();
+
+    MD5_Init(&md5_context);
     
     // Sprites
     Wad_AddOutputLump("S_START", 0, NULL);
+
     for(i = 0; i < spriteExCount; i++)
-    {
         Wad_AddOutputSprite(&exSpriteLump[i]);
-        WGen_UpdateProgress();
-    }
+
     Wad_AddOutputLump("S_END", 0, NULL);
     
     // Sprite Palettes
     for(i = 0; i < extPalLumpCount; i++)
-    {
         Wad_AddOutputPalette(&d64PaletteLump[i]);
-        WGen_UpdateProgress();
-    }
     
     WGen_AddLumpFile("PALPLAY3.ACT");
     
     // Textures
     Wad_AddOutputLump("T_START", 0, NULL);
+
     for(i = 0; d64ExTexture[i].data; i++)
-    {
         Wad_AddOutputTexture(&d64ExTexture[i]);
-        WGen_UpdateProgress();
-    }
+
     Wad_AddOutputLump("T_END", 0, NULL);
     
     // Gfx
     Wad_AddOutputLump("G_START", 0, NULL);
+
     for(i = 0; gfxEx[i].data; i++)
-    {
         Wad_AddOutputGfx(&gfxEx[i]);
-        WGen_UpdateProgress();
-    }
     
     // Hud Sprites
     for(i = spriteExCount; i < spriteExCount+hudSpriteExCount; i++)
-    {
         Wad_AddOutputHudSprite(&exSpriteLump[i]);
-        WGen_UpdateProgress();
-    }
     
     WGen_AddLumpFile("FANCRED.PNG");
     WGen_AddLumpFile("CRSHAIRS.PNG");
     WGen_AddLumpFile("BUTTONS.PNG");
     WGen_AddLumpFile("CONFONT.PNG");
+    WGen_AddLumpFile("CURSOR.PNG");
     
     Wad_AddOutputLump("G_END", 0, NULL);
     
@@ -216,7 +233,6 @@ void WGen_Process(void)
     {
         sprintf(name, "MAP%02d", i+1);
         Wad_AddOutputLump(name, levelSize[i], levelData[i]);
-        WGen_UpdateProgress();
     }
     
     // Demo lumps
@@ -227,10 +243,15 @@ void WGen_Process(void)
     WGen_AddLumpFile("MAPINFO.TXT");
     WGen_AddLumpFile("ANIMDEFS.TXT");
     WGen_AddLumpFile("SKYDEFS.TXT");
+
+    MD5_Final(digest, &md5_context);
+
+    Wad_AddOutputLump("CHECKSUM", sizeof(md5_digest_t), digest);
     
     // End of wad marker :)
     Wad_AddOutputLump("ENDOFWAD", 0, NULL);
     
+    WGen_UpdateProgress("Writing IWAD File...");
     sprintf(outFile, "%s/DOOM64.WAD", wgenfile.basePath);
     Wad_WriteOutput(outFile);
     
@@ -242,7 +263,33 @@ void WGen_Process(void)
     
     // Write out the soundfont file
 #ifdef USE_SOUNDFONTS
+    WGen_UpdateProgress("Writing Soundfont File...");
     SF_WriteSoundFont();
+#endif
+
+#ifdef _DEBUG
+    {
+        FILE* md5info;
+        path tbuff;
+        int j = 0;
+        
+        do { sprintf(tbuff, "md5info%02d.txt", j++); } while(File_Poke(tbuff));
+
+        md5info = fopen(tbuff, "w");
+
+        fprintf(md5info, "static const md5_digest_t <rename me> =\n");
+        fprintf(md5info, "{ ");
+
+        for(i = 0; i < 16; i++)
+        {
+            fprintf(md5info, "0x%02x", digest[i]);
+            if(i < 15) fprintf(md5info, ",");
+            else fprintf(md5info, " ");
+        }
+
+        fprintf(md5info, "};\n");
+        fclose(md5info);
+    }
 #endif
 }
 
@@ -294,7 +341,7 @@ int __stdcall WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdL
     // Start looking for the rom..
     if(File_Dialog(&wgenfile, FILEDLGTYPE, "Select Doom64 Rom..", hwnd))
     {
-        hwndWait = CreateDialog(hAppInst, MAKEINTRESOURCE(IDD_DIALOG2), NULL, (DLGPROC)LoadingDlgProc);
+        hwndWait = CreateDialog(hAppInst, MAKEINTRESOURCE(IDD_DIALOG1), NULL, (DLGPROC)LoadingDlgProc);
         WGen_Process();
         WGen_ShutDownApplication();
     }
@@ -373,11 +420,21 @@ void WGen_Complain(char *fmt, ...)
 //**************************************************************
 //**************************************************************
 
-void WGen_UpdateProgress(void)
+void WGen_UpdateProgress(char *fmt, ...)
 {
+    va_list	va;
+    char	buff[1024];
+
+    va_start(va, fmt);
+    vsprintf(buff, fmt, va);
+    va_end(va);
+
 #ifdef _WIN32
     SendMessage(hwndLoadBar, PBM_STEPIT, 0, 0);
+    SetDlgItemText(hwndWait, IDC_PROGRESSTEXT, buff);
     UpdateWindow(hwndWait);
+#else
+    WGen_Printf("%s\n", buff);
 #endif
 }
 

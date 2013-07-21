@@ -1,33 +1,28 @@
-// Emacs style mode select	 -*- C++ -*-
+// Emacs style mode select   -*- C++ -*- 
 //-----------------------------------------------------------------------------
 //
-// $Id: sc_main.c 875 2011-07-04 23:37:26Z svkaiser $
+// Copyright(C) 2007-2012 Samuel Villarreal
 //
-// Copyright (C) 1993-1996 by id Software, Inc.
+// This program is free software; you can redistribute it and/or
+// modify it under the terms of the GNU General Public License
+// as published by the Free Software Foundation; either version 2
+// of the License, or (at your option) any later version.
 //
-// This source is available for distribution and/or modification
-// only under the terms of the DOOM Source Code License as
-// published by id Software. All rights reserved.
-//
-// The source is distributed in the hope that it will be useful,
+// This program is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// FITNESS FOR A PARTICULAR PURPOSE. See the DOOM Source Code License
-// for more details.
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
 //
-// $Author: svkaiser $
-// $Revision: 875 $
-// $Date: 2011-07-05 02:37:26 +0300 (вт, 05 лип 2011) $
-//
-//
-// DESCRIPTION:
-//
-//
+// You should have received a copy of the GNU General Public License
+// along with this program; if not, write to the Free Software
+// Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+// 02111-1307, USA.
 //
 //-----------------------------------------------------------------------------
-#ifdef RCSID
-static const char
-rcsid[] = "$Id: sc_main.c 875 2011-07-04 23:37:26Z svkaiser $";
-#endif
+//
+// DESCRIPTION: Lexter parsing system for script data
+//
+//-----------------------------------------------------------------------------
 
 #ifdef _MSC_VER
 #include "i_opndir.h"
@@ -41,6 +36,7 @@ rcsid[] = "$Id: sc_main.c 875 2011-07-04 23:37:26Z svkaiser $";
 #include "w_wad.h"
 #include "m_misc.h"
 #include "sc_main.h"
+#include "con_console.h"
 
 scparser_t sc_parser;
 
@@ -51,6 +47,8 @@ scparser_t sc_parser;
 static void SC_Open(char* name)
 {
     int lump;
+
+    CON_DPrintf("--------SC_Open: Reading %s--------\n", name);
 
     lump = W_CheckNumForName(name);
 
@@ -66,6 +64,8 @@ static void SC_Open(char* name)
         sc_parser.buffer     = W_CacheLumpNum(lump, PU_STATIC);
         sc_parser.buffsize   = W_LumpLength(lump);
     }
+
+    CON_DPrintf("%s size: %ikb\n", name, sc_parser.buffsize >> 10);
 
     sc_parser.pointer_start  = sc_parser.buffer;
     sc_parser.pointer_end    = sc_parser.buffer + sc_parser.buffsize;
@@ -209,7 +209,7 @@ static int SC_Find(dboolean forceupper)
 
     while(sc_parser.readtokens())
     {
-        c = sc_parser.getchar();
+        c = sc_parser.fgetchar();
 
         if(c == '/')
             comment = true;
@@ -224,7 +224,32 @@ static int SC_Find(dboolean forceupper)
                     continue;
                 }
                 else if(havetoken)
-                    return true;
+                {
+                    c = sc_parser.fgetchar();
+
+                    if(c != ',')
+                        return true;
+                    else
+                    {
+                        havetoken = false;
+                        continue;
+                    }
+                }
+                else
+                {
+                    if(sc_parser.fgetchar() == '"')
+                    {
+                        if(sc_parser.fgetchar() == ',')
+                            continue;
+                        else
+                        {
+                            sc_parser.rewind();
+                            sc_parser.rewind();
+                        }
+                    }
+                    else
+                        sc_parser.rewind();
+                }
             }
 
             if(!string)
@@ -240,7 +265,7 @@ static int SC_Find(dboolean forceupper)
             }
             else
             {
-                if(c >= ' ')
+                if(c >= ' ' && c != '"')
                 {
                     havetoken = true;
                     sc_parser.token[i++] =
@@ -270,6 +295,16 @@ static char SC_GetChar(void)
 {
     sc_parser.rowpos++;
     return sc_parser.buffer[sc_parser.buffpos++];
+}
+
+//
+// SC_Rewind
+//
+
+static void SC_Rewind(void)
+{
+    sc_parser.rowpos--;
+    sc_parser.buffpos--;
 }
 
 //
@@ -305,7 +340,8 @@ void SC_Init(void)
     sc_parser.close         = SC_Close;
     sc_parser.compare       = SC_Compare;
     sc_parser.find          = SC_Find;
-    sc_parser.getchar       = SC_GetChar;
+    sc_parser.fgetchar      = SC_GetChar;
+    sc_parser.rewind        = SC_Rewind;
     sc_parser.getstring     = SC_GetString;
     sc_parser.getint        = SC_GetInteger;
     sc_parser.setdata       = SC_SetData;

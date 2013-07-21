@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: Sprite.c 980 2011-12-22 22:11:13Z svkaiser $
+// $Id: Sprite.c 1096 2012-03-31 18:28:01Z svkaiser $
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -18,15 +18,15 @@
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
 // $Author: svkaiser $
-// $Revision: 980 $
-// $Date: 2011-12-23 00:11:13 +0200 (пт, 23 гру 2011) $
+// $Revision: 1096 $
+// $Date: 2012-03-31 21:28:01 +0300 (сб, 31 бер 2012) $
 //
 // DESCRIPTION: Sprite extracting/conversion mechanics.
 //				A majority of the application's workload is spent here...
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
-static const char rcsid[] = "$Id: Sprite.c 980 2011-12-22 22:11:13Z svkaiser $";
+static const char rcsid[] = "$Id: Sprite.c 1096 2012-03-31 18:28:01Z svkaiser $";
 #endif
 
 #include "WadGen.h"
@@ -385,7 +385,8 @@ void Sprite_Setup(void)
 	{
 		romWadFile.lumpcache[l] = Wad_GetLump(romWadFile.lump[l].name, false);
 		Sprite_Convert(l);
-		WGen_UpdateProgress();
+
+		WGen_UpdateProgress("Converting Sprites...");
 	}
 
 	spriteExCount = spriteIndexCount;
@@ -398,7 +399,8 @@ void Sprite_Setup(void)
 		l = Wad_GetLumpNum(HudSprNames[i].name);
 		romWadFile.lumpcache[l] = Wad_GetLump(romWadFile.lump[l].name, false);
 		Sprite_Convert(l);
-		WGen_UpdateProgress();
+
+		WGen_UpdateProgress("Converting Hud Sprites...");
 	}
 
 	hudSpriteExCount = spriteIndexCount - spriteExCount;

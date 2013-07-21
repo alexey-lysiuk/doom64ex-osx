@@ -1,7 +1,7 @@
 // Emacs style mode select	 -*- C++ -*-
 //-----------------------------------------------------------------------------
 //
-// $Id: Texture.c 502 2009-06-01 00:30:58Z svkaiser $
+// $Id: Texture.c 1096 2012-03-31 18:28:01Z svkaiser $
 //
 // This program is free software; you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -18,14 +18,14 @@
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //
 // $Author: svkaiser $
-// $Revision: 502 $
-// $Date: 2009-06-01 03:30:58 +0300 (пн, 01 чер 2009) $
+// $Revision: 1096 $
+// $Date: 2012-03-31 21:28:01 +0300 (сб, 31 бер 2012) $
 //
 // DESCRIPTION: Texture parsing and converting
 //
 //-----------------------------------------------------------------------------
 #ifdef RCSID
-static const char rcsid[] = "$Id: Texture.c 502 2009-06-01 00:30:58Z svkaiser $";
+static const char rcsid[] = "$Id: Texture.c 1096 2012-03-31 18:28:01Z svkaiser $";
 #endif
 
 #include "WadGen.h"
@@ -157,6 +157,6 @@ void Texture_Setup(void)
 
 		d64ExTexture[pos++].lumpRef = i;
 
-		WGen_UpdateProgress();
+		WGen_UpdateProgress("Converting Textures...");
 	}
 }
